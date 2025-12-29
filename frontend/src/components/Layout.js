@@ -70,7 +70,8 @@ export const Layout = ({ children }) => {
     if (user?.role === 'customer') {
       return [
         ...baseItems,
-        { path: '/my-requests', icon: FileText, label: 'My Requests', roles: ['customer'] }
+        { path: '/my-requests', icon: FileText, label: 'My Requests', roles: ['customer'] },
+        { path: '/requests/new', icon: Plus, label: 'New Request', roles: ['customer'] }
       ];
     }
 
