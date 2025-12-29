@@ -283,12 +283,19 @@ export const CreateRequest = () => {
                 disabled={loading}
                 data-testid="submit-request-button"
               >
-                {loading ? 'Creating...' : 'Create Request'}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Request'
+                )}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/requests')}
+                onClick={() => navigate(user.role === 'customer' ? '/my-requests' : '/requests')}
                 data-testid="cancel-button"
               >
                 Cancel
