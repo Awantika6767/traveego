@@ -111,6 +111,7 @@ export const CreateRequest = () => {
                   value={formData.client_name}
                   onChange={handleChange}
                   required
+                  disabled={user?.role === 'customer'}
                   data-testid="client-name-input"
                 />
               </div>
@@ -124,6 +125,7 @@ export const CreateRequest = () => {
                   value={formData.client_email}
                   onChange={handleChange}
                   required
+                  disabled={user?.role === 'customer'}
                   data-testid="client-email-input"
                 />
               </div>
@@ -136,6 +138,7 @@ export const CreateRequest = () => {
                   value={formData.client_phone}
                   onChange={handleChange}
                   required
+                  disabled={user?.role === 'customer'}
                   data-testid="client-phone-input"
                 />
               </div>
