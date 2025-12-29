@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Plane, AlertCircle } from 'lucide-react';
+import { api } from '../utils/api';
+import { toast } from 'sonner';
 
 export const LoginPage = () => {
   const { login } = useAuth();
@@ -13,6 +15,13 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: ''
+  });
 
   const mockAccounts = [
     { email: 'ops@travel.com', password: 'ops123', role: 'Operations' },

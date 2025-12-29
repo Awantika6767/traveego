@@ -11,6 +11,12 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import shutil
+from fastapi.responses import StreamingResponse
+import io
+import csv
+import json
+
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -555,6 +561,68 @@ async def get_dashboard_stats(role: str):
         }
     
     return stats
+
+
+@api_router.get("/download")
+async def download_data(table: str, format: str = "csv"):
+    allowed_tables = {
+        "requests": db.requests,
+        "quotations": db.quotations,
+        "invoices": db.invoices,
+        "payments": db.payments,
+        "activities": db.activities,
+        "catalog": db.catalog,
+        "notifications": db.notifications
+    }
+
+    if table not in allowed_tables:
+        raise HTTPException(status_code=400, detail="Invalid table name")
+
+    collection = allowed_tables[table]
+    data = await collection.find({}).to_list(10000)
+
+    if not data:
+        raise HTTPException(status_code=404, detail="No data found")
+
+    # Convert MongoDB ObjectIds and datetime objects
+    def clean(doc):
+        doc = dict(doc)
+        doc.pop('_id', None)  # Remove Mongo _id
+        return json.loads(json.dumps(doc, default=str))  # Ensure all values are JSON serializable
+
+    cleaned_data = [clean(doc) for doc in data]
+
+    if format.lower() == "csv":
+        output = io.StringIO()
+        fieldnames = sorted({k for row in cleaned_data for k in row.keys()})
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_data)
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={table}.csv"}
+        )
+
+    elif format.lower() == "sql":
+        output = io.StringIO()
+        for row in cleaned_data:
+            columns = ', '.join(f"`{key}`" for key in row.keys())
+            values = ', '.join(f"'{str(value).replace('\'', '\'\'')}'" for value in row.values())
+            insert_stmt = f"INSERT INTO `{table}` ({columns}) VALUES ({values});\n"
+            output.write(insert_stmt)
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename={table}.sql"}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format. Use 'csv' or 'sql'")
+
 
 # Seed mock data
 @api_router.post("/seed")
