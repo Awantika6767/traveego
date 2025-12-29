@@ -6,8 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Search, Plus, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Search, Plus, Eye, Filter, X, Loader2, Ban } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/formatters';
+import { toast } from 'sonner';
 
 export const RequestList = () => {
   const { user } = useAuth();
@@ -15,35 +19,86 @@ export const RequestList = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [groupByCustomer, setGroupByCustomer] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     loadRequests();
   }, []);
 
   const loadRequests = async () => {
+    setLoading(true);
     try {
       const params = {};
       if (user.role === 'sales') {
         params.assigned_to = user.id;
       }
+      if (user.role === 'customer') {
+        params.created_by = user.id;
+      }
       const response = await api.getRequests(params);
       setRequests(response.data);
     } catch (error) {
       console.error('Failed to load requests:', error);
+      toast.error('Failed to load requests');
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredRequests = requests.filter(req =>
-    req.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.destination?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleCancelRequest = async () => {
+    try {
+      await api.cancelRequest(selectedRequest.id, {
+        reason: cancelReason,
+        actor_id: user.id,
+        actor_name: user.name,
+        actor_role: user.role
+      });
+      toast.success('Request cancelled successfully');
+      setShowCancelModal(false);
+      setCancelReason('');
+      loadRequests();
+    } catch (error) {
+      console.error('Failed to cancel request:', error);
+      toast.error('Failed to cancel request');
+    }
+  };
+
+  const filteredRequests = requests.filter(req => {
+    const matchesSearch = 
+      req.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.destination?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = !statusFilter || req.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const groupedRequests = groupByCustomer
+    ? filteredRequests.reduce((acc, req) => {
+        if (!acc[req.client_name]) {
+          acc[req.client_name] = [];
+        }
+        acc[req.client_name].push(req);
+        return acc;
+      }, {})
+    : { 'All Requests': filteredRequests };
 
   if (loading) {
-    return <div className="text-center py-12">Loading requests...</div>;
+    return (
+      <div className="flex items-center justify-center h-96" data-testid="loading-spinner">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-orange-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading requests...</p>
+        </div>
+      </div>
+    );
   }
+
+  const statuses = ['PENDING', 'QUOTED', 'ACCEPTED', 'REJECTED'];
+  const canCreateRequest = user.role === 'sales' || user.role === 'customer';
 
   return (
     <div data-testid="request-list">
@@ -52,7 +107,7 @@ export const RequestList = () => {
           <h1 className="text-3xl font-bold text-gray-900">Travel Requests</h1>
           <p className="text-gray-600 mt-1">Manage client travel requirements</p>
         </div>
-        {user.role === 'sales' && (
+        {canCreateRequest && (
           <Button
             onClick={() => navigate('/requests/new')}
             className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -66,97 +121,215 @@ export const RequestList = () => {
 
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="Search by client name, title, or destination..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="search-requests-input"
-            />
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="Search by client name, title, or destination..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="search-requests-input"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+              </div>
+              <Button
+                variant={statusFilter === '' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('')}
+                data-testid="filter-all"
+              >
+                All
+              </Button>
+              {statuses.map(status => (
+                <Button
+                  key={status}
+                  variant={statusFilter === status ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter(status)}
+                  data-testid={`filter-${status.toLowerCase()}`}
+                >
+                  {status}
+                </Button>
+              ))}
+              
+              {user.role === 'sales' && (
+                <Button
+                  variant={groupByCustomer ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupByCustomer(!groupByCustomer)}
+                  data-testid="group-by-customer"
+                  className="ml-auto"
+                >
+                  {groupByCustomer ? 'Ungroup' : 'Group by Customer'}
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
-        {filteredRequests.map((request) => (
-          <Card
-            key={request.id}
-            className="hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => navigate(`/requests/${request.id}`)}
-            data-testid={`request-card-${request.id}`}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-bold text-gray-900">{request.title}</h3>
-                    <Badge className={getStatusColor(request.status)}>
-                      {request.status}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Client:</span>
-                      <p className="font-medium text-gray-900">{request.client_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Destination:</span>
-                      <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">People:</span>
-                      <p className="font-medium text-gray-900">{request.people_count}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Budget:</span>
-                      <p className="font-medium text-gray-900">
-                        {formatCurrency(request.budget_min)} - {formatCurrency(request.budget_max)}
-                      </p>
-                    </div>
-                  </div>
+      {Object.keys(groupedRequests).map(groupName => (
+        <div key={groupName} className="mb-8">
+          {groupByCustomer && (
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{groupName}</h2>
+          )}
+          
+          <div className="grid gap-4">
+            {groupedRequests[groupName].map((request) => (
+              <Card
+                key={request.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/requests/${request.id}`)}
+                data-testid={`request-card-${request.id}`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-bold text-gray-900">{request.title}</h3>
+                        <Badge className={getStatusColor(request.status)}>
+                          {request.status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Client:</span>
+                          <p className="font-medium text-gray-900">{request.client_name}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Destination:</span>
+                          <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">People:</span>
+                          <p className="font-medium text-gray-900">{request.people_count}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Budget:</span>
+                          <p className="font-medium text-gray-900">
+                            {formatCurrency(request.budget_min)} - {formatCurrency(request.budget_max)}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-                    <span>Travel Dates: {request.preferred_dates}</span>
-                    <span>•</span>
-                    <span>Created: {formatDate(request.created_at)}</span>
-                    {request.assigned_salesperson_name && (
-                      <>
+                      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+                        <span>Travel Dates: {request.preferred_dates}</span>
                         <span>•</span>
-                        <span>Assigned to: {request.assigned_salesperson_name}</span>
-                      </>
-                    )}
+                        <span>Created: {formatDate(request.created_at)}</span>
+                        {request.assigned_salesperson_name && (
+                          <>
+                            <span>•</span>
+                            <span>Assigned to: {request.assigned_salesperson_name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/requests/${request.id}`);
+                        }}
+                        data-testid={`view-request-${request.id}`}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View
+                      </Button>
+                      
+                      {(user.role === 'sales' || user.role === 'customer') && request.status !== 'REJECTED' && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedRequest(request);
+                            setShowCancelModal(true);
+                          }}
+                          data-testid={`cancel-request-${request.id}`}
+                        >
+                          <Ban className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            ))}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/requests/${request.id}`);
-                  }}
-                  data-testid={`view-request-${request.id}`}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            {groupedRequests[groupName].length === 0 && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-gray-500">No requests found in this group</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      ))}
 
-        {filteredRequests.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500">No requests found</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {filteredRequests.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-gray-500">No requests found</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Cancel Request Modal */}
+      <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+        <DialogContent data-testid="cancel-request-modal">
+          <DialogHeader>
+            <DialogTitle>Cancel Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Are you sure you want to cancel the request for <strong>{selectedRequest?.client_name}</strong>?
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-reason">Reason for Cancellation</Label>
+              <Textarea
+                id="cancel-reason"
+                rows="3"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Please provide a reason..."
+                data-testid="cancel-reason-input"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCancelModal(false);
+                setCancelReason('');
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelRequest}
+              disabled={!cancelReason.trim()}
+              data-testid="confirm-cancel-button"
+            >
+              Cancel Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
