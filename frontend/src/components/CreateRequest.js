@@ -186,15 +186,28 @@ export const CreateRequest = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="preferred_dates">Preferred Dates *</Label>
-                <Input
-                  id="preferred_dates"
-                  name="preferred_dates"
-                  placeholder="e.g., 15-20 Dec 2025"
-                  value={formData.preferred_dates}
-                  onChange={handleChange}
-                  required
-                  data-testid="preferred-dates-input"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    id="start_date"
+                    name="start_date"
+                    type="date"
+                    value={formData.start_date}
+                    onChange={handleChange}
+                    required
+                    data-testid="start-date-input"
+                  />
+                  <Input
+                    id="end_date"
+                    name="end_date"
+                    type="date"
+                    value={formData.end_date}
+                    onChange={handleChange}
+                    required
+                    min={formData.start_date}
+                    data-testid="end-date-input"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">Select start and end dates for your trip</p>
               </div>
             </div>
 
