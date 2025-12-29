@@ -81,53 +81,141 @@ export const LoginPage = () => {
         <div className="grid md:grid-cols-2 gap-8">
           <Card className="shadow-xl border-2">
             <CardHeader>
-              <CardTitle className="text-2xl">Sign In</CardTitle>
-              <CardDescription>Enter your credentials to access your account</CardDescription>
+              <CardTitle className="text-2xl">{showRegister ? 'Create Account' : 'Sign In'}</CardTitle>
+              <CardDescription>
+                {showRegister ? 'Register as a new customer' : 'Enter your credentials to access your account'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    data-testid="login-email-input"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    data-testid="login-password-input"
-                  />
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                  disabled={loading}
-                  data-testid="login-submit-button"
-                >
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </Button>
-              </form>
+              {!showRegister ? (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="login-email-input"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      data-testid="login-password-input"
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    disabled={loading}
+                    data-testid="login-submit-button"
+                  >
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </Button>
+                  
+                  <div className="text-center">
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => setShowRegister(true)}
+                      className="text-orange-600"
+                    >
+                      New customer? Create account
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleRegister} className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-name">Full Name</Label>
+                    <Input
+                      id="reg-name"
+                      value={registerData.name}
+                      onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email">Email</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      value={registerData.email}
+                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-phone">Phone</Label>
+                    <Input
+                      id="reg-phone"
+                      value={registerData.phone}
+                      onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password">Password</Label>
+                    <Input
+                      id="reg-password"
+                      type="password"
+                      value={registerData.password}
+                      onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    disabled={loading}
+                  >
+                    {loading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                  
+                  <div className="text-center">
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => {
+                        setShowRegister(false);
+                        setError('');
+                      }}
+                      className="text-orange-600"
+                    >
+                      Already have an account? Sign in
+                    </Button>
+                  </div>
+                </form>
+              )}
             </CardContent>
           </Card>
 
