@@ -12,6 +12,8 @@ export const api = {
   getRequest: (id) => axios.get(`${API_BASE}/requests/${id}`),
   createRequest: (data) => axios.post(`${API_BASE}/requests`, data),
   updateRequest: (id, data) => axios.put(`${API_BASE}/requests/${id}`, data),
+  cancelRequest: (id, data) => axios.post(`${API_BASE}/requests/${id}/cancel`, data),
+  addRequestNote: (id, data) => axios.post(`${API_BASE}/requests/${id}/add-note`, data),
   
   // Quotations
   getQuotations: (params) => axios.get(`${API_BASE}/quotations`, { params }),
