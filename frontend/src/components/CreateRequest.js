@@ -53,13 +53,22 @@ export const CreateRequest = () => {
     setLoading(true);
 
     try {
+      // Format preferred dates
+      let preferredDates = formData.preferred_dates;
+      if (formData.start_date && formData.end_date) {
+        const start = format(new Date(formData.start_date), 'dd MMM yyyy');
+        const end = format(new Date(formData.end_date), 'dd MMM yyyy');
+        preferredDates = `${start} - ${end}`;
+      }
+
       const requestData = {
         ...formData,
+        preferred_dates: preferredDates,
         people_count: parseInt(formData.people_count),
         budget_min: parseFloat(formData.budget_min),
         budget_max: parseFloat(formData.budget_max),
-        assigned_salesperson_id: user.id,
-        assigned_salesperson_name: user.name,
+        assigned_salesperson_id: user.role === 'sales' ? user.id : null,
+        assigned_salesperson_name: user.role === 'sales' ? user.name : null,
         created_by: user.id,
         status: 'PENDING'
       };
