@@ -5,6 +5,7 @@ const API_BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export const api = {
   // Auth
   login: (email, password) => axios.post(`${API_BASE}/auth/login`, { email, password }),
+  registerCustomer: (data) => axios.post(`${API_BASE}/auth/register`, data),
   
   // Requests
   getRequests: (params) => axios.get(`${API_BASE}/requests`, { params }),
