@@ -213,6 +213,26 @@ MOCK_USERS = {
 }
 
 # Auth endpoints
+@api_router.post("/auth/register")
+async def register_customer(user_data: Dict[str, str]):
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data["email"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "email": user_data["email"],
+        "name": user_data["name"],
+        "phone": user_data.get("phone", ""),
+        "role": "customer",
+        "password": user_data["password"],  # In production, hash this
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(new_user)
+    return {"success": True, "message": "Account created successfully"}
+
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
     if credentials.email in MOCK_USERS:
