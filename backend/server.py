@@ -293,6 +293,54 @@ async def update_request(request_id: str, request: TravelRequest):
     await db.requests.update_one({"id": request_id}, {"$set": request.dict()})
     return request
 
+@api_router.post("/requests/{request_id}/cancel")
+async def cancel_request(request_id: str, data: Dict[str, Any]):
+    await db.requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": RequestStatus.REJECTED,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create activity
+    activity = Activity(
+        request_id=request_id,
+        actor_id=data.get("actor_id", ""),
+        actor_name=data.get("actor_name", ""),
+        actor_role=data.get("actor_role", ""),
+        action="cancelled",
+        notes=data.get("reason", "Request cancelled")
+    )
+    await db.activities.insert_one(activity.dict())
+    
+    return {"success": True}
+
+@api_router.post("/requests/{request_id}/add-note")
+async def add_request_note(request_id: str, data: Dict[str, Any]):
+    # Create activity for communication
+    activity = Activity(
+        request_id=request_id,
+        actor_id=data.get("actor_id", ""),
+        actor_name=data.get("actor_name", ""),
+        actor_role=data.get("actor_role", ""),
+        action="added_note",
+        notes=data.get("note", "")
+    )
+    await db.activities.insert_one(activity.dict())
+    
+    # Create notification for assigned person
+    if data.get("notify_user_id"):
+        notification = Notification(
+            user_id=data["notify_user_id"],
+            title="New Note on Request",
+            message=f"{data.get('actor_name', 'Someone')} added a note: {data.get('note', '')}",
+            link=f"/requests/{request_id}"
+        )
+        await db.notifications.insert_one(notification.dict())
+    
+    return {"success": True}
+
 # Quotation endpoints
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
