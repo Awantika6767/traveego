@@ -8,23 +8,26 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 export const CreateRequest = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    client_name: '',
-    client_email: '',
-    client_phone: '',
+    client_name: user?.role === 'customer' ? user.name : '',
+    client_email: user?.role === 'customer' ? user.email : '',
+    client_phone: user?.phone || '',
     title: '',
     people_count: 2,
     budget_min: 50000,
     budget_max: 100000,
     destination: '',
     preferred_dates: '',
+    start_date: '',
+    end_date: '',
     special_requirements: '',
     travel_vibe: []
   });
