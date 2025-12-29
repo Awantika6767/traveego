@@ -281,12 +281,21 @@ export const Dashboard = () => {
     <Card>
       <CardHeader>
         <CardTitle>Welcome to QuoteVista</CardTitle>
-        <CardDescription>View your travel requests and quotations</CardDescription>
+        <CardDescription>Manage your travel requests and quotations</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        <Button
+          onClick={() => navigate('/requests/new')}
+          className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
+          data-testid="create-new-request-button"
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          Create New Request
+        </Button>
         <Button
           onClick={() => navigate('/my-requests')}
-          className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
+          variant="outline"
+          className="w-full justify-start"
           data-testid="view-my-requests-button"
         >
           <FileText className="w-4 h-4 mr-2" />
