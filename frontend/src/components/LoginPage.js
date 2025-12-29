@@ -49,6 +49,24 @@ export const LoginPage = () => {
     setPassword(mockPassword);
   };
 
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await api.registerCustomer(registerData);
+      toast.success('Account created successfully! Please login.');
+      setShowRegister(false);
+      setEmail(registerData.email);
+      setRegisterData({ name: '', email: '', password: '', phone: '' });
+    } catch (error) {
+      setError(error.response?.data?.detail || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50">
       <div className="w-full max-w-5xl px-6">
