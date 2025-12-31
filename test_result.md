@@ -630,3 +630,74 @@ agent_communication:
       - ✅ Country Code Registration and Request Creation
       
       📊 FINAL STATUS: All backend APIs are fully functional. Invoice download feature implemented perfectly with proper security controls and PDF generation.
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Leave Management System for Salesperson/Operations Team
+      
+      **Complete leave management functionality with backup chain support:**
+      
+      **BACKEND IMPLEMENTATION:**
+      
+      1. Leave Model:
+         - Added Leave model with fields: user_id, user_name, user_role, start_date, end_date, backup_user_id, backup_user_name, reason, status
+         
+      2. Leave Management APIs:
+         - POST /api/leaves: Create leave with validation (prevents selecting backup already on leave)
+         - GET /api/leaves: Get all leaves with filters
+         - GET /api/leaves/my-leaves: Get user's leaves and backup assignments
+         - GET /api/leaves/available-backups: Get same-role team members NOT on leave for selected dates
+         - DELETE /api/leaves/{leave_id}: Cancel leave and notify backup
+         - GET /api/requests/delegated: Get delegated requests with backup chain resolution
+         
+      3. Backup Chain Resolution Logic:
+         - If Sales A is on leave (backup: B)
+         - And Sales B is on leave (backup: C)
+         - Then Sales C sees active requests from both A and B
+         - Chain resolution implemented in /api/requests/delegated endpoint
+         
+      4. Validation Logic:
+         - Date overlap check: Prevents selecting backup who is already on leave during requested dates
+         - Returns detailed error message with conflicting dates
+         
+      **FRONTEND IMPLEMENTATION:**
+      
+      1. LeaveManagement Component (/leaves):
+         - Add Leave Dialog with:
+           * Date range picker (start/end dates)
+           * Smart backup dropdown (filters by role and availability)
+           * Reason field (optional)
+           * Real-time validation messages
+         - My Leaves section: Shows user's scheduled leaves with status badges (Active/Upcoming)
+         - Backing Up For section: Shows team members user is covering for
+         - Cancel leave functionality (only for upcoming leaves)
+         
+      2. RequestList Enhancement:
+         - Delegated Requests section (orange theme)
+         - Shows "Covering for: [Name]" badges
+         - Displays original assignee info
+         - Separate from user's own requests
+         
+      3. Navigation:
+         - Added "Leave Management" link in sidebar for sales and operations roles
+         - Calendar icon for easy identification
+         
+      4. API Integration:
+         - Added all leave management methods to api.js utility
+         
+      **KEY FEATURES:**
+      
+      ✅ Role-based backup selection (same role only)
+      ✅ Date conflict validation (can't select backup on leave)
+      ✅ Backup chain resolution (A→B→C)
+      ✅ Visual indicators for delegated requests
+      ✅ Notifications for backup users
+      ✅ Cancel leave functionality
+      ✅ Active/Upcoming status badges
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py (Leave model + 6 API endpoints)
+      - Frontend API: /app/frontend/src/utils/api.js (6 new methods)
+      - Components: LeaveManagement.js (new), RequestList.js (enhanced), Layout.js (nav link)
+      - Routes: App.js (added /leaves route)
+      
+      Backend is running. Ready for comprehensive testing.
