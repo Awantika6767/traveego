@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
+import { CountryCodeSelect } from './CountryCodeSelect';
 import { Plane, AlertCircle } from 'lucide-react';
 import { api } from '../utils/api';
 import { toast } from 'sonner';
@@ -20,7 +21,8 @@ export const LoginPage = () => {
     name: '',
     email: '',
     password: '',
-    phone: ''
+    phone: '',
+    country_code: '+91'
   });
 
   const mockAccounts = [
