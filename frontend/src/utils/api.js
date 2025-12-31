@@ -50,6 +50,16 @@ export const api = {
   markNotificationRead: (id) => axios.put(`${API_BASE}/notifications/${id}/read`),
   createNotification: (data) => axios.post(`${API_BASE}/notifications`, data),
   
+  // Leave Management
+  getLeaves: (params) => axios.get(`${API_BASE}/leaves`, { params }),
+  getMyLeaves: (userId) => axios.get(`${API_BASE}/leaves/my-leaves`, { params: { user_id: userId } }),
+  createLeave: (data) => axios.post(`${API_BASE}/leaves`, data),
+  cancelLeave: (id) => axios.delete(`${API_BASE}/leaves/${id}`),
+  getAvailableBackups: (role, startDate, endDate, excludeUserId) => axios.get(`${API_BASE}/leaves/available-backups`, { 
+    params: { role, start_date: startDate, end_date: endDate, exclude_user_id: excludeUserId } 
+  }),
+  getDelegatedRequests: (userId) => axios.get(`${API_BASE}/requests/delegated`, { params: { user_id: userId } }),
+  
   // Dashboard
   getDashboardStats: (role) => axios.get(`${API_BASE}/dashboard/stats`, { params: { role } }),
   
