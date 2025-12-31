@@ -106,6 +106,12 @@ user_problem_statement: |
   I need proforma invoice and invoice generation. Ask mobile country code as well when asking mobile number. 
   Add one more tab for sales person, where he can see open requests (Requests where salesperson is not assigned yet) 
   and sales person can assign that request to himself (Add Assign to me button).
+  
+  NEW FEATURE: Leave Management System
+  - Salesperson/operational team members can add their leave plans with backup of other member of same role
+  - If person is on leave then backup member have to take responsibility and all active request can be visible to him during his leaves
+  - If backup will go on leave and he can add other backup. Then all active of both user requests can be visible to him
+  - User can't add backup someone who is already on leave for that day
 
 backend:
   - task: "Add country_code field to TravelRequest and User models"
