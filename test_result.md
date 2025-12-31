@@ -331,14 +331,13 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Create OpenRequests page for salespeople"
-    - "Add Download Proforma Invoice button in RequestDetail"
-    - "Update forms to include country code dropdown"
+    - "Create API endpoint to download invoice after payment verification"
+    - "Update RequestDetail to show Download Invoice button for customers"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
