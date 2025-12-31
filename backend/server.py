@@ -536,6 +536,206 @@ async def accept_quotation(quotation_id: str, data: Dict[str, Any]):
     
     return {"success": True, "invoice_id": invoice.id}
 
+# New endpoint: Download Proforma Invoice PDF
+@api_router.get("/quotations/{quotation_id}/download-proforma")
+async def download_proforma_invoice(quotation_id: str):
+    """Generate and download proforma invoice as PDF"""
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    request = await db.requests.find_one({"id": quotation["request_id"]})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Create PDF in memory
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#f97316'),
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#ea580c'),
+        spaceAfter=12,
+        spaceBefore=12
+    )
+    
+    normal_style = styles['Normal']
+    
+    # Title
+    elements.append(Paragraph("PROFORMA INVOICE", title_style))
+    elements.append(Spacer(1, 12))
+    
+    # Company Details
+    company_data = [
+        ["Travel Company Pvt Ltd", ""],
+        ["123 Business Street", f"Date: {datetime.now().strftime('%d %B %Y')}"],
+        ["City, State - 123456", f"Proforma #: PI-{quotation_id[:8].upper()}"],
+        ["Phone: +91-1234567890", f"Valid Until: {datetime.fromisoformat(quotation['expiry_date']).strftime('%d %B %Y') if quotation.get('expiry_date') else 'N/A'}"],
+    ]
+    
+    company_table = Table(company_data, colWidths=[3*inch, 3*inch])
+    company_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#374151')),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+    ]))
+    elements.append(company_table)
+    elements.append(Spacer(1, 20))
+    
+    # Client Details
+    elements.append(Paragraph("BILL TO:", heading_style))
+    client_data = [
+        ["Client Name:", request["client_name"]],
+        ["Email:", request["client_email"]],
+        ["Phone:", f"{request.get('client_country_code', '+91')} {request['client_phone']}"],
+        ["Destination:", request.get("destination", "N/A")],
+        ["Travel Dates:", request["preferred_dates"]],
+        ["Number of People:", str(request["people_count"])],
+    ]
+    
+    client_table = Table(client_data, colWidths=[1.5*inch, 4.5*inch])
+    client_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(client_table)
+    elements.append(Spacer(1, 20))
+    
+    # Get current version
+    current_version = None
+    for version in quotation.get("versions", []):
+        if version.get("is_current", False):
+            current_version = version
+            break
+    
+    if not current_version and quotation.get("versions"):
+        current_version = quotation["versions"][-1]
+    
+    if current_version and current_version.get("options"):
+        # Process each option
+        for option in current_version["options"]:
+            elements.append(Paragraph(f"<b>{option['name']}</b>", heading_style))
+            
+            # Line items table
+            line_items_data = [["Item", "Supplier", "Qty", "Unit Price", "Tax %", "Total"]]
+            
+            for item in option.get("line_items", []):
+                line_items_data.append([
+                    f"{item['name']}\n({item['type']})",
+                    item.get('supplier', 'N/A'),
+                    str(item['quantity']),
+                    f"₹{item['unit_price']:,.2f}",
+                    f"{item['tax_percent']}%",
+                    f"₹{item['total']:,.2f}"
+                ])
+            
+            # Add subtotal, tax, and total rows
+            line_items_data.append(["", "", "", "", "Subtotal:", f"₹{option['subtotal']:,.2f}"])
+            line_items_data.append(["", "", "", "", "Tax:", f"₹{option['tax_amount']:,.2f}"])
+            line_items_data.append(["", "", "", "", "Total:", f"₹{option['total']:,.2f}"])
+            
+            items_table = Table(line_items_data, colWidths=[2*inch, 1.2*inch, 0.5*inch, 1*inch, 0.8*inch, 1*inch])
+            items_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f97316')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -4), colors.white),
+                ('GRID', (0, 0), (-1, -4), 1, colors.grey),
+                ('LINEABOVE', (4, -3), (-1, -3), 2, colors.grey),
+                ('LINEABOVE', (4, -1), (-1, -1), 2, colors.HexColor('#f97316')),
+                ('FONTNAME', (4, -1), (-1, -1), 'Helvetica-Bold'),
+            ]))
+            elements.append(items_table)
+            elements.append(Spacer(1, 20))
+    
+    # Payment Terms
+    elements.append(Paragraph("PAYMENT TERMS:", heading_style))
+    advance_amount = quotation.get("advance_amount", 0)
+    advance_percent = quotation.get("advance_percent", 30)
+    grand_total = quotation.get("grand_total", 0)
+    
+    payment_terms_data = [
+        [f"Advance Payment ({advance_percent}%):", f"₹{advance_amount:,.2f}"],
+        ["Balance Payment:", f"₹{grand_total - advance_amount:,.2f}"],
+        ["Grand Total:", f"₹{grand_total:,.2f}"],
+    ]
+    
+    payment_table = Table(payment_terms_data, colWidths=[4*inch, 2*inch])
+    payment_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#f97316')),
+        ('FONTSIZE', (0, -1), (-1, -1), 14),
+        ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#f97316')),
+    ]))
+    elements.append(payment_table)
+    elements.append(Spacer(1, 20))
+    
+    # Bank Details
+    elements.append(Paragraph("BANK DETAILS:", heading_style))
+    bank_details_text = """
+    <b>Account Name:</b> Travel Company Pvt Ltd<br/>
+    <b>Account Number:</b> 1234567890<br/>
+    <b>IFSC Code:</b> BANK0001234<br/>
+    <b>Bank Name:</b> Example Bank<br/>
+    <b>UPI ID:</b> travelcompany@upi
+    """
+    elements.append(Paragraph(bank_details_text, normal_style))
+    elements.append(Spacer(1, 20))
+    
+    # Terms and Conditions
+    elements.append(Paragraph("TERMS & CONDITIONS:", heading_style))
+    terms_text = """
+    1. This proforma invoice is valid until the expiry date mentioned above.<br/>
+    2. Advance payment is required to confirm the booking.<br/>
+    3. Balance payment must be made before the travel date.<br/>
+    4. Cancellation charges apply as per company policy.<br/>
+    5. All prices are subject to availability at the time of booking.
+    """
+    elements.append(Paragraph(terms_text, normal_style))
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and return as response
+    buffer.seek(0)
+    
+    filename = f"proforma_invoice_{quotation_id[:8]}.pdf"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # Invoice endpoints
 @api_router.get("/invoices", response_model=List[Invoice])
 async def get_invoices(request_id: Optional[str] = None):
