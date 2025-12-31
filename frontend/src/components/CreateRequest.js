@@ -8,6 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
+import { CountryCodeSelect } from './CountryCodeSelect';
 import { ArrowLeft, Plus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ export const CreateRequest = () => {
     client_name: user?.role === 'customer' ? user.name : '',
     client_email: user?.role === 'customer' ? user.email : '',
     client_phone: user?.phone || '',
+    client_country_code: user?.country_code || '+91',
     title: '',
     people_count: 2,
     budget_min: 50000,
