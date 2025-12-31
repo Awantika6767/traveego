@@ -337,6 +337,138 @@ frontend:
         agent: "main"
         comment: "Added downloadInvoice method to api.js that returns the invoice download URL"
 
+  - task: "Create Leave model in backend"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added Leave model with user_id, user_name, user_role, start_date, end_date, backup_user_id, backup_user_name, reason, status fields"
+
+  - task: "Create API endpoint to add leave with backup validation"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added POST /api/leaves endpoint that validates backup user is not on leave during requested dates, creates leave and sends notification to backup user"
+
+  - task: "Create API endpoint to get user's leaves"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/leaves/my-leaves endpoint that returns user's own leaves and leaves where user is backup"
+
+  - task: "Create API endpoint to get available backups"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/leaves/available-backups endpoint that returns same-role team members not on leave during selected dates"
+
+  - task: "Create API endpoint to cancel leave"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added DELETE /api/leaves/{leave_id} endpoint to cancel leave and notify backup user"
+
+  - task: "Create API endpoint for delegated requests with backup chain resolution"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/requests/delegated endpoint that resolves backup chain (if A->B->C, then C sees requests from both A and B) and returns delegated requests with delegation info"
+
+  - task: "Create LeaveManagement component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/LeaveManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created LeaveManagement component with add leave form, date picker, backup selection dropdown, view leaves sections (my leaves and backup assignments), cancel leave functionality"
+
+  - task: "Update API utility with leave management endpoints"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/utils/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added getLeaves, getMyLeaves, createLeave, cancelLeave, getAvailableBackups, getDelegatedRequests methods to api.js"
+
+  - task: "Add Leave Management route in App.js"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added /leaves route with LeaveManagement component"
+
+  - task: "Add Leave Management navigation link in Layout"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Layout.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added Leave Management navigation link for sales and operations roles with Calendar icon"
+
+  - task: "Update RequestList to show delegated requests"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestList.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated RequestList to fetch and display delegated requests in separate section with orange badges showing who the user is covering for"
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
