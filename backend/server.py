@@ -80,6 +80,7 @@ class TravelRequest(BaseModel):
     client_name: str
     client_email: EmailStr
     client_phone: str
+    client_country_code: str = "+91"  # Default to India
     title: str
     people_count: int
     budget_min: float
