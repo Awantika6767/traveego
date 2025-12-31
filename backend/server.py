@@ -69,6 +69,7 @@ class User(BaseModel):
     name: str
     role: UserRole
     phone: Optional[str] = None
+    country_code: Optional[str] = "+91"  # Default to India
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class UserLogin(BaseModel):
