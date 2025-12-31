@@ -61,7 +61,7 @@ export const LoginPage = () => {
       toast.success('Account created successfully! Please login.');
       setShowRegister(false);
       setEmail(registerData.email);
-      setRegisterData({ name: '', email: '', password: '', phone: '' });
+      setRegisterData({ name: '', email: '', password: '', phone: '', country_code: '+91' });
     } catch (error) {
       setError(error.response?.data?.detail || 'Registration failed');
     } finally {
