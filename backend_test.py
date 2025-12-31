@@ -562,6 +562,423 @@ class BackendTester:
             )
             return False
     
+    def test_invoice_download_complete_flow(self):
+        """Test complete invoice download flow after payment verification"""
+        try:
+            print("\n🧪 Testing Invoice Download Complete Flow...")
+            
+            # Step 1: Create a travel request with customer login
+            customer_request_data = {
+                "id": str(uuid.uuid4()),
+                "client_name": "Invoice Test Customer",
+                "client_email": "invoicetest@example.com",
+                "client_phone": "9876543210",
+                "client_country_code": "+91",
+                "title": "Invoice Test Trip",
+                "people_count": 2,
+                "budget_min": 30000,
+                "budget_max": 50000,
+                "travel_vibe": ["beach", "relaxation"],
+                "preferred_dates": "2025-03-15 to 2025-03-22",
+                "destination": "Goa",
+                "status": "PENDING",
+                "created_by": "customer-001"
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/requests",
+                json=customer_request_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Create Request",
+                    False,
+                    f"Failed to create request - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            request_id = customer_request_data["id"]
+            self.log_result(
+                "Invoice Download Flow - Create Request",
+                True,
+                "Successfully created travel request"
+            )
+            
+            # Step 2: Create and publish a quotation (operations role)
+            quotation_data = {
+                "id": str(uuid.uuid4()),
+                "request_id": request_id,
+                "versions": [{
+                    "id": str(uuid.uuid4()),
+                    "version_number": 1,
+                    "options": [{
+                        "id": str(uuid.uuid4()),
+                        "name": "Standard Package",
+                        "line_items": [
+                            {
+                                "id": str(uuid.uuid4()),
+                                "type": "hotel",
+                                "name": "Beach Resort",
+                                "supplier": "Resort Co",
+                                "unit_price": 5000,
+                                "quantity": 7,
+                                "tax_percent": 18.0,
+                                "total": 41300
+                            },
+                            {
+                                "id": str(uuid.uuid4()),
+                                "type": "transport",
+                                "name": "Airport Transfer",
+                                "supplier": "Taxi Service",
+                                "unit_price": 2000,
+                                "quantity": 2,
+                                "tax_percent": 18.0,
+                                "total": 4720
+                            }
+                        ],
+                        "subtotal": 39000,
+                        "tax_amount": 7020,
+                        "total": 46020,
+                        "is_recommended": True
+                    }],
+                    "created_by": "ops-001",
+                    "created_by_name": "Operations Manager",
+                    "change_notes": "Initial quotation for invoice test",
+                    "is_current": True
+                }],
+                "status": "DRAFT",
+                "advance_percent": 30.0,
+                "advance_amount": 13806,
+                "grand_total": 46020
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/quotations",
+                json=quotation_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Create Quotation",
+                    False,
+                    f"Failed to create quotation - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            quotation_id = quotation_data["id"]
+            self.log_result(
+                "Invoice Download Flow - Create Quotation",
+                True,
+                "Successfully created quotation"
+            )
+            
+            # Step 3: Publish the quotation
+            publish_data = {
+                "expiry_date": "2025-04-01T00:00:00Z",
+                "notes": "Quotation published for invoice test",
+                "actor_id": "ops-001",
+                "actor_name": "Operations Manager"
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/quotations/{quotation_id}/publish",
+                json=publish_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Publish Quotation",
+                    False,
+                    f"Failed to publish quotation - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Publish Quotation",
+                True,
+                "Successfully published quotation"
+            )
+            
+            # Step 4: Accept the quotation as customer (creates invoice and payment)
+            accept_data = {
+                "actor_id": "customer-001",
+                "actor_name": "Invoice Test Customer"
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/quotations/{quotation_id}/accept",
+                json=accept_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Accept Quotation",
+                    False,
+                    f"Failed to accept quotation - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            accept_response = response.json()
+            invoice_id = accept_response.get("invoice_id")
+            
+            if not invoice_id:
+                self.log_result(
+                    "Invoice Download Flow - Accept Quotation",
+                    False,
+                    "No invoice_id returned after accepting quotation",
+                    {"response": accept_response}
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Accept Quotation",
+                True,
+                f"Successfully accepted quotation, invoice created: {invoice_id}"
+            )
+            
+            # Step 5: Get payment_id from the invoice
+            response = self.session.get(f"{BACKEND_URL}/payments", timeout=30)
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Get Payment ID",
+                    False,
+                    f"Failed to get payments - HTTP {response.status_code}"
+                )
+                return False
+            
+            payments = response.json()
+            payment_id = None
+            for payment in payments:
+                if payment.get("invoice_id") == invoice_id:
+                    payment_id = payment.get("id")
+                    break
+            
+            if not payment_id:
+                self.log_result(
+                    "Invoice Download Flow - Get Payment ID",
+                    False,
+                    "No payment found for the created invoice"
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Get Payment ID",
+                True,
+                f"Found payment ID: {payment_id}"
+            )
+            
+            # Step 6: Test invoice download BEFORE verification (should fail)
+            response = self.session.get(
+                f"{BACKEND_URL}/invoices/{invoice_id}/download",
+                timeout=30
+            )
+            
+            if response.status_code == 400:
+                self.log_result(
+                    "Invoice Download Flow - Download Before Verification",
+                    True,
+                    "Correctly blocked invoice download before payment verification"
+                )
+            else:
+                self.log_result(
+                    "Invoice Download Flow - Download Before Verification",
+                    False,
+                    f"Should have blocked download but got HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            # Step 7: Mark payment as received (accountant role)
+            mark_received_data = {
+                "notes": "Payment received via bank transfer",
+                "proof_url": "https://example.com/payment-proof.jpg"
+            }
+            
+            response = self.session.put(
+                f"{BACKEND_URL}/payments/{payment_id}/mark-received",
+                json=mark_received_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Mark Payment Received",
+                    False,
+                    f"Failed to mark payment as received - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Mark Payment Received",
+                True,
+                "Successfully marked payment as received by accountant"
+            )
+            
+            # Step 8: Test invoice download AFTER accountant verification but BEFORE ops verification (should still fail)
+            response = self.session.get(
+                f"{BACKEND_URL}/invoices/{invoice_id}/download",
+                timeout=30
+            )
+            
+            if response.status_code == 400:
+                self.log_result(
+                    "Invoice Download Flow - Download After Accountant Only",
+                    True,
+                    "Correctly blocked invoice download after accountant verification only"
+                )
+            else:
+                self.log_result(
+                    "Invoice Download Flow - Download After Accountant Only",
+                    False,
+                    f"Should have blocked download but got HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            # Step 9: Verify payment (operations role)
+            verify_data = {
+                "verified": True,
+                "notes": "Payment verified by operations team"
+            }
+            
+            response = self.session.put(
+                f"{BACKEND_URL}/payments/{payment_id}/verify",
+                json=verify_data,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Verify Payment",
+                    False,
+                    f"Failed to verify payment - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Verify Payment",
+                True,
+                "Successfully verified payment by operations"
+            )
+            
+            # Step 10: Check payment status is now VERIFIED_BY_OPS
+            response = self.session.get(f"{BACKEND_URL}/payments/{payment_id}", timeout=30)
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Check Payment Status",
+                    False,
+                    f"Failed to get payment status - HTTP {response.status_code}"
+                )
+                return False
+            
+            payment_data = response.json()
+            if payment_data.get("status") != "VERIFIED_BY_OPS":
+                self.log_result(
+                    "Invoice Download Flow - Check Payment Status",
+                    False,
+                    f"Payment status is not VERIFIED_BY_OPS, got: {payment_data.get('status')}"
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Check Payment Status",
+                True,
+                "Payment status is correctly VERIFIED_BY_OPS"
+            )
+            
+            # Step 11: Download invoice PDF (should now succeed)
+            response = self.session.get(
+                f"{BACKEND_URL}/invoices/{invoice_id}/download",
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                self.log_result(
+                    "Invoice Download Flow - Download After Full Verification",
+                    False,
+                    f"Failed to download invoice - HTTP {response.status_code}",
+                    {"response": response.text}
+                )
+                return False
+            
+            # Step 12: Verify PDF is generated successfully with proper headers and content
+            content_type = response.headers.get("content-type", "")
+            content_disposition = response.headers.get("content-disposition", "")
+            content = response.content
+            
+            # Check headers
+            if "application/pdf" not in content_type:
+                self.log_result(
+                    "Invoice Download Flow - PDF Headers",
+                    False,
+                    f"Wrong content type: {content_type}",
+                    {"expected": "application/pdf"}
+                )
+                return False
+            
+            if "attachment" not in content_disposition:
+                self.log_result(
+                    "Invoice Download Flow - PDF Headers",
+                    False,
+                    f"Wrong content disposition: {content_disposition}",
+                    {"expected": "attachment"}
+                )
+                return False
+            
+            # Check if content is actually PDF
+            if not content.startswith(b'%PDF'):
+                self.log_result(
+                    "Invoice Download Flow - PDF Content",
+                    False,
+                    "Response is not a valid PDF file",
+                    {"content_start": content[:20]}
+                )
+                return False
+            
+            # Check PDF size (should be reasonable)
+            if len(content) < 1000:  # PDF should be at least 1KB
+                self.log_result(
+                    "Invoice Download Flow - PDF Size",
+                    False,
+                    f"PDF too small: {len(content)} bytes",
+                    {"expected": "> 1000 bytes"}
+                )
+                return False
+            
+            self.log_result(
+                "Invoice Download Flow - Complete Success",
+                True,
+                f"Successfully downloaded invoice PDF ({len(content)} bytes) with proper headers",
+                {
+                    "content_type": content_type,
+                    "content_disposition": content_disposition,
+                    "size": len(content),
+                    "invoice_id": invoice_id,
+                    "payment_id": payment_id
+                }
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.log_result(
+                "Invoice Download Flow - Exception",
+                False,
+                f"Flow error: {str(e)}"
+            )
+            return False
+    
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting Backend API Tests...")
