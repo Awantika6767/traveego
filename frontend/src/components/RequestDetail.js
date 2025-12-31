@@ -245,6 +245,15 @@ export const RequestDetail = () => {
     }
   };
 
+  const downloadProformaInvoice = () => {
+    if (!quotation?.id) {
+      toast.error('No quotation available to download');
+      return;
+    }
+    const downloadUrl = api.downloadProformaInvoice(quotation.id);
+    window.open(downloadUrl, '_blank');
+  };
+
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
   }
