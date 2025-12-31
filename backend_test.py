@@ -24,7 +24,7 @@ import os
 import sys
 
 # Backend URL from environment
-BACKEND_URL = "https://invoice-manager-251.preview.emergentagent.com/api"
+BACKEND_URL = "https://leave-backup.preview.emergentagent.com/api"
 
 # Test users for authentication
 TEST_USERS = {
