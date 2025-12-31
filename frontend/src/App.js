@@ -11,6 +11,7 @@ import { CreateRequest } from "./components/CreateRequest";
 import { PaymentList } from "./components/PaymentList";
 import { CatalogManagement } from "./components/CatalogManagement";
 import { OpenRequests } from "./components/OpenRequests";
+import LeaveManagement from "./components/LeaveManagement";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
