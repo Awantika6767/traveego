@@ -170,15 +170,18 @@ backend:
 
   - task: "Update registration endpoint to handle country_code"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Updated /api/auth/register endpoint to accept and store country_code field"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Registration endpoint correctly handles country_code field. Successfully accepts international country codes and stores them in user records. Tested with +1 (US) country code and verified proper storage."
 
   - task: "Install PDF generation libraries"
     implemented: true
