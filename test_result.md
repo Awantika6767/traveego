@@ -400,3 +400,48 @@ agent_communication:
       🔧 FIXED ISSUE: Resolved f-string syntax error in /download endpoint that was preventing backend startup.
       
       📊 FINAL STATUS: All backend APIs are fully functional and ready for production use.
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Invoice Download After Payment Verification
+      
+      **Requirement:** When operation manager and accountant verifies the payment, allow customer to download invoice.
+      
+      **Implementation Details:**
+      
+      1. BACKEND - Invoice Download API:
+         - Created endpoint: GET /api/invoices/{invoice_id}/download
+         - Validation: Checks if payment status is VERIFIED_BY_OPS (meaning both accountant and operations have verified)
+         - Returns 400 error if payment is not verified by both roles
+         - PDF Generation: Creates professional invoice PDF with:
+           * Title: "INVOICE" with "PAID ✓" badge
+           * Invoice number and dates
+           * Company details with GST
+           * Client information with country code
+           * Line items with pricing breakdown
+           * Payment summary showing PAID status
+           * Payment verification details (received date, verified date, accountant/ops notes)
+           * Bank details and terms & conditions
+         
+      2. FRONTEND - RequestDetail Component:
+         - Added invoice and payment state variables
+         - Enhanced loadRequestData to fetch invoice and payment data
+         - Added downloadInvoice function with validation
+         - Display "Download Invoice" button ONLY when:
+           * User role is 'customer'
+           * Payment status is 'VERIFIED_BY_OPS'
+           * Invoice exists
+         - Button styled in green to indicate successful payment
+         
+      3. API UTILITY:
+         - Added downloadInvoice method to api.js
+         
+      **Payment Verification Flow:**
+      1. Customer accepts quotation → Invoice and Payment created (status: PENDING)
+      2. Accountant marks payment received → status: RECEIVED_BY_ACCOUNTANT
+      3. Operations Manager verifies → status: VERIFIED_BY_OPS
+      4. Customer can now download invoice
+      
+      **Dependencies Added:**
+      - Added Pillow to requirements.txt (required by reportlab for PDF generation)
+      
+      Backend is running. Ready for testing.
