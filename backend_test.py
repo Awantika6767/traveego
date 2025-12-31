@@ -7,6 +7,13 @@ Tests the following APIs:
 3. Proforma Invoice PDF Download
 4. Country Code in Registration
 5. Country Code in Request Creation
+6. Invoice Download Complete Flow (NEW FEATURE)
+   - Create travel request with customer login
+   - Create and publish quotation (operations role)
+   - Accept quotation as customer (creates invoice & payment)
+   - Mark payment as received (accountant role)
+   - Verify payment (operations role)
+   - Download invoice PDF after both verifications
 """
 
 import requests
