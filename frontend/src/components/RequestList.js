@@ -186,6 +186,98 @@ export const RequestList = () => {
         </CardContent>
       </Card>
 
+      {/* Delegated Requests Section */}
+      {(user.role === 'sales' || user.role === 'operations') && delegatedRequests.length > 0 && (
+        <div className="mb-8">
+          <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-4">
+            <h2 className="text-xl font-bold text-orange-900 mb-1">
+              Delegated Requests (Covering for Team Members)
+            </h2>
+            <p className="text-sm text-orange-700">
+              You are viewing requests from team members who are on leave
+            </p>
+          </div>
+          
+          <div className="grid gap-4">
+            {delegatedRequests.map((request) => (
+              <Card
+                key={request.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer border-orange-200 bg-orange-50/30"
+                onClick={() => navigate(`/requests/${request.id}`)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-bold text-gray-900">{request.title}</h3>
+                        <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                          Covering for: {request.delegated_from}
+                        </Badge>
+                        <Badge className={getStatusColor(request.status)}>
+                          {request.status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Client:</span>
+                          <p className="font-medium text-gray-900">{request.client_name}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Destination:</span>
+                          <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">People:</span>
+                          <p className="font-medium text-gray-900">{request.people_count}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Budget:</span>
+                          <p className="font-medium text-gray-900">
+                            {formatCurrency(request.budget_min)} - {formatCurrency(request.budget_max)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+                        <span>Travel Dates: {request.preferred_dates}</span>
+                        <span>•</span>
+                        <span>Created: {formatDate(request.created_at)}</span>
+                        {request.assigned_salesperson_name && (
+                          <>
+                            <span>•</span>
+                            <span>Originally Assigned to: {request.assigned_salesperson_name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/requests/${request.id}`);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* My Requests Section */}
+      {requests.length > 0 && (
+        <h2 className="text-xl font-bold text-gray-900 mb-4">My Requests</h2>
+      )}
+
       {Object.keys(groupedRequests).map(groupName => (
         <div key={groupName} className="mb-8">
           {groupByCustomer && (
