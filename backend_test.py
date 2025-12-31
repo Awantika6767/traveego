@@ -194,17 +194,42 @@ class BackendTester:
     def test_assign_request_api(self, request_id=None):
         """Test POST /api/requests/{request_id}/assign-to-me"""
         try:
-            # If no request_id provided, get one from open requests
+            # If no request_id provided, create an unassigned request for testing
             if not request_id:
-                open_requests = self.test_open_requests_api()
-                if not open_requests:
+                # Create an unassigned request for testing
+                test_request_data = {
+                    "id": str(uuid.uuid4()),
+                    "client_name": "Test Assignment Client",
+                    "client_email": "testassign@example.com",
+                    "client_phone": "9876543210",
+                    "client_country_code": "+91",
+                    "title": "Test Assignment Request",
+                    "people_count": 2,
+                    "budget_min": 20000,
+                    "budget_max": 40000,
+                    "travel_vibe": ["beach"],
+                    "preferred_dates": "2025-12-15 to 2025-12-20",
+                    "destination": "Test Location",
+                    "status": "PENDING",
+                    "created_by": "sales-001"
+                }
+                
+                response = self.session.post(
+                    f"{BACKEND_URL}/requests",
+                    json=test_request_data,
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
                     self.log_result(
                         "Assign Request API",
                         False,
-                        "No open requests available for assignment test"
+                        "Failed to create test request for assignment",
+                        {"status_code": response.status_code}
                     )
                     return False
-                request_id = open_requests[0]["id"]
+                
+                request_id = test_request_data["id"]
             
             # Test assignment
             assign_data = {
