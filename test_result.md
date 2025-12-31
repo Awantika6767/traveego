@@ -339,8 +339,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Create API endpoint to download invoice after payment verification"
     - "Update RequestDetail to show Download Invoice button for customers"
+    - "Add downloadInvoice method to API utility"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
