@@ -176,12 +176,21 @@ export const LoginPage = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="reg-phone">Phone</Label>
-                    <Input
-                      id="reg-phone"
-                      value={registerData.phone}
-                      onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <CountryCodeSelect
+                        value={registerData.country_code}
+                        onChange={(value) => setRegisterData({ ...registerData, country_code: value })}
+                        testId="register-country-code-select"
+                      />
+                      <Input
+                        id="reg-phone"
+                        value={registerData.phone}
+                        onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                        required
+                        className="flex-1"
+                        placeholder="9876543210"
+                      />
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
