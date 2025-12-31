@@ -110,15 +110,18 @@ user_problem_statement: |
 backend:
   - task: "Add country_code field to TravelRequest and User models"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added client_country_code field to TravelRequest model and country_code field to User model with default value +91"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Country code fields working correctly. Registration API accepts and stores country_code field. Request creation API accepts and stores client_country_code field. Both tested with international country codes (+1, +44) and verified data persistence."
 
   - task: "Create API endpoint to get open/unassigned requests"
     implemented: true
