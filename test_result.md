@@ -294,15 +294,18 @@ frontend:
 
   - task: "Create API endpoint to download invoice after payment verification"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added GET /api/invoices/{invoice_id}/download endpoint. Generates invoice PDF only when payment status is VERIFIED_BY_OPS (both accountant and operations verified). PDF includes company details, client info, line items, payment summary with PAID status, payment verification details (dates and notes), bank details, and terms & conditions."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Invoice download feature working perfectly! Complete flow tested: 1) Created travel request with customer login 2) Created and published quotation (operations role) 3) Accepted quotation as customer (creates invoice & payment) 4) Marked payment as received (accountant role) 5) Verified payment (operations role) 6) Downloaded invoice PDF successfully. Validation working correctly: blocks download before both verifications, allows download only after status=VERIFIED_BY_OPS. PDF generated with proper headers (application/pdf, attachment), valid content (4471 bytes), includes PAID badge, payment verification details, and all required sections."
 
   - task: "Update RequestDetail to show Download Invoice button for customers"
     implemented: true
