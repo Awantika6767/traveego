@@ -11,6 +11,7 @@ import {
   X,
   Plane,
   Users,
+  Plus,
   Package
 } from 'lucide-react';
 import { Button } from './ui/button';
