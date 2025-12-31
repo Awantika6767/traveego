@@ -125,15 +125,18 @@ backend:
 
   - task: "Create API endpoint to get open/unassigned requests"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added GET /api/requests/open/list endpoint to fetch requests without assigned salesperson"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Open requests API working correctly. Endpoint returns only requests with status PENDING and no assigned_salesperson_id. Properly filters out assigned requests. API response format is correct."
 
   - task: "Create API endpoint to assign request to salesperson with limit validation"
     implemented: true
