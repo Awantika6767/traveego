@@ -292,6 +292,42 @@ frontend:
         agent: "main"
         comment: "Added getOpenRequests, assignRequestToMe, and downloadProformaInvoice to API utility"
 
+  - task: "Create API endpoint to download invoice after payment verification"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/invoices/{invoice_id}/download endpoint. Generates invoice PDF only when payment status is VERIFIED_BY_OPS (both accountant and operations verified). PDF includes company details, client info, line items, payment summary with PAID status, payment verification details (dates and notes), bank details, and terms & conditions."
+
+  - task: "Update RequestDetail to show Download Invoice button for customers"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added invoice and payment state variables. Updated loadRequestData to fetch invoice and payment data for the request. Added downloadInvoice function. Display Download Invoice button only for customers when payment status is VERIFIED_BY_OPS."
+
+  - task: "Add downloadInvoice method to API utility"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/utils/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added downloadInvoice method to api.js that returns the invoice download URL"
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
