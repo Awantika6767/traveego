@@ -271,7 +271,16 @@ export const RequestDetail = () => {
       return;
     }
     const downloadUrl = api.downloadProformaInvoice(quotation.id);
-    window.open(downloadUrl, '_blank');
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `proforma_invoice_${quotation.id.substring(0, 8)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Downloading proforma invoice...');
   };
 
   const downloadInvoice = () => {
@@ -284,7 +293,16 @@ export const RequestDetail = () => {
       return;
     }
     const downloadUrl = api.downloadInvoice(invoice.id);
-    window.open(downloadUrl, '_blank');
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `invoice_${invoice.invoice_number}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Downloading invoice...');
   };
 
   if (loading) {
