@@ -155,15 +155,18 @@ backend:
 
   - task: "Create API endpoint to download proforma invoice as PDF"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added GET /api/quotations/{quotation_id}/download-proforma endpoint using reportlab to generate PDF with company details, client info, line items, payment terms, and bank details"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Proforma PDF download working excellently. Generates valid PDF files (~4KB) with proper headers (application/pdf, attachment). PDF contains company details, client info with country code, line items with tax calculations, payment terms, and bank details. Content verified as valid PDF format."
 
   - task: "Update registration endpoint to handle country_code"
     implemented: true
