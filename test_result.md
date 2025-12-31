@@ -472,13 +472,22 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Update RequestDetail to show Download Invoice button for customers"
-    - "Add downloadInvoice method to API utility"
+    - "Create Leave model in backend"
+    - "Create API endpoint to add leave with backup validation"
+    - "Create API endpoint to get user's leaves"
+    - "Create API endpoint to get available backups"
+    - "Create API endpoint to cancel leave"
+    - "Create API endpoint for delegated requests with backup chain resolution"
+    - "Create LeaveManagement component"
+    - "Update API utility with leave management endpoints"
+    - "Add Leave Management route in App.js"
+    - "Add Leave Management navigation link in Layout"
+    - "Update RequestList to show delegated requests"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
