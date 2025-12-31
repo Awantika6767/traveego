@@ -54,6 +54,24 @@ export const RequestDetail = () => {
       }
       setActivities(actResponse.data);
       setCatalog(catResponse.data);
+      
+      // Load invoice and payment data for the request
+      try {
+        const invResponse = await api.getInvoices({ request_id: id });
+        if (invResponse.data.length > 0) {
+          const invoiceData = invResponse.data[0];
+          setInvoice(invoiceData);
+          
+          // Load payment for this invoice
+          const payResponse = await api.getPayments();
+          const requestPayment = payResponse.data.find(p => p.invoice_id === invoiceData.id);
+          if (requestPayment) {
+            setPayment(requestPayment);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load invoice/payment data:', error);
+      }
     } catch (error) {
       console.error('Failed to load request data:', error);
     } finally {
