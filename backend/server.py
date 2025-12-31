@@ -233,6 +233,7 @@ async def register_customer(user_data: Dict[str, str]):
         "email": user_data["email"],
         "name": user_data["name"],
         "phone": user_data.get("phone", ""),
+        "country_code": user_data.get("country_code", "+91"),
         "role": "customer",
         "password": user_data["password"],  # In production, hash this
         "created_at": datetime.now(timezone.utc).isoformat()
