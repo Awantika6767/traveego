@@ -349,6 +349,72 @@ async def add_request_note(request_id: str, data: Dict[str, Any]):
     
     return {"success": True}
 
+# New endpoint: Get open/unassigned requests
+@api_router.get("/requests/open/list", response_model=List[TravelRequest])
+async def get_open_requests():
+    """Get all requests that don't have an assigned salesperson"""
+    query = {
+        "$or": [
+            {"assigned_salesperson_id": None},
+            {"assigned_salesperson_id": ""},
+            {"assigned_salesperson_id": {"$exists": False}}
+        ],
+        "status": RequestStatus.PENDING
+    }
+    
+    requests = await db.requests.find(query).sort("created_at", -1).to_list(100)
+    return [TravelRequest(**req) for req in requests]
+
+# New endpoint: Assign request to salesperson
+@api_router.post("/requests/{request_id}/assign-to-me")
+async def assign_request_to_me(request_id: str, data: Dict[str, Any]):
+    """Assign a request to the current salesperson with limit validation"""
+    salesperson_id = data.get("salesperson_id")
+    salesperson_name = data.get("salesperson_name")
+    
+    if not salesperson_id or not salesperson_name:
+        raise HTTPException(status_code=400, detail="Salesperson information required")
+    
+    # Check if salesperson already has 10 or more assigned requests
+    assigned_count = await db.requests.count_documents({
+        "assigned_salesperson_id": salesperson_id,
+        "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
+    })
+    
+    if assigned_count >= 10:
+        raise HTTPException(status_code=400, detail="You have reached the maximum limit of 10 open requests")
+    
+    # Check if request exists and is unassigned
+    request = await db.requests.find_one({"id": request_id})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    if request.get("assigned_salesperson_id"):
+        raise HTTPException(status_code=400, detail="Request is already assigned")
+    
+    # Assign the request
+    await db.requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "assigned_salesperson_id": salesperson_id,
+            "assigned_salesperson_name": salesperson_name,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create activity
+    activity = Activity(
+        request_id=request_id,
+        actor_id=salesperson_id,
+        actor_name=salesperson_name,
+        actor_role="sales",
+        action="assigned",
+        notes=f"Request assigned to {salesperson_name}"
+    )
+    await db.activities.insert_one(activity.dict())
+    
+    return {"success": True, "message": "Request assigned successfully"}
+
 # Quotation endpoints
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
