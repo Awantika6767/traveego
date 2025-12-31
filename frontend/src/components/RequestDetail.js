@@ -24,6 +24,8 @@ export const RequestDetail = () => {
   const [quotation, setQuotation] = useState(null);
   const [activities, setActivities] = useState([]);
   const [catalog, setCatalog] = useState([]);
+  const [invoice, setInvoice] = useState(null);
+  const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
