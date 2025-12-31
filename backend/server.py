@@ -11,10 +11,16 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import shutil
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 import io
 import csv
 import json
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 
 
