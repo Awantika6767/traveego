@@ -101,6 +101,15 @@ const AppRoutes = () => {
         }
       />
       
+      <Route
+        path="/open-requests"
+        element={
+          <ProtectedRoute>
+            <OpenRequests />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
