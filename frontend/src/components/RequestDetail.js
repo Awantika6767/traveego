@@ -367,6 +367,18 @@ export const RequestDetail = () => {
                         Publish
                       </Button>
                     )}
+                    {quotation?.status === 'SENT' && (
+                      <Button
+                        size="sm"
+                        onClick={downloadProformaInvoice}
+                        variant="outline"
+                        className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                        data-testid="download-proforma-button"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Proforma
+                      </Button>
+                    )}
                     {canAccept && (
                       <Button
                         size="sm"
