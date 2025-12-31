@@ -24,6 +24,7 @@ export const api = {
   updateQuotation: (id, data) => axios.put(`${API_BASE}/quotations/${id}`, data),
   publishQuotation: (id, data) => axios.post(`${API_BASE}/quotations/${id}/publish`, data),
   acceptQuotation: (id, data) => axios.post(`${API_BASE}/quotations/${id}/accept`, data),
+  downloadProformaInvoice: (id) => `${API_BASE}/quotations/${id}/download-proforma`,
   
   // Invoices
   getInvoices: (params) => axios.get(`${API_BASE}/invoices`, { params }),
