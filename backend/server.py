@@ -953,7 +953,8 @@ async def download_data(table: str, format: str = "csv"):
         output = io.StringIO()
         for row in cleaned_data:
             columns = ', '.join(f"`{key}`" for key in row.keys())
-            values = ', '.join(f"'{str(value).replace('\'', '\'\'')}'" for value in row.values())
+            escaped_values = [str(value).replace("'", "''") for value in row.values()]
+            values = ', '.join(f"'{value}'" for value in escaped_values)
             insert_stmt = f"INSERT INTO `{table}` ({columns}) VALUES ({values});\n"
             output.write(insert_stmt)
         output.seek(0)
