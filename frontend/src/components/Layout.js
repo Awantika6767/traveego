@@ -56,6 +56,7 @@ export const Layout = ({ children }) => {
       return [
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['sales'] },
+        { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['sales'] },
         { path: '/quotes', icon: FileText, label: 'My Quotes', roles: ['sales'] }
       ];
     }
