@@ -412,6 +412,17 @@ export const RequestDetail = () => {
                         Download Proforma
                       </Button>
                     )}
+                    {user.role === 'customer' && payment?.status === 'VERIFIED_BY_OPS' && invoice && (
+                      <Button
+                        size="sm"
+                        onClick={downloadInvoice}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        data-testid="download-invoice-button"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Invoice
+                      </Button>
+                    )}
                     {canAccept && (
                       <Button
                         size="sm"
