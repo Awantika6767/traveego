@@ -212,6 +212,20 @@ class Notification(BaseModel):
     link: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
+class Leave(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    user_role: str
+    start_date: str  # ISO format date string (YYYY-MM-DD)
+    end_date: str  # ISO format date string (YYYY-MM-DD)
+    backup_user_id: str
+    backup_user_name: str
+    reason: Optional[str] = None
+    status: str = "active"  # active, cancelled
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
 # Mock users for login
 MOCK_USERS = {
     "ops@travel.com": {"password": "ops123", "role": UserRole.OPERATIONS, "name": "Operations Manager", "id": "ops-001"},
