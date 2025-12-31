@@ -17,6 +17,7 @@ export const RequestList = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
+  const [delegatedRequests, setDelegatedRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -41,6 +42,16 @@ export const RequestList = () => {
       }
       const response = await api.getRequests(params);
       setRequests(response.data);
+      
+      // Load delegated requests for sales and operations roles
+      if (user.role === 'sales' || user.role === 'operations') {
+        try {
+          const delegatedResponse = await api.getDelegatedRequests(user.id);
+          setDelegatedRequests(delegatedResponse.data);
+        } catch (err) {
+          console.error('Failed to load delegated requests:', err);
+        }
+      }
     } catch (error) {
       console.error('Failed to load requests:', error);
       toast.error('Failed to load requests');
