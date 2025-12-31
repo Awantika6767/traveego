@@ -1017,6 +1017,9 @@ class BackendTester:
         # Test 5: Country Code Request Creation
         self.test_country_code_request_creation()
         
+        # Test 6: Invoice Download Complete Flow
+        self.test_invoice_download_complete_flow()
+        
         # Summary
         print("\n" + "=" * 60)
         print("📊 TEST SUMMARY")
