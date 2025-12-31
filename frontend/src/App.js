@@ -111,6 +111,15 @@ const AppRoutes = () => {
         }
       />
       
+      <Route
+        path="/leaves"
+        element={
+          <ProtectedRoute>
+            <LeaveManagement />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
