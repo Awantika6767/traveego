@@ -29,6 +29,7 @@ export const api = {
   // Invoices
   getInvoices: (params) => axios.get(`${API_BASE}/invoices`, { params }),
   getInvoice: (id) => axios.get(`${API_BASE}/invoices/${id}`),
+  downloadInvoice: (id) => `${API_BASE}/invoices/${id}/download`,
   
   // Payments
   getPayments: (params) => axios.get(`${API_BASE}/payments`, { params }),
