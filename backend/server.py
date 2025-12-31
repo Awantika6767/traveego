@@ -1119,6 +1119,199 @@ async def create_notification(notification: Notification):
     await db.notifications.insert_one(notification.dict())
     return notification
 
+# Leave Management Endpoints
+@api_router.post("/leaves", response_model=Leave)
+async def create_leave(leave: Leave):
+    """Create a new leave request with backup assignment"""
+    # Validate that backup user is not on leave during the requested dates
+    backup_leaves = await db.leaves.find({
+        "user_id": leave.backup_user_id,
+        "status": "active"
+    }).to_list(1000)
+    
+    leave_start = datetime.fromisoformat(leave.start_date).date()
+    leave_end = datetime.fromisoformat(leave.end_date).date()
+    
+    for backup_leave in backup_leaves:
+        backup_start = datetime.fromisoformat(backup_leave["start_date"]).date()
+        backup_end = datetime.fromisoformat(backup_leave["end_date"]).date()
+        
+        # Check for date overlap
+        if not (leave_end < backup_start or leave_start > backup_end):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"{leave.backup_user_name} is already on leave during these dates (from {backup_leave['start_date']} to {backup_leave['end_date']})"
+            )
+    
+    # Create the leave
+    leave_dict = leave.dict()
+    await db.leaves.insert_one(leave_dict)
+    
+    # Create notification for backup user
+    notification = Notification(
+        user_id=leave.backup_user_id,
+        title="You've been assigned as backup",
+        message=f"{leave.user_name} has assigned you as backup from {leave.start_date} to {leave.end_date}",
+        link="/leaves"
+    )
+    await db.notifications.insert_one(notification.dict())
+    
+    return leave
+
+@api_router.get("/leaves", response_model=List[Leave])
+async def get_leaves(user_id: Optional[str] = None, status: Optional[str] = None):
+    """Get all leaves with optional filters"""
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if status:
+        query["status"] = status
+    
+    leaves = await db.leaves.find(query).sort("start_date", -1).to_list(1000)
+    return [Leave(**leave) for leave in leaves]
+
+@api_router.get("/leaves/my-leaves")
+async def get_my_leaves(user_id: str):
+    """Get leaves for the current user (both as primary and backup)"""
+    # Get leaves where user is primary
+    my_leaves = await db.leaves.find({
+        "user_id": user_id,
+        "status": "active"
+    }).sort("start_date", -1).to_list(1000)
+    
+    # Get leaves where user is backup
+    backup_leaves = await db.leaves.find({
+        "backup_user_id": user_id,
+        "status": "active"
+    }).sort("start_date", -1).to_list(1000)
+    
+    return {
+        "my_leaves": [Leave(**leave) for leave in my_leaves],
+        "backup_for": [Leave(**leave) for leave in backup_leaves]
+    }
+
+@api_router.get("/leaves/available-backups")
+async def get_available_backups(role: str, start_date: str, end_date: str, exclude_user_id: Optional[str] = None):
+    """Get team members who can be backup (same role, not on leave during the dates)"""
+    # Get all users with the same role from MOCK_USERS
+    available_users = []
+    for email, user_data in MOCK_USERS.items():
+        if user_data["role"] == role and user_data["id"] != exclude_user_id:
+            available_users.append({
+                "id": user_data["id"],
+                "name": user_data["name"],
+                "email": email,
+                "role": user_data["role"]
+            })
+    
+    # Filter out users who are on leave during the requested dates
+    leave_start = datetime.fromisoformat(start_date).date()
+    leave_end = datetime.fromisoformat(end_date).date()
+    
+    all_leaves = await db.leaves.find({"status": "active"}).to_list(1000)
+    
+    unavailable_user_ids = set()
+    for leave in all_leaves:
+        leave_user_start = datetime.fromisoformat(leave["start_date"]).date()
+        leave_user_end = datetime.fromisoformat(leave["end_date"]).date()
+        
+        # Check for date overlap
+        if not (leave_end < leave_user_start or leave_start > leave_user_end):
+            unavailable_user_ids.add(leave["user_id"])
+    
+    # Filter available users
+    available_backups = [
+        user for user in available_users 
+        if user["id"] not in unavailable_user_ids
+    ]
+    
+    return available_backups
+
+@api_router.delete("/leaves/{leave_id}")
+async def cancel_leave(leave_id: str):
+    """Cancel a leave request"""
+    leave = await db.leaves.find_one({"id": leave_id})
+    if not leave:
+        raise HTTPException(status_code=404, detail="Leave not found")
+    
+    await db.leaves.update_one(
+        {"id": leave_id},
+        {"$set": {
+            "status": "cancelled",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Notify backup user
+    notification = Notification(
+        user_id=leave["backup_user_id"],
+        title="Leave cancelled",
+        message=f"{leave['user_name']}'s leave from {leave['start_date']} to {leave['end_date']} has been cancelled",
+        link="/leaves"
+    )
+    await db.notifications.insert_one(notification.dict())
+    
+    return {"success": True, "message": "Leave cancelled successfully"}
+
+@api_router.get("/requests/delegated")
+async def get_delegated_requests(user_id: str):
+    """Get requests delegated to current user (backup chain resolution)"""
+    # Find all active leaves where current user is backup
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    backup_leaves = await db.leaves.find({
+        "backup_user_id": user_id,
+        "status": "active",
+        "start_date": {"$lte": today},
+        "end_date": {"$gte": today}
+    }).to_list(1000)
+    
+    delegated_users = []
+    for leave in backup_leaves:
+        delegated_users.append({
+            "user_id": leave["user_id"],
+            "user_name": leave["user_name"]
+        })
+        
+        # Check if the delegated user is also a backup for someone else (chain resolution)
+        # Find leaves where the delegated user is a backup
+        chain_leaves = await db.leaves.find({
+            "backup_user_id": leave["user_id"],
+            "status": "active",
+            "start_date": {"$lte": today},
+            "end_date": {"$gte": today}
+        }).to_list(1000)
+        
+        for chain_leave in chain_leaves:
+            delegated_users.append({
+                "user_id": chain_leave["user_id"],
+                "user_name": chain_leave["user_name"]
+            })
+    
+    # Get requests from all delegated users
+    if not delegated_users:
+        return []
+    
+    delegated_user_ids = [u["user_id"] for u in delegated_users]
+    
+    requests = await db.requests.find({
+        "assigned_salesperson_id": {"$in": delegated_user_ids},
+        "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
+    }).sort("created_at", -1).to_list(1000)
+    
+    # Add delegation info to each request
+    result = []
+    for req in requests:
+        request_data = TravelRequest(**req).dict()
+        # Find which delegated user this request belongs to
+        for du in delegated_users:
+            if du["user_id"] == req["assigned_salesperson_id"]:
+                request_data["delegated_from"] = du["user_name"]
+                break
+        result.append(request_data)
+    
+    return result
+
 # File upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
