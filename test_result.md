@@ -140,15 +140,18 @@ backend:
 
   - task: "Create API endpoint to assign request to salesperson with limit validation"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added POST /api/requests/{request_id}/assign-to-me endpoint with 10 request limit validation"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Assignment API working perfectly. Successfully assigns requests to salesperson. 10 request limit validation is enforced correctly - allows up to 10 assignments then returns 400 error with proper message. Creates activity log entries for assignments. Validates request exists and is unassigned before assignment."
 
   - task: "Create API endpoint to download proforma invoice as PDF"
     implemented: true
