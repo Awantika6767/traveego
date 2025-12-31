@@ -274,6 +274,19 @@ export const RequestDetail = () => {
     window.open(downloadUrl, '_blank');
   };
 
+  const downloadInvoice = () => {
+    if (!invoice?.id) {
+      toast.error('No invoice available to download');
+      return;
+    }
+    if (payment?.status !== 'VERIFIED_BY_OPS') {
+      toast.error('Invoice can only be downloaded after payment verification');
+      return;
+    }
+    const downloadUrl = api.downloadInvoice(invoice.id);
+    window.open(downloadUrl, '_blank');
+  };
+
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
   }
