@@ -134,15 +134,25 @@ export const CreateRequest = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="client_phone">Client Phone *</Label>
-                <Input
-                  id="client_phone"
-                  name="client_phone"
-                  value={formData.client_phone}
-                  onChange={handleChange}
-                  required
-                  disabled={user?.role === 'customer'}
-                  data-testid="client-phone-input"
-                />
+                <div className="flex gap-2">
+                  <CountryCodeSelect
+                    value={formData.client_country_code}
+                    onChange={(value) => setFormData(prev => ({ ...prev, client_country_code: value }))}
+                    disabled={user?.role === 'customer'}
+                    testId="client-country-code-select"
+                  />
+                  <Input
+                    id="client_phone"
+                    name="client_phone"
+                    value={formData.client_phone}
+                    onChange={handleChange}
+                    required
+                    disabled={user?.role === 'customer'}
+                    data-testid="client-phone-input"
+                    className="flex-1"
+                    placeholder="9876543210"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
