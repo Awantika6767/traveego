@@ -14,6 +14,7 @@ import { OpenRequests } from "./components/OpenRequests";
 import LeaveManagement from "./components/LeaveManagement";
 import AdminPanel from "./components/AdminPanel";
 import AdminSettings from "./components/AdminSettings";
+import QuotationBuilder from "./components/QuotationBuilder";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
