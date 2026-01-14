@@ -1674,3 +1674,197 @@ agent_communication:
       
       Both backend and frontend are running with hot reload enabled. Ready for testing.
 
+
+  - agent: "main"
+    message: |
+      PHASE 4 COMPLETED: Quotation Builder Frontend Implementation
+      
+      **PHASE 4: FRONTEND - Quotation Builder (Steps 8-10)**
+      
+      **Step 8: Created Detailed Quotation Form Component ✅**
+      
+      Created comprehensive QuotationBuilder component (/app/frontend/src/components/QuotationBuilder.js) with:
+      
+      1. **Trip Header Section:**
+         - Trip title, customer name, dates, city, booking reference, cover image URL
+         - All fields editable with proper labels
+      
+      2. **Salesperson Information:**
+         - Name, phone, email, photo URL
+         - Auto-filled from logged-in user data
+      
+      3. **Trip Summary:**
+         - Duration, number of travelers, rating (1-5)
+         - Highlights list with add/remove functionality
+         - Dynamic highlight badges
+      
+      4. **Pricing Section:**
+         - Subtotal, taxes (18% GST), discount
+         - Auto-calculated fields: total, per person, deposit due (30%)
+         - "Auto-Calculate Pricing" button for convenience
+      
+      5. **Day-by-Day Itinerary Builder:**
+         - Add/remove days dynamically
+         - Each day has: date, location, meals (breakfast/lunch/dinner dropdowns)
+         - Activities per day with:
+           * Add from catalog (modal with activity catalog items)
+           * Add custom activity
+           * Each activity: time, title, description, meeting point, type
+           * Remove activity option
+         - Day numbering auto-updates when days are removed
+      
+      6. **Inclusions & Exclusions:**
+         - Auto-populated from AdminSettings
+         - Displayed as read-only (editable via backend API for operations)
+         - Visual styling: green for inclusions, red for exclusions
+      
+      7. **Terms & Conditions:**
+         - Auto-filled from AdminSettings
+         - Displayed as read-only in formatted text box
+      
+      8. **Testimonials:**
+         - Auto-filled from AdminSettings (max 3)
+         - Displayed with star ratings and customer feedback
+         - Read-only display with orange theme
+      
+      **Step 9: Integrated Quotation Builder into Request Flow ✅**
+      
+      1. **RequestDetail Component Enhancement:**
+         - Added "Create Detailed Quotation" button
+         - Visible to operations and sales roles
+         - Button styled with blue theme and FileText icon
+         - Navigates to /quotation-builder with request and quotation data passed via location.state
+      
+      2. **Pre-fill Logic:**
+         - **From Request Data:**
+           * Customer name → request.client_name
+           * Destination city → request.destination
+           * Dates → request.travel_start_date to travel_end_date
+           * Number of travelers → request.num_travelers
+           * Booking reference → auto-generated from request ID
+         
+         - **From User Data (Salesperson):**
+           * Name → user.name
+           * Phone → user.country_code + user.phone
+           * Email → user.email
+           * Photo → user.profile_picture or placeholder
+         
+         - **From Admin Settings:**
+           * Inclusions → default_inclusions
+           * Exclusions → default_exclusions
+           * Terms & Conditions → terms_and_conditions
+           * Privacy Policy → privacy_policy
+           * Testimonials → testimonials array
+      
+      **Step 10: Save Functionality ✅**
+      
+      1. **Validation:**
+         - Checks for trip title and customer name (required)
+         - Validates at least one day in itinerary
+         - Shows error toasts for missing data
+      
+      2. **Save Process:**
+         - Auto-calculates pricing before save
+         - Prepares quotation data with detailed_quotation_data field
+         - Creates or updates quotation via API
+         - Handles both new quotation and existing quotation update
+         - Maintains backward compatibility with existing quotation structure
+      
+      3. **Data Structure:**
+         - Saves complete QuotationData model to detailed_quotation_data field
+         - Includes all form sections (trip, salesperson, summary, pricing, days, etc.)
+         - Also updates grand_total, advance_percent, advance_amount for compatibility
+      
+      4. **Navigation:**
+         - Shows loading state during save
+         - Success: Toast notification + navigate back to request detail
+         - Error: Toast error message, stays on builder for fixes
+      
+      **KEY FEATURES:**
+      
+      ✅ Comprehensive form with 8 major sections
+      ✅ Smart pre-filling from multiple data sources
+      ✅ Dynamic itinerary builder with add/remove days and activities
+      ✅ Catalog integration for activities
+      ✅ Auto-calculation of pricing and derived fields
+      ✅ Read-only admin settings (inclusions, exclusions, terms, testimonials)
+      ✅ Validation before save
+      ✅ Backward compatibility with existing quotation structure
+      ✅ Beautiful UI with proper spacing and styling
+      ✅ Loading and saving states with visual feedback
+      
+      **CATALOG INTEGRATION:**
+      - Modal popup shows catalog activities
+      - Click to add activity from catalog to day
+      - Activity pre-filled with catalog data (name, description, location, image)
+      - Can also add custom activities not in catalog
+      
+      **USER FLOW:**
+      1. Operations/Sales opens request detail
+      2. Clicks "Create Detailed Quotation" button
+      3. QuotationBuilder opens with pre-filled data
+      4. User adds days and activities to build itinerary
+      5. Reviews/edits pricing and summary
+      6. Clicks "Save Quotation"
+      7. Validation runs
+      8. Data saved to backend with detailed_quotation_data
+      9. Returns to request detail page
+      
+      **FILES CREATED/MODIFIED:**
+      
+      **Created:**
+      - /app/frontend/src/components/QuotationBuilder.js (new, ~1000 lines)
+      
+      **Modified:**
+      - /app/frontend/src/components/RequestDetail.js
+        * Added FileText icon import
+        * Added "Create Detailed Quotation" button (lines ~477-488)
+      
+      - /app/frontend/src/App.js
+        * Added QuotationBuilder import
+        * Added /quotation-builder route with ProtectedRoute
+      
+      **API INTEGRATION:**
+      - Uses existing API methods:
+        * api.getAdminSettings() - Load default settings
+        * api.getCatalog() - Load catalog for activities
+        * api.createQuotation() - Create new quotation
+        * api.updateQuotation() - Update existing quotation
+      
+      **TECHNICAL NOTES:**
+      
+      1. Component State Management:
+         - Complex nested state for formData
+         - Separate states for modals and temporary inputs
+         - Proper state updates for nested objects (days, activities)
+      
+      2. Form Sections:
+         - Each section in its own Card component
+         - Consistent styling with Tailwind CSS
+         - Proper labels and placeholders
+      
+      3. Dynamic Lists:
+         - Highlights: add/remove with badges
+         - Days: add/remove with auto-renumbering
+         - Activities: add/remove per day with multiple sources
+      
+      4. Validation:
+         - Client-side validation before API call
+         - User-friendly error messages
+         - Prevents save with incomplete data
+      
+      **NEXT STEPS (Future Enhancements):**
+      1. Add image upload functionality (currently URL input)
+      2. Add hotel selection from catalog for each day
+      3. Add drag-and-drop for reordering days/activities
+      4. Add preview mode to see quotation as PDF
+      5. Add version control for detailed quotations
+      6. Add edit mode for inclusions/exclusions (operations only)
+      
+      **STATUS:**
+      ✅ Phase 1-3: Backend Complete (Admin Settings, Quotation Model, APIs)
+      ✅ Phase 4: Frontend Complete (QuotationBuilder, Integration, Save)
+      
+      Frontend compiled successfully. Both backend and frontend running with hot reload.
+      Ready for testing and user feedback.
+
