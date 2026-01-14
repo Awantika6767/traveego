@@ -233,6 +233,7 @@ class Quotation(BaseModel):
     advance_percent: float = 30.0
     advance_amount: float = 0.0
     grand_total: float = 0.0
+    detailed_quotation_data: Optional[QuotationData] = None  # Detailed quotation with terms, inclusions, etc.
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -312,6 +313,16 @@ class Leave(BaseModel):
     backup_user_name: str
     reason: Optional[str] = None
     status: str = "active"  # active, cancelled
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class AdminSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    privacy_policy: str = ""
+    terms_and_conditions: str = ""
+    default_inclusions: List[str] = []
+    default_exclusions: List[str] = []
+    testimonials: List[Testimonial] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -639,6 +650,26 @@ async def assign_request_to_me(request_id: str, data: Dict[str, Any]):
 # Quotation endpoints
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
+    # If detailed_quotation_data is provided, populate with AdminSettings defaults
+    if quotation.detailed_quotation_data:
+        admin_settings = await db.admin_settings.find_one({})
+        if admin_settings:
+            # Populate privacy_policy from AdminSettings
+            if not quotation.detailed_quotation_data.privacyPolicy:
+                quotation.detailed_quotation_data.privacyPolicy = admin_settings.get("privacy_policy", "")
+            
+            # Populate terms from AdminSettings (if detailedTerms is not set)
+            if not quotation.detailed_quotation_data.detailedTerms:
+                quotation.detailed_quotation_data.detailedTerms = admin_settings.get("terms_and_conditions", "")
+            
+            # Populate inclusions from AdminSettings (if not already set)
+            if not quotation.detailed_quotation_data.inclusions:
+                quotation.detailed_quotation_data.inclusions = admin_settings.get("default_inclusions", [])
+            
+            # Populate exclusions from AdminSettings (if not already set)
+            if not quotation.detailed_quotation_data.exclusions:
+                quotation.detailed_quotation_data.exclusions = admin_settings.get("default_exclusions", [])
+    
     quotation_dict = quotation.dict()
     await db.quotations.insert_one(quotation_dict)
     
@@ -668,6 +699,26 @@ async def get_quotation(quotation_id: str):
 
 @api_router.put("/quotations/{quotation_id}", response_model=Quotation)
 async def update_quotation(quotation_id: str, quotation: Quotation):
+    # If detailed_quotation_data is provided, populate with AdminSettings defaults
+    if quotation.detailed_quotation_data:
+        admin_settings = await db.admin_settings.find_one({})
+        if admin_settings:
+            # Populate privacy_policy from AdminSettings if not set
+            if not quotation.detailed_quotation_data.privacyPolicy:
+                quotation.detailed_quotation_data.privacyPolicy = admin_settings.get("privacy_policy", "")
+            
+            # Populate terms from AdminSettings if not set
+            if not quotation.detailed_quotation_data.detailedTerms:
+                quotation.detailed_quotation_data.detailedTerms = admin_settings.get("terms_and_conditions", "")
+            
+            # Populate inclusions from AdminSettings if not set
+            if not quotation.detailed_quotation_data.inclusions:
+                quotation.detailed_quotation_data.inclusions = admin_settings.get("default_inclusions", [])
+            
+            # Populate exclusions from AdminSettings if not set
+            if not quotation.detailed_quotation_data.exclusions:
+                quotation.detailed_quotation_data.exclusions = admin_settings.get("default_exclusions", [])
+    
     quotation.updated_at = datetime.now(timezone.utc).isoformat()
     await db.quotations.update_one({"id": quotation_id}, {"$set": quotation.dict()})
     return quotation
@@ -1587,6 +1638,138 @@ async def toggle_cost_breakup_permission(
     await db.activities.insert_one(activity.dict())
     
     return {"message": "Permission updated successfully", "can_see_cost_breakup": can_see}
+
+# Admin Settings Management
+@api_router.get("/admin/settings", response_model=AdminSettings)
+async def get_admin_settings():
+    """Get admin settings. Creates default settings if none exist."""
+    settings = await db.admin_settings.find_one({})
+    
+    if not settings:
+        # Create default settings
+        default_settings = AdminSettings(
+            privacy_policy="",
+            terms_and_conditions="",
+            default_inclusions=[],
+            default_exclusions=[],
+            testimonials=[]
+        )
+        await db.admin_settings.insert_one(default_settings.dict())
+        return default_settings
+    
+    return AdminSettings(**settings)
+
+@api_router.put("/admin/settings", response_model=AdminSettings)
+async def update_admin_settings(
+    settings_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update admin settings. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can modify settings")
+    
+    # Get existing settings or create new
+    existing_settings = await db.admin_settings.find_one({})
+    
+    update_data = {
+        "privacy_policy": settings_data.get("privacy_policy", ""),
+        "terms_and_conditions": settings_data.get("terms_and_conditions", ""),
+        "default_inclusions": settings_data.get("default_inclusions", []),
+        "default_exclusions": settings_data.get("default_exclusions", []),
+        "testimonials": settings_data.get("testimonials", []),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if existing_settings:
+        # Update existing
+        await db.admin_settings.update_one(
+            {"id": existing_settings["id"]},
+            {"$set": update_data}
+        )
+        updated_settings = await db.admin_settings.find_one({"id": existing_settings["id"]})
+        return AdminSettings(**updated_settings)
+    else:
+        # Create new
+        new_settings = AdminSettings(**update_data)
+        await db.admin_settings.insert_one(new_settings.dict())
+        return new_settings
+
+# Quotation Detailed Data Helper Endpoints
+@api_router.get("/quotations/{quotation_id}/detailed-data")
+async def get_quotation_detailed_data(quotation_id: str):
+    """Get the detailed quotation JSON data."""
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    detailed_data = quotation.get("detailed_quotation_data")
+    if not detailed_data:
+        raise HTTPException(status_code=404, detail="Detailed quotation data not found")
+    
+    return detailed_data
+
+@api_router.put("/quotations/{quotation_id}/detailed-data")
+async def update_quotation_detailed_data(
+    quotation_id: str,
+    detailed_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update detailed quotation data.
+    Operations can edit inclusions/exclusions but not privacy policy or terms & conditions.
+    Admin can edit everything.
+    """
+    # Check authorization
+    user_role = current_user.get("role")
+    if user_role not in ["admin", "operations"]:
+        raise HTTPException(status_code=403, detail="Only admin and operations can modify detailed quotation data")
+    
+    # Get existing quotation
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    existing_detailed_data = quotation.get("detailed_quotation_data", {})
+    
+    # If operations role, restrict what they can edit
+    if user_role == "operations":
+        # Operations can only edit inclusions and exclusions
+        allowed_fields = ["inclusions", "exclusions"]
+        
+        # Preserve all existing fields except the ones being updated
+        updated_detailed_data = existing_detailed_data.copy()
+        
+        # Only update allowed fields
+        for field in allowed_fields:
+            if field in detailed_data:
+                updated_detailed_data[field] = detailed_data[field]
+        
+        # Ensure privacy policy and terms remain from AdminSettings or existing data
+        # Operations CANNOT modify these fields
+        if "privacyPolicy" in detailed_data or "detailedTerms" in detailed_data:
+            raise HTTPException(
+                status_code=403, 
+                detail="Operations role cannot modify privacy policy or terms & conditions"
+            )
+    else:
+        # Admin can update any fields
+        updated_detailed_data = existing_detailed_data.copy()
+        updated_detailed_data.update(detailed_data)
+    
+    # Update the quotation with new detailed data
+    await db.quotations.update_one(
+        {"id": quotation_id},
+        {
+            "$set": {
+                "detailed_quotation_data": updated_detailed_data,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Return updated detailed data
+    updated_quotation = await db.quotations.find_one({"id": quotation_id})
+    return updated_quotation.get("detailed_quotation_data")
 
 # File upload endpoint
 @api_router.post("/upload")

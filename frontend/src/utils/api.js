@@ -73,6 +73,8 @@ export const api = {
   // Admin
   getAllSalespeople: () => axios.get(`${API_BASE}/admin/salespeople`),
   toggleCostBreakupPermission: (userId, canSee) => axios.put(`${API_BASE}/admin/salespeople/${userId}/cost-breakup-permission`, { can_see_cost_breakup: canSee }),
+  getAdminSettings: () => axios.get(`${API_BASE}/admin/settings`),
+  updateAdminSettings: (data) => axios.put(`${API_BASE}/admin/settings`, data),
   
   // Dashboard
   getDashboardStats: (role) => axios.get(`${API_BASE}/dashboard/stats`, { params: { role } }),

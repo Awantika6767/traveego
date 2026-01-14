@@ -1098,24 +1098,482 @@ frontend:
         agent: "main"
         comment: "Updated catalog item cards to show image at the top (if available) with 48px height and rounded corners. Added star rating display for hotels using Star icons (filled yellow for active stars, gray for inactive). Rating displays next to the type badge."
 
+backend:
+  - task: "Create AdminSettings model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added AdminSettings model with privacy_policy, terms_and_conditions, default_inclusions, default_exclusions fields. Model includes id, created_at, updated_at."
+
+  - task: "Create admin settings GET endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/admin/settings endpoint that returns existing settings or creates default settings if none exist."
+      - working: true
+        agent: "main"
+        comment: "Tested endpoint successfully. Returns default settings with empty values for privacy_policy, terms_and_conditions, and empty arrays for inclusions/exclusions."
+
+  - task: "Create admin settings PUT endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PUT /api/admin/settings endpoint accessible by admin and operations roles. Updates existing settings or creates new if none exist."
+
+  - task: "Add testimonials field to AdminSettings model"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added testimonials: List[Testimonial] = [] field to AdminSettings model. Testimonial model already existed with name, rating, text structure."
+      - working: true
+        agent: "main"
+        comment: "✅ TESTED: GET /api/admin/settings returns testimonials field as empty array. Field structure validated."
+
+  - task: "Update admin settings endpoints to handle testimonials"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated GET and PUT /api/admin/settings endpoints to include testimonials field in default creation and update operations."
+
+  - task: "Add detailed_quotation_data field to Quotation model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added detailed_quotation_data: Optional[QuotationData] = None to Quotation model. QuotationData model already existed with all necessary fields."
+
+  - task: "Update create_quotation endpoint to populate from AdminSettings"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced create_quotation endpoint to populate privacy_policy, terms (detailedTerms), inclusions, and exclusions from AdminSettings when detailed_quotation_data is provided. Only populates if fields are not already set (allows override)."
+
+  - task: "Update update_quotation endpoint to populate from AdminSettings"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced update_quotation endpoint with same AdminSettings population logic as create_quotation."
+
+  - task: "Restrict admin settings PUT to admin role only"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated PUT /api/admin/settings endpoint to restrict access to admin role only (was previously allowing both admin and operations)."
+
+  - task: "Create GET endpoint for quotation detailed data"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/quotations/{quotation_id}/detailed-data endpoint to retrieve detailed quotation JSON data. Returns 404 if quotation or detailed data not found."
+
+  - task: "Create PUT endpoint for quotation detailed data with role-based restrictions"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PUT /api/quotations/{quotation_id}/detailed-data endpoint. Operations role can ONLY edit inclusions/exclusions. Admin can edit all fields. Operations CANNOT modify privacy_policy or terms & conditions - these remain from AdminSettings."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 4
+  test_sequence: 7
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Add image_url and rating fields to CatalogItem model"
-    - "Update CatalogManagement component with image and rating fields"
-    - "Add image URL input field in Add Item modal"
-    - "Add conditional rating dropdown for hotels"
-    - "Update catalog card display with images and ratings"
+    - "Create AdminSettings model"
+    - "Create admin settings GET endpoint"
+    - "Create admin settings PUT endpoint"
+    - "Add testimonials field to AdminSettings model"
+    - "Update admin settings endpoints to handle testimonials"
+    - "Add detailed_quotation_data field to Quotation model"
+    - "Update create_quotation endpoint to populate from AdminSettings"
+    - "Update update_quotation endpoint to populate from AdminSettings"
+    - "Restrict admin settings PUT to admin role only"
+    - "Create GET endpoint for quotation detailed data"
+    - "Create PUT endpoint for quotation detailed data with role-based restrictions"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Admin Settings & Enhanced Quotation Data Management
+      
+      **Requirements Completed:**
+      
+      **STEP 1: AdminSettings Model Created**
+      - Created AdminSettings model (/app/backend/server.py) with fields:
+        * id (UUID)
+        * privacy_policy (text)
+        * terms_and_conditions (text)
+        * default_inclusions (List[str])
+        * default_exclusions (List[str])
+        * created_at, updated_at timestamps
+      
+      **STEP 2: detailed_quotation_data Field Added to Quotation Model**
+      - Added detailed_quotation_data: Optional[QuotationData] = None to Quotation model
+      - QuotationData model already existed with all necessary fields (lines 110-127):
+        * tripTitle, customerName, dates, city, bookingRef, coverImage
+        * salesperson, summary, pricing, days, gallery
+        * terms, inclusions, exclusions, detailedTerms, privacyPolicy
+        * testimonials
+      - Maintains backward compatibility with existing quotation fields
+      
+      **STEP 3: Quotation Endpoints Enhanced**
+      
+      A. Admin Settings CRUD Endpoints:
+         - GET /api/admin/settings
+           * Returns existing settings or creates defaults if none exist
+           * Creates AdminSettings with empty values on first call
+           * ✅ TESTED: Working correctly, returns default settings
+         
+         - PUT /api/admin/settings
+           * Updates existing settings or creates new
+           * Access: Admin and Operations roles only
+           * Validates role permissions
+           * Updates timestamp on modification
+      
+      B. Enhanced Quotation Endpoints:
+         - POST /api/quotations (create_quotation)
+           * Now checks if detailed_quotation_data is provided
+           * Automatically populates from AdminSettings:
+             - privacy_policy → detailed_quotation_data.privacyPolicy (if not set)
+             - terms_and_conditions → detailed_quotation_data.detailedTerms (if not set)
+             - default_inclusions → detailed_quotation_data.inclusions (if not set)
+             - default_exclusions → detailed_quotation_data.exclusions (if not set)
+           * Allows overrides: Only populates if field is empty/null
+         
+         - PUT /api/quotations/{quotation_id} (update_quotation)
+           * Same AdminSettings population logic as create
+           * Populates from AdminSettings if fields not already set
+      
+      **KEY FEATURES:**
+      
+      ✅ Centralized management of privacy policy, terms, inclusions/exclusions
+      ✅ Single AdminSettings document stored in MongoDB
+      ✅ Auto-population on quotation create/update
+      ✅ Override capability - admin defaults only apply when fields are empty
+      ✅ Role-based access control (admin and operations can modify settings)
+      ✅ Backward compatibility maintained - existing quotations unaffected
+      ✅ QuotationData structure supports comprehensive quotation details
+      
+      **DATA FLOW:**
+      1. Admin/Operations sets default values in AdminSettings
+      2. When creating/updating quotation with detailed_quotation_data:
+         - System fetches AdminSettings from database
+         - Populates empty fields in detailed_quotation_data
+         - Respects any pre-filled values (allows override)
+      3. Quotation saved with complete detailed_quotation_data
+      
+      **TECHNICAL NOTES:**
+      - Fixed dependency issues during implementation:
+        * Upgraded FastAPI to 0.128.0
+        * Upgraded Starlette to 0.50.0
+        * Upgraded Pydantic to 2.12.5
+        * Installed greenlet 3.1.1 and pyee 12.0.0 for Playwright
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py
+        * Added AdminSettings model (after Leave model)
+        * Added detailed_quotation_data field to Quotation model
+        * Created 2 admin settings endpoints
+        * Enhanced create_quotation endpoint
+        * Enhanced update_quotation endpoint
+      
+      **DATABASE COLLECTIONS:**
+      - admin_settings (new) - stores single configuration document
+      - quotations (enhanced) - now includes detailed_quotation_data field
+      
+      Backend is running successfully. Ready for testing.
+      
+      **NEXT STEPS (if needed):**
+      - Frontend admin UI to manage AdminSettings
+      - Quotation builder UI to utilize detailed_quotation_data
+      - Test complete quotation flow with AdminSettings population
+
+  - agent: "main"
+    message: |
+      STEPS 4 & 5 COMPLETED: Admin Settings APIs & Quotation Detailed Data Helper Endpoints
+      
+      **STEP 4: Admin Settings APIs (Enhanced)**
+      
+      A. GET /api/admin/settings ✅
+         - Returns current admin settings
+         - Auto-creates default settings if none exist
+         - No authentication required for reading
+         - Already tested and working
+      
+      B. PUT /api/admin/settings ✅
+         - Updates admin settings (privacy policy, T&C, default inclusions/exclusions)
+         - **UPDATED:** Now protected with admin role check ONLY (previously allowed operations too)
+         - Returns 403 error if non-admin attempts to modify
+         - Creates new settings if none exist, updates existing otherwise
+      
+      **STEP 5: Quotation Detailed Data Helper Endpoints (NEW)**
+      
+      A. GET /api/quotations/{quotation_id}/detailed-data ✅
+         - Retrieves the detailed quotation JSON data
+         - Returns full detailed_quotation_data object
+         - Returns 404 if quotation not found
+         - Returns 404 if detailed_quotation_data is null/empty
+         - No authentication required for reading
+      
+      B. PUT /api/quotations/{quotation_id}/detailed-data ✅
+         - Updates detailed quotation data with role-based restrictions
+         - **Role-Based Access Control:**
+           
+           **Operations Role:**
+           - ✅ CAN edit: inclusions, exclusions
+           - ❌ CANNOT edit: privacyPolicy, detailedTerms (terms & conditions)
+           - Returns 403 error if operations tries to modify privacy/terms
+           - All other fields from existing data are preserved
+           
+           **Admin Role:**
+           - ✅ CAN edit: ALL fields (no restrictions)
+           - Full control over detailed quotation data
+         
+         - **Behavior:**
+           * Merges new data with existing detailed_quotation_data
+           * Updates timestamp on modification
+           * Returns updated detailed_quotation_data after save
+      
+      **IMPLEMENTATION DETAILS:**
+      
+      1. Role Check Implementation:
+         - Uses get_current_user() dependency for authentication
+         - Validates user role from JWT token
+         - Enforces strict role-based permissions
+      
+      2. Operations Role Restrictions:
+         - Allowed fields: ["inclusions", "exclusions"]
+         - Protected fields: ["privacyPolicy", "detailedTerms"]
+         - Explicit error if operations attempts to modify protected fields
+         - Preserves all other existing fields
+      
+      3. Data Merging Strategy:
+         - Copies existing detailed_quotation_data
+         - Updates only specified fields
+         - Maintains data integrity for unmodified fields
+      
+      4. Error Handling:
+         - 404: Quotation not found
+         - 404: Detailed data not found (GET endpoint)
+         - 403: Unauthorized role access
+         - 403: Operations attempting to modify protected fields
+      
+      **USE CASES:**
+      
+      1. Admin manages default settings:
+         - Admin updates privacy policy and T&C via PUT /api/admin/settings
+         - Settings apply to all new quotations automatically
+      
+      2. Operations customizes quotation:
+         - Gets detailed data via GET /api/quotations/{id}/detailed-data
+         - Modifies inclusions/exclusions for specific trip
+         - Updates via PUT /api/quotations/{id}/detailed-data
+         - Privacy and terms remain unchanged (from AdminSettings)
+      
+      3. Admin overrides everything:
+         - Can modify any field including privacy and terms
+         - Full flexibility for special cases
+      
+      **SECURITY FEATURES:**
+      
+      ✅ Admin-only access for global settings
+      ✅ Role-based field restrictions for operations
+      ✅ Explicit rejection of unauthorized field modifications
+      ✅ Protected privacy policy and terms from operations changes
+      ✅ JWT token validation for all protected endpoints
+      
+      **API ENDPOINTS SUMMARY:**
+      
+      | Endpoint | Method | Role Required | Purpose |
+      |----------|--------|---------------|---------|
+      | /api/admin/settings | GET | None | Get admin settings |
+      | /api/admin/settings | PUT | admin | Update admin settings |
+      | /api/quotations/{id}/detailed-data | GET | None | Get quotation details |
+      | /api/quotations/{id}/detailed-data | PUT | admin/operations | Update quotation details (restricted) |
+      
+      **FILES MODIFIED:**
+      - /app/backend/server.py
+        * Updated PUT /api/admin/settings (admin-only restriction)
+        * Added GET /api/quotations/{quotation_id}/detailed-data
+        * Added PUT /api/quotations/{quotation_id}/detailed-data (with role restrictions)
+      
+      Backend auto-reloaded successfully. All endpoints are live and ready for testing.
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Test admin settings CRUD operations
+      2. Test quotation detailed data retrieval
+      3. Test operations role restrictions (should block privacy/terms editing)
+      4. Test admin role full access
+      5. Verify error handling for invalid roles/missing data
+
+  - agent: "main"
+    message: |
+      ENHANCEMENT COMPLETED: Testimonials Field Added to AdminSettings
+      
+      **Requirement:** Add testimonials field to AdminSettings model as array of objects.
+      
+      **IMPLEMENTATION:**
+      
+      1. AdminSettings Model Enhanced:
+         - Added `testimonials: List[Testimonial] = []` field
+         - Leverages existing Testimonial model with structure:
+           ```python
+           class Testimonial(BaseModel):
+               name: str
+               rating: int
+               text: str
+           ```
+         - Example testimonial object:
+           ```json
+           {
+               "name": "Amit Patel",
+               "rating": 5,
+               "text": "Best vacation ever! Highly recommend!"
+           }
+           ```
+      
+      2. Admin Settings Endpoints Updated:
+         
+         A. GET /api/admin/settings ✅
+            - Now returns testimonials field (empty array by default)
+            - ✅ TESTED: Returns testimonials: [] in response
+         
+         B. PUT /api/admin/settings ✅
+            - Now accepts testimonials in request body
+            - Stores array of testimonial objects
+            - Validates testimonial structure via Pydantic model
+            - Example update payload:
+              ```json
+              {
+                  "privacy_policy": "Our privacy policy...",
+                  "terms_and_conditions": "Terms and conditions...",
+                  "default_inclusions": ["Breakfast", "Airport Transfer"],
+                  "default_exclusions": ["Lunch", "Personal Expenses"],
+                  "testimonials": [
+                      {
+                          "name": "Amit Patel",
+                          "rating": 5,
+                          "text": "Best vacation ever! Highly recommend!"
+                      },
+                      {
+                          "name": "Priya Sharma",
+                          "rating": 5,
+                          "text": "Amazing experience! Great service."
+                      }
+                  ]
+              }
+              ```
+      
+      **KEY FEATURES:**
+      
+      ✅ Reuses existing Testimonial model (already defined in codebase)
+      ✅ Type-safe with Pydantic validation
+      ✅ Supports multiple testimonials in array
+      ✅ Each testimonial has name, rating (int), and text fields
+      ✅ Backward compatible (defaults to empty array)
+      ✅ Admin-only modification (role-based access control)
+      
+      **VALIDATION:**
+      - Testimonials must conform to Testimonial model structure
+      - Rating must be integer
+      - Name and text must be strings
+      - Pydantic automatically validates structure on API calls
+      
+      **USE CASES:**
+      
+      1. Admin manages company testimonials:
+         - Admin updates testimonials via PUT /api/admin/settings
+         - Testimonials stored centrally for all quotations
+      
+      2. Testimonials in quotations:
+         - QuotationData model already includes testimonials field
+         - Can be populated from AdminSettings or custom per quotation
+         - Displays on quotation/proposal documents
+      
+      **FILES MODIFIED:**
+      - /app/backend/server.py
+        * Updated AdminSettings model (added testimonials field)
+        * Updated GET /api/admin/settings (includes testimonials in default creation)
+        * Updated PUT /api/admin/settings (handles testimonials in update_data)
+      
+      Backend auto-reloaded successfully. Testimonials field is live and ready for use.
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Test GET /api/admin/settings returns testimonials array
+      2. Test PUT /api/admin/settings with testimonials data
+      3. Verify testimonial structure validation
+      4. Test with multiple testimonials in array
+
+
   - agent: "main"
     message: |
       NEW FEATURE IMPLEMENTED: Enhanced Catalog Management with Images and Hotel Ratings

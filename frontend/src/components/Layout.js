@@ -13,7 +13,8 @@ import {
   Users,
   Plus,
   Package,
-  Calendar
+  Calendar,
+  Settings
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -49,7 +50,8 @@ export const Layout = ({ children }) => {
       return [
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['admin'] },
-        { path: '/admin-panel', icon: Users, label: 'Admin Panel', roles: ['admin'] }
+        { path: '/admin-panel', icon: Users, label: 'Admin Panel', roles: ['admin'] },
+        { path: '/admin-settings', icon: Settings, label: 'Admin Settings', roles: ['admin'] }
       ];
     }
 
