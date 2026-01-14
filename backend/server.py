@@ -1527,15 +1527,25 @@ async def get_all_salespeople(current_user: dict = Depends(get_current_user)):
     salespeople_cursor = db.users.find({"role": "sales"})
     salespeople = []
     
-    async for sp in salespeople_cursor:
-        salespeople.append({
-            "id": sp["id"],
-            "name": sp["name"],
-            "email": sp["email"],
-            "phone": sp.get("phone", ""),
-            "can_see_cost_breakup": sp.get("can_see_cost_breakup", False),
-            "created_at": sp.get("created_at", "")
-        })
+    # async for sp in salespeople_cursor:
+    #     salespeople.append({
+    #         "id": sp["id"],
+    #         "name": sp["name"],
+    #         "email": sp["email"],
+    #         "phone": sp.get("phone", ""),
+    #         "can_see_cost_breakup": sp.get("can_see_cost_breakup", False),
+    #         "created_at": sp.get("created_at", "")
+    #     })
+    for email, user_data in MOCK_USERS.items():
+        if user_data["role"] == "sales":
+            salespeople.append({
+                "id": user_data["id"],
+                "name": user_data["name"],
+                "email": email,
+                "phone": user_data.get("phone", ""),
+                "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False),
+                "created_at": user_data.get("created_at", "")
+            })
     
     return salespeople
 
