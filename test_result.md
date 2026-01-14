@@ -1174,10 +1174,46 @@ backend:
         agent: "main"
         comment: "Enhanced update_quotation endpoint with same AdminSettings population logic as create_quotation."
 
+  - task: "Restrict admin settings PUT to admin role only"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated PUT /api/admin/settings endpoint to restrict access to admin role only (was previously allowing both admin and operations)."
+
+  - task: "Create GET endpoint for quotation detailed data"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/quotations/{quotation_id}/detailed-data endpoint to retrieve detailed quotation JSON data. Returns 404 if quotation or detailed data not found."
+
+  - task: "Create PUT endpoint for quotation detailed data with role-based restrictions"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PUT /api/quotations/{quotation_id}/detailed-data endpoint. Operations role can ONLY edit inclusions/exclusions. Admin can edit all fields. Operations CANNOT modify privacy_policy or terms & conditions - these remain from AdminSettings."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 5
+  test_sequence: 6
   run_ui: false
 
 test_plan:
@@ -1188,6 +1224,9 @@ test_plan:
     - "Add detailed_quotation_data field to Quotation model"
     - "Update create_quotation endpoint to populate from AdminSettings"
     - "Update update_quotation endpoint to populate from AdminSettings"
+    - "Restrict admin settings PUT to admin role only"
+    - "Create GET endpoint for quotation detailed data"
+    - "Create PUT endpoint for quotation detailed data with role-based restrictions"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
