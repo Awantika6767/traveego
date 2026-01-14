@@ -141,6 +141,15 @@ const AppRoutes = () => {
         }
       />
       
+      <Route
+        path="/quotation-builder"
+        element={
+          <ProtectedRoute>
+            <QuotationBuilder />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
