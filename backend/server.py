@@ -233,6 +233,7 @@ class Quotation(BaseModel):
     advance_percent: float = 30.0
     advance_amount: float = 0.0
     grand_total: float = 0.0
+    detailed_quotation_data: Optional[QuotationData] = None  # Detailed quotation with terms, inclusions, etc.
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -312,6 +313,15 @@ class Leave(BaseModel):
     backup_user_name: str
     reason: Optional[str] = None
     status: str = "active"  # active, cancelled
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class AdminSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    privacy_policy: str = ""
+    terms_and_conditions: str = ""
+    default_inclusions: List[str] = []
+    default_exclusions: List[str] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -639,6 +649,26 @@ async def assign_request_to_me(request_id: str, data: Dict[str, Any]):
 # Quotation endpoints
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
+    # If detailed_quotation_data is provided, populate with AdminSettings defaults
+    if quotation.detailed_quotation_data:
+        admin_settings = await db.admin_settings.find_one({})
+        if admin_settings:
+            # Populate privacy_policy from AdminSettings
+            if not quotation.detailed_quotation_data.privacyPolicy:
+                quotation.detailed_quotation_data.privacyPolicy = admin_settings.get("privacy_policy", "")
+            
+            # Populate terms from AdminSettings (if detailedTerms is not set)
+            if not quotation.detailed_quotation_data.detailedTerms:
+                quotation.detailed_quotation_data.detailedTerms = admin_settings.get("terms_and_conditions", "")
+            
+            # Populate inclusions from AdminSettings (if not already set)
+            if not quotation.detailed_quotation_data.inclusions:
+                quotation.detailed_quotation_data.inclusions = admin_settings.get("default_inclusions", [])
+            
+            # Populate exclusions from AdminSettings (if not already set)
+            if not quotation.detailed_quotation_data.exclusions:
+                quotation.detailed_quotation_data.exclusions = admin_settings.get("default_exclusions", [])
+    
     quotation_dict = quotation.dict()
     await db.quotations.insert_one(quotation_dict)
     
@@ -668,6 +698,26 @@ async def get_quotation(quotation_id: str):
 
 @api_router.put("/quotations/{quotation_id}", response_model=Quotation)
 async def update_quotation(quotation_id: str, quotation: Quotation):
+    # If detailed_quotation_data is provided, populate with AdminSettings defaults
+    if quotation.detailed_quotation_data:
+        admin_settings = await db.admin_settings.find_one({})
+        if admin_settings:
+            # Populate privacy_policy from AdminSettings if not set
+            if not quotation.detailed_quotation_data.privacyPolicy:
+                quotation.detailed_quotation_data.privacyPolicy = admin_settings.get("privacy_policy", "")
+            
+            # Populate terms from AdminSettings if not set
+            if not quotation.detailed_quotation_data.detailedTerms:
+                quotation.detailed_quotation_data.detailedTerms = admin_settings.get("terms_and_conditions", "")
+            
+            # Populate inclusions from AdminSettings if not set
+            if not quotation.detailed_quotation_data.inclusions:
+                quotation.detailed_quotation_data.inclusions = admin_settings.get("default_inclusions", [])
+            
+            # Populate exclusions from AdminSettings if not set
+            if not quotation.detailed_quotation_data.exclusions:
+                quotation.detailed_quotation_data.exclusions = admin_settings.get("default_exclusions", [])
+    
     quotation.updated_at = datetime.now(timezone.utc).isoformat()
     await db.quotations.update_one({"id": quotation_id}, {"$set": quotation.dict()})
     return quotation
@@ -1587,6 +1637,59 @@ async def toggle_cost_breakup_permission(
     await db.activities.insert_one(activity.dict())
     
     return {"message": "Permission updated successfully", "can_see_cost_breakup": can_see}
+
+# Admin Settings Management
+@api_router.get("/admin/settings", response_model=AdminSettings)
+async def get_admin_settings():
+    """Get admin settings. Creates default settings if none exist."""
+    settings = await db.admin_settings.find_one({})
+    
+    if not settings:
+        # Create default settings
+        default_settings = AdminSettings(
+            privacy_policy="",
+            terms_and_conditions="",
+            default_inclusions=[],
+            default_exclusions=[]
+        )
+        await db.admin_settings.insert_one(default_settings.dict())
+        return default_settings
+    
+    return AdminSettings(**settings)
+
+@api_router.put("/admin/settings", response_model=AdminSettings)
+async def update_admin_settings(
+    settings_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update admin settings. Only accessible by admin and operations."""
+    if current_user.get("role") not in ["admin", "operations"]:
+        raise HTTPException(status_code=403, detail="Only admin and operations can modify settings")
+    
+    # Get existing settings or create new
+    existing_settings = await db.admin_settings.find_one({})
+    
+    update_data = {
+        "privacy_policy": settings_data.get("privacy_policy", ""),
+        "terms_and_conditions": settings_data.get("terms_and_conditions", ""),
+        "default_inclusions": settings_data.get("default_inclusions", []),
+        "default_exclusions": settings_data.get("default_exclusions", []),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if existing_settings:
+        # Update existing
+        await db.admin_settings.update_one(
+            {"id": existing_settings["id"]},
+            {"$set": update_data}
+        )
+        updated_settings = await db.admin_settings.find_one({"id": existing_settings["id"]})
+        return AdminSettings(**updated_settings)
+    else:
+        # Create new
+        new_settings = AdminSettings(**update_data)
+        await db.admin_settings.insert_one(new_settings.dict())
+        return new_settings
 
 # File upload endpoint
 @api_router.post("/upload")

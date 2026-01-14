@@ -1098,24 +1098,197 @@ frontend:
         agent: "main"
         comment: "Updated catalog item cards to show image at the top (if available) with 48px height and rounded corners. Added star rating display for hotels using Star icons (filled yellow for active stars, gray for inactive). Rating displays next to the type badge."
 
+backend:
+  - task: "Create AdminSettings model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added AdminSettings model with privacy_policy, terms_and_conditions, default_inclusions, default_exclusions fields. Model includes id, created_at, updated_at."
+
+  - task: "Create admin settings GET endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/admin/settings endpoint that returns existing settings or creates default settings if none exist."
+      - working: true
+        agent: "main"
+        comment: "Tested endpoint successfully. Returns default settings with empty values for privacy_policy, terms_and_conditions, and empty arrays for inclusions/exclusions."
+
+  - task: "Create admin settings PUT endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PUT /api/admin/settings endpoint accessible by admin and operations roles. Updates existing settings or creates new if none exist."
+
+  - task: "Add detailed_quotation_data field to Quotation model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added detailed_quotation_data: Optional[QuotationData] = None to Quotation model. QuotationData model already existed with all necessary fields."
+
+  - task: "Update create_quotation endpoint to populate from AdminSettings"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced create_quotation endpoint to populate privacy_policy, terms (detailedTerms), inclusions, and exclusions from AdminSettings when detailed_quotation_data is provided. Only populates if fields are not already set (allows override)."
+
+  - task: "Update update_quotation endpoint to populate from AdminSettings"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced update_quotation endpoint with same AdminSettings population logic as create_quotation."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 4
+  test_sequence: 5
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Add image_url and rating fields to CatalogItem model"
-    - "Update CatalogManagement component with image and rating fields"
-    - "Add image URL input field in Add Item modal"
-    - "Add conditional rating dropdown for hotels"
-    - "Update catalog card display with images and ratings"
+    - "Create AdminSettings model"
+    - "Create admin settings GET endpoint"
+    - "Create admin settings PUT endpoint"
+    - "Add detailed_quotation_data field to Quotation model"
+    - "Update create_quotation endpoint to populate from AdminSettings"
+    - "Update update_quotation endpoint to populate from AdminSettings"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Admin Settings & Enhanced Quotation Data Management
+      
+      **Requirements Completed:**
+      
+      **STEP 1: AdminSettings Model Created**
+      - Created AdminSettings model (/app/backend/server.py) with fields:
+        * id (UUID)
+        * privacy_policy (text)
+        * terms_and_conditions (text)
+        * default_inclusions (List[str])
+        * default_exclusions (List[str])
+        * created_at, updated_at timestamps
+      
+      **STEP 2: detailed_quotation_data Field Added to Quotation Model**
+      - Added detailed_quotation_data: Optional[QuotationData] = None to Quotation model
+      - QuotationData model already existed with all necessary fields (lines 110-127):
+        * tripTitle, customerName, dates, city, bookingRef, coverImage
+        * salesperson, summary, pricing, days, gallery
+        * terms, inclusions, exclusions, detailedTerms, privacyPolicy
+        * testimonials
+      - Maintains backward compatibility with existing quotation fields
+      
+      **STEP 3: Quotation Endpoints Enhanced**
+      
+      A. Admin Settings CRUD Endpoints:
+         - GET /api/admin/settings
+           * Returns existing settings or creates defaults if none exist
+           * Creates AdminSettings with empty values on first call
+           * ✅ TESTED: Working correctly, returns default settings
+         
+         - PUT /api/admin/settings
+           * Updates existing settings or creates new
+           * Access: Admin and Operations roles only
+           * Validates role permissions
+           * Updates timestamp on modification
+      
+      B. Enhanced Quotation Endpoints:
+         - POST /api/quotations (create_quotation)
+           * Now checks if detailed_quotation_data is provided
+           * Automatically populates from AdminSettings:
+             - privacy_policy → detailed_quotation_data.privacyPolicy (if not set)
+             - terms_and_conditions → detailed_quotation_data.detailedTerms (if not set)
+             - default_inclusions → detailed_quotation_data.inclusions (if not set)
+             - default_exclusions → detailed_quotation_data.exclusions (if not set)
+           * Allows overrides: Only populates if field is empty/null
+         
+         - PUT /api/quotations/{quotation_id} (update_quotation)
+           * Same AdminSettings population logic as create
+           * Populates from AdminSettings if fields not already set
+      
+      **KEY FEATURES:**
+      
+      ✅ Centralized management of privacy policy, terms, inclusions/exclusions
+      ✅ Single AdminSettings document stored in MongoDB
+      ✅ Auto-population on quotation create/update
+      ✅ Override capability - admin defaults only apply when fields are empty
+      ✅ Role-based access control (admin and operations can modify settings)
+      ✅ Backward compatibility maintained - existing quotations unaffected
+      ✅ QuotationData structure supports comprehensive quotation details
+      
+      **DATA FLOW:**
+      1. Admin/Operations sets default values in AdminSettings
+      2. When creating/updating quotation with detailed_quotation_data:
+         - System fetches AdminSettings from database
+         - Populates empty fields in detailed_quotation_data
+         - Respects any pre-filled values (allows override)
+      3. Quotation saved with complete detailed_quotation_data
+      
+      **TECHNICAL NOTES:**
+      - Fixed dependency issues during implementation:
+        * Upgraded FastAPI to 0.128.0
+        * Upgraded Starlette to 0.50.0
+        * Upgraded Pydantic to 2.12.5
+        * Installed greenlet 3.1.1 and pyee 12.0.0 for Playwright
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py
+        * Added AdminSettings model (after Leave model)
+        * Added detailed_quotation_data field to Quotation model
+        * Created 2 admin settings endpoints
+        * Enhanced create_quotation endpoint
+        * Enhanced update_quotation endpoint
+      
+      **DATABASE COLLECTIONS:**
+      - admin_settings (new) - stores single configuration document
+      - quotations (enhanced) - now includes detailed_quotation_data field
+      
+      Backend is running successfully. Ready for testing.
+      
+      **NEXT STEPS (if needed):**
+      - Frontend admin UI to manage AdminSettings
+      - Quotation builder UI to utilize detailed_quotation_data
+      - Test complete quotation flow with AdminSettings population
+
   - agent: "main"
     message: |
       NEW FEATURE IMPLEMENTED: Enhanced Catalog Management with Images and Hotel Ratings
