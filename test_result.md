@@ -1138,6 +1138,33 @@ backend:
         agent: "main"
         comment: "Created PUT /api/admin/settings endpoint accessible by admin and operations roles. Updates existing settings or creates new if none exist."
 
+  - task: "Add testimonials field to AdminSettings model"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added testimonials: List[Testimonial] = [] field to AdminSettings model. Testimonial model already existed with name, rating, text structure."
+      - working: true
+        agent: "main"
+        comment: "✅ TESTED: GET /api/admin/settings returns testimonials field as empty array. Field structure validated."
+
+  - task: "Update admin settings endpoints to handle testimonials"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated GET and PUT /api/admin/settings endpoints to include testimonials field in default creation and update operations."
+
   - task: "Add detailed_quotation_data field to Quotation model"
     implemented: true
     working: "NA"
