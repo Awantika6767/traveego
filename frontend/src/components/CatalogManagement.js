@@ -22,7 +22,9 @@ export const CatalogManagement = () => {
     destination: '',
     supplier: '',
     default_price: 0,
-    description: ''
+    description: '',
+    image_url: '',
+    rating: 3
   });
 
   useEffect(() => {
