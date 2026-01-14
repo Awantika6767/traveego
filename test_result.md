@@ -701,3 +701,82 @@ agent_communication:
       - Routes: App.js (added /leaves route)
       
       Backend is running. Ready for comprehensive testing.
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Admin Control for Cost Breakup Visibility
+      
+      **Requirement:** Admin can control whether specific salespeople can see cost breakup. Customers never see cost breakup. By default, salespeople can't see cost breakup.
+      
+      **BACKEND IMPLEMENTATION:**
+      
+      1. User Model Enhancement:
+         - Added `can_see_cost_breakup` field to User model (default: False)
+         - Updated MOCK_USERS to include permission field for all roles
+         - Added admin user: admin@travel.com / admin123
+      
+      2. Authentication Enhancement:
+         - Created `get_current_user()` dependency function for route protection
+         - Updated login endpoint to return `can_see_cost_breakup` field
+         - Added Header and Depends imports from FastAPI
+      
+      3. Admin API Endpoints:
+         - GET /api/admin/salespeople - List all salespeople with their permissions
+         - PUT /api/admin/salespeople/{user_id}/cost-breakup-permission - Toggle permission for specific salesperson
+         - Both endpoints protected: only admin role can access
+         - Activity logging for permission changes
+      
+      **FRONTEND IMPLEMENTATION:**
+      
+      1. RequestDetail.js Enhancement:
+         - Added `shouldShowCostBreakup()` function with logic:
+           * Customer: NEVER show cost breakup
+           * Operations/Admin/Accountant: ALWAYS show (need for operations)
+           * Salesperson: Only show if can_see_cost_breakup = true
+         - Modified line item rendering to conditionally display:
+           * With permission: Shows supplier, unit price, quantity, total
+           * Without permission: Shows only item name and total
+         - Added CSS class `line-item-row-simple` for simplified grid layout
+      
+      2. AdminPanel Component (/admin-panel):
+         - Lists all salespeople with their details
+         - Toggle switch for each salesperson to enable/disable cost breakup visibility
+         - Real-time updates with loading states
+         - Visual indicators (Eye icon for enabled, EyeOff for disabled)
+         - Color-coded toggles (green for enabled, gray for disabled)
+         - Info box explaining the feature
+         - Access restricted to admin role only
+      
+      3. API Integration:
+         - Added getAllSalespeople() method to api.js
+         - Added toggleCostBreakupPermission() method to api.js
+      
+      4. Navigation & Routing:
+         - Added /admin-panel route in App.js
+         - Added Admin Panel navigation item in Layout.js (visible to admin only)
+         - Updated Dashboard.js to show admin dashboard with link to admin panel
+      
+      **KEY FEATURES:**
+      
+      ✅ Admin has full control over salesperson permissions
+      ✅ Customers NEVER see cost breakup (hardcoded security)
+      ✅ Default state is secure (salespeople can't see cost breakup)
+      ✅ Operations, Admin, Accountant always see cost details (operational necessity)
+      ✅ Real-time toggle with visual feedback
+      ✅ Activity logging for audit trail
+      ✅ Role-based access control for admin endpoints
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py (User model, get_current_user, 2 admin endpoints)
+      - Frontend Components: RequestDetail.js (conditional rendering), AdminPanel.js (new), Dashboard.js (admin view), Layout.js (navigation)
+      - Frontend Routing: App.js (admin route)
+      - Frontend API: api.js (2 admin methods)
+      - Styles: App.css (line-item-row-simple class)
+      
+      **TEST CREDENTIALS:**
+      - Admin: admin@travel.com / admin123
+      - Sales: sales@travel.com / sales123 (default: can't see cost breakup)
+      - Operations: ops@travel.com / ops123 (always sees cost breakup)
+      - Customer: customer@travel.com / customer123 (never sees cost breakup)
+      
+      Both backend and frontend are running. Ready for testing.
+
