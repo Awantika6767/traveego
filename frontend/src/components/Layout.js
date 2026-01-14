@@ -13,7 +13,8 @@ import {
   Users,
   Plus,
   Package,
-  Calendar
+  Calendar,
+  Settings
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
