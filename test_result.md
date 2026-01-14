@@ -637,6 +637,95 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Added getOpenRequests, assignRequestToMe, and downloadProformaInvoice to API utility"
+
+  - task: "Add conditional cost breakup display in RequestDetail"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added shouldShowCostBreakup function and modified line item rendering to conditionally show supplier, unit_price, and quantity based on user role and can_see_cost_breakup permission"
+
+  - task: "Create AdminPanel component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/AdminPanel.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created AdminPanel component with salesperson list, toggle switches for cost breakup permission, real-time updates, and role-based access control"
+
+  - task: "Add admin API methods to API utility"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/utils/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added getAllSalespeople and toggleCostBreakupPermission methods to api.js"
+
+  - task: "Add admin panel route in App.js"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added /admin-panel route with ProtectedRoute wrapper and imported AdminPanel component"
+
+  - task: "Add admin navigation in Layout"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Layout.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added admin role support to getNavItems with Admin Panel navigation link and updated Dashboard navigation item to include admin role"
+
+  - task: "Add admin dashboard view"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Dashboard.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added admin role check in Dashboard with simple admin dashboard view and link to admin panel"
+
+  - task: "Add CSS for simplified line item layout"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.css"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added line-item-row-simple CSS class with simplified grid layout for users without cost breakup permission"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 3
   run_ui: false
 
 test_plan:
