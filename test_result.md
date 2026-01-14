@@ -1237,6 +1237,43 @@ backend:
         agent: "main"
         comment: "Created PUT /api/quotations/{quotation_id}/detailed-data endpoint. Operations role can ONLY edit inclusions/exclusions. Admin can edit all fields. Operations CANNOT modify privacy_policy or terms & conditions - these remain from AdminSettings."
 
+frontend:
+  - task: "Create QuotationBuilder component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/QuotationBuilder.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created comprehensive QuotationBuilder component with all form sections for detailed quotation data including trip header, salesperson info, summary, pricing, day-by-day itinerary with activities, inclusions, exclusions, terms, and testimonials. Component pre-fills data from admin settings, request, and user info."
+
+  - task: "Add Create Detailed Quotation button to RequestDetail"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added 'Create Detailed Quotation' button visible to operations and sales roles. Button navigates to QuotationBuilder with request and quotation data passed via state."
+
+  - task: "Add QuotationBuilder route in App.js"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added /quotation-builder route with ProtectedRoute wrapper. Imported QuotationBuilder component."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
