@@ -1926,3 +1926,117 @@ agent_communication:
       ✅ Both services running successfully
       ✅ Ready for testing
 
+  - agent: "main"
+    message: |
+      MOCK SEED DATA UPDATE: Enhanced with Images, Ratings, and Admin Settings
+      
+      **Changes Made:**
+      
+      Updated the seed data endpoint (/api/seed) to include all recently added fields and features:
+      
+      **1. Catalog Items Enhancement:**
+      - Added image_url field to all 11 catalog items
+      - Added rating field (1-5 stars) to all hotel items
+      - Added one more hotel: "Resort Hotel - Goa" (4 stars)
+      - All images sourced from Unsplash (high-quality stock photos)
+      
+      **Hotels with Ratings:**
+      - Luxury Hotel - Manali: 5 stars ⭐⭐⭐⭐⭐
+      - Budget Hotel - Manali: 3 stars ⭐⭐⭐
+      - Luxury Hotel - Goa: 5 stars ⭐⭐⭐⭐⭐
+      - Resort Hotel - Goa: 4 stars ⭐⭐⭐⭐ (NEW)
+      
+      **2. Admin Settings Seed Data (NEW):**
+      
+      Added comprehensive AdminSettings collection with realistic data:
+      
+      - **Privacy Policy**: Complete privacy policy document with sections on:
+        * Information collection
+        * Use of information
+        * Data security
+        * Third-party sharing
+        * User rights
+      
+      - **Terms and Conditions**: Detailed T&C covering:
+        * Booking and payment (30% advance required)
+        * Cancellation policy with refund tiers
+        * Modification policies
+        * Travel document requirements
+        * Liability clauses
+        * Force majeure
+        * Dispute resolution
+      
+      - **Default Inclusions** (6 items):
+        * Accommodation as per itinerary
+        * Daily breakfast
+        * All transfers and sightseeing by private vehicle
+        * Driver allowance and fuel charges
+        * Parking and toll charges
+        * All applicable hotel taxes
+      
+      - **Default Exclusions** (8 items):
+        * Airfare / Train fare
+        * Lunch and dinner (unless specified)
+        * Entry fees to monuments
+        * Personal expenses
+        * Travel insurance
+        * Unforeseen circumstances
+        * GST 5%
+        * Anything not in inclusions
+      
+      - **Testimonials** (3 testimonials):
+        * Amit Patel - 5 stars: Manali trip feedback
+        * Priya Sharma - 5 stars: Honeymoon in Goa
+        * Rajesh Kumar - 5 stars: Family vacation
+      
+      **3. Database Collections Updated:**
+      
+      Seed endpoint now clears and populates:
+      - catalog (with images and ratings)
+      - admin_settings (NEW - with complete data)
+      - requests (existing data)
+      - quotations (existing data)
+      - activities (existing data)
+      
+      **Testing Results:**
+      
+      ✅ Seed endpoint executed successfully
+      ✅ All 11 catalog items created with images
+      ✅ Hotel ratings properly assigned (3-5 stars)
+      ✅ AdminSettings document created with complete data
+      ✅ Privacy policy populated (full text)
+      ✅ Terms and conditions populated (full text)
+      ✅ Default inclusions (6 items) populated
+      ✅ Default exclusions (8 items) populated
+      ✅ Testimonials (3 items) populated
+      
+      **Dependency Updates:**
+      - Fixed pydantic/starlette compatibility issues
+      - Upgraded pydantic to 2.12.5
+      - Upgraded starlette to 0.41.3
+      - Installed greenlet 3.1.1 and pyee 12.0.0
+      
+      **Benefits:**
+      1. Catalog now displays with professional images
+      2. Hotels show star ratings visually
+      3. QuotationBuilder auto-fills with admin settings
+      4. PDF generation has complete data
+      5. Realistic data for testing and demos
+      
+      **How to Reseed:**
+      ```bash
+      curl -X POST http://localhost:8001/api/seed
+      ```
+      
+      **Files Modified:**
+      - /app/backend/server.py (seed_data function, lines ~2117-2250)
+      
+      **Documentation:**
+      - Created /app/SEED_DATA_UPDATE_SUMMARY.md with detailed information
+      
+      **STATUS:**
+      ✅ Mock seed data fully updated
+      ✅ Backend running successfully
+      ✅ All APIs tested and working
+      ✅ Ready for frontend testing
+
