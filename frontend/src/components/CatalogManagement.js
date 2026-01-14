@@ -163,6 +163,17 @@ export const CatalogManagement = () => {
       <div className="catalog-grid">
         {filteredItems.map(item => (
           <Card key={item.id} className="hover:shadow-lg transition-shadow" data-testid={`catalog-item-${item.id}`}>
+            {/* Image at the top if available */}
+            {item.image_url && (
+              <div className="w-full h-48 overflow-hidden rounded-t-lg">
+                <img 
+                  src={item.image_url} 
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -171,7 +182,24 @@ export const CatalogManagement = () => {
                   </div>
                   <div>
                     <CardTitle className="text-base">{item.name}</CardTitle>
-                    <Badge className="mt-1 capitalize" variant="secondary">{item.type}</Badge>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="capitalize" variant="secondary">{item.type}</Badge>
+                      {/* Show star rating for hotels */}
+                      {item.type === 'hotel' && item.rating && (
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, index) => (
+                            <Star
+                              key={index}
+                              className={`w-4 h-4 ${
+                                index < item.rating 
+                                  ? 'fill-yellow-400 text-yellow-400' 
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
