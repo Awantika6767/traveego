@@ -318,6 +318,38 @@ export const CatalogManagement = () => {
                 data-testid="item-description-input"
               />
             </div>
+
+            {/* Image URL field - Required for all items */}
+            <div className="space-y-2">
+              <Label htmlFor="image_url">Image URL *</Label>
+              <Input
+                id="image_url"
+                value={newItem.image_url}
+                onChange={(e) => setNewItem({ ...newItem, image_url: e.target.value })}
+                placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                data-testid="item-image-url-input"
+              />
+            </div>
+
+            {/* Rating field - Only for hotels */}
+            {newItem.type === 'hotel' && (
+              <div className="space-y-2">
+                <Label htmlFor="rating">Hotel Rating (Stars) *</Label>
+                <select
+                  id="rating"
+                  value={newItem.rating}
+                  onChange={(e) => setNewItem({ ...newItem, rating: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  data-testid="item-rating-select"
+                >
+                  <option value="1">1 Star ⭐</option>
+                  <option value="2">2 Stars ⭐⭐</option>
+                  <option value="3">3 Stars ⭐⭐⭐</option>
+                  <option value="4">4 Stars ⭐⭐⭐⭐</option>
+                  <option value="5">5 Stars ⭐⭐⭐⭐⭐</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -331,7 +363,13 @@ export const CatalogManagement = () => {
             <Button
               onClick={handleAddItem}
               className="bg-orange-600 hover:bg-orange-700 text-white"
-              disabled={!newItem.name || !newItem.destination || !newItem.default_price}
+              disabled={
+                !newItem.name || 
+                !newItem.destination || 
+                !newItem.default_price || 
+                !newItem.image_url ||
+                (newItem.type === 'hotel' && !newItem.rating)
+              }
               data-testid="modal-submit-button"
             >
               Add Item
