@@ -1035,3 +1035,155 @@ agent_communication:
       
       Both backend and frontend are running. Ready for testing.
 
+
+backend:
+  - task: "Add image_url and rating fields to CatalogItem model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added image_url (Optional[str]) and rating (Optional[int]) fields to CatalogItem model. Rating is specifically for hotels (1-5 stars)."
+
+frontend:
+  - task: "Update CatalogManagement component with image and rating fields"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CatalogManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added image_url to newItem state. Added rating field (default: 3) for hotels. Updated handleAddItem to conditionally include rating only for hotels. Added Star icon import from lucide-react."
+
+  - task: "Add image URL input field in Add Item modal"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CatalogManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added image URL input field (required for all catalog items) in the Add Item modal with placeholder and validation."
+
+  - task: "Add conditional rating dropdown for hotels"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CatalogManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added rating dropdown (1-5 stars) that only appears when type is 'hotel'. Dropdown shows visual star emojis. Updated form validation to require rating for hotels."
+
+  - task: "Update catalog card display with images and ratings"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CatalogManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated catalog item cards to show image at the top (if available) with 48px height and rounded corners. Added star rating display for hotels using Star icons (filled yellow for active stars, gray for inactive). Rating displays next to the type badge."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 4
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Add image_url and rating fields to CatalogItem model"
+    - "Update CatalogManagement component with image and rating fields"
+    - "Add image URL input field in Add Item modal"
+    - "Add conditional rating dropdown for hotels"
+    - "Update catalog card display with images and ratings"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTED: Enhanced Catalog Management with Images and Hotel Ratings
+      
+      **Requirement:** When adding catalog items, ask for 1 image. If it's a hotel, also ask for rating (how many stars).
+      
+      **BACKEND IMPLEMENTATION:**
+      
+      1. CatalogItem Model Enhancement (/app/backend/server.py):
+         - Added `image_url: Optional[str] = None` - stores URL of catalog item image
+         - Added `rating: Optional[int] = None` - stores hotel star rating (1-5)
+         
+      **FRONTEND IMPLEMENTATION:**
+      
+      1. State Management (CatalogManagement.js):
+         - Updated newItem state to include image_url and rating fields
+         - Default rating set to 3 stars for hotels
+         
+      2. Add Item Modal Enhancements:
+         - Added Image URL input field (REQUIRED for all catalog items)
+           * Text input with placeholder
+           * Validated as required field
+         
+         - Added Hotel Rating dropdown (CONDITIONAL - only for hotels)
+           * Select dropdown with 1-5 star options
+           * Visual star emojis in dropdown labels
+           * Only appears when type is 'hotel'
+           * Required when hotel type is selected
+         
+      3. Catalog Display Enhancements:
+         - Image Display:
+           * Shows item image at top of card if image_url is available
+           * 48px height with object-cover for proper scaling
+           * Rounded corners matching card design
+         
+         - Rating Display (Hotels Only):
+           * Shows 5 star icons next to type badge
+           * Filled yellow stars for rating value
+           * Gray stars for remaining slots
+           * Only displays for hotel type items with rating
+         
+      4. Validation Updates:
+         - Form submit button disabled unless:
+           * Name is provided
+           * Destination is provided
+           * Default price is provided
+           * Image URL is provided (NEW)
+           * Rating is provided if type is hotel (NEW)
+         
+      5. Data Handling:
+         - handleAddItem function enhanced to remove rating field for non-hotel items before API submission
+         - State reset includes new fields on successful submission
+         
+      **KEY FEATURES:**
+      
+      ✅ All catalog items require an image URL
+      ✅ Hotels specifically require star rating (1-5 stars)
+      ✅ Rating field dynamically shows/hides based on item type
+      ✅ Visual star display in catalog cards for hotels
+      ✅ Proper validation ensures data completeness
+      ✅ Clean UI with images enhancing catalog presentation
+      ✅ Star icons imported from lucide-react library
+      
+      **USER EXPERIENCE:**
+      - When adding any catalog item: User must provide image URL
+      - When adding a hotel: User must also select star rating (1-5)
+      - When viewing catalog: Hotels show star ratings, all items show images
+      - Form validates required fields before allowing submission
+      
+      Both backend and frontend are running with hot reload enabled. Ready for testing.
+
