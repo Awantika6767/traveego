@@ -1008,6 +1008,233 @@ async def download_proforma_invoice(quotation_id: str):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+@api_router.post("/generate-pdf")
+async def generate_detailed_quotation_pdf(quotation_data: QuotationData):
+    """Generate comprehensive quotation PDF from detailed quotation data"""
+    
+    # Create PDF in memory
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=28,
+        textColor=colors.HexColor('#f97316'),
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#ea580c'),
+        spaceAfter=10,
+        spaceBefore=15,
+        fontName='Helvetica-Bold'
+    )
+    
+    subheading_style = ParagraphStyle(
+        'SubHeading',
+        parent=styles['Heading3'],
+        fontSize=13,
+        textColor=colors.HexColor('#374151'),
+        spaceAfter=8,
+        spaceBefore=10,
+        fontName='Helvetica-Bold'
+    )
+    
+    normal_style = styles['Normal']
+    normal_style.fontSize = 10
+    
+    small_style = ParagraphStyle(
+        'Small',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#6B7280')
+    )
+    
+    # Title
+    elements.append(Paragraph(quotation_data.tripTitle.upper(), title_style))
+    elements.append(Spacer(1, 10))
+    
+    # Booking Reference and Dates
+    ref_data = [
+        [f"Booking Reference: {quotation_data.bookingRef}", f"Dates: {quotation_data.dates}"],
+    ]
+    ref_table = Table(ref_data, colWidths=[3.5*inch, 3.5*inch])
+    ref_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+    ]))
+    elements.append(ref_table)
+    elements.append(Spacer(1, 20))
+    
+    # Trip Summary Section
+    elements.append(Paragraph("TRIP SUMMARY", heading_style))
+    
+    summary_data = [
+        ["Duration:", quotation_data.summary.duration],
+        ["Number of Travelers:", str(quotation_data.summary.travelers)],
+        ["Destination:", quotation_data.city],
+        ["Rating:", f"{'⭐' * int(quotation_data.summary.rating)} ({quotation_data.summary.rating})"],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[2*inch, 5*inch])
+    summary_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 10))
+    
+    # Highlights
+    if quotation_data.summary.highlights:
+        elements.append(Paragraph("<b>Trip Highlights:</b>", subheading_style))
+        for highlight in quotation_data.summary.highlights:
+            elements.append(Paragraph(f"• {highlight}", normal_style))
+        elements.append(Spacer(1, 15))
+    
+    # Day-by-Day Itinerary
+    elements.append(Paragraph("DAY-BY-DAY ITINERARY", heading_style))
+    
+    for day in quotation_data.days:
+        # Day header
+        day_header = f"Day {day.dayNumber}: {day.location}"
+        if day.date:
+            day_header += f" - {day.date}"
+        
+        elements.append(Paragraph(day_header, subheading_style))
+        
+        # Meals
+        meals_text = f"<b>Meals:</b> Breakfast: {day.meals.breakfast}, Lunch: {day.meals.lunch}, Dinner: {day.meals.dinner}"
+        elements.append(Paragraph(meals_text, small_style))
+        elements.append(Spacer(1, 8))
+        
+        # Activities
+        if day.activities:
+            for activity in day.activities:
+                activity_text = f"<b>{activity.time}</b> - <b>{activity.title}</b>"
+                elements.append(Paragraph(activity_text, normal_style))
+                
+                if activity.description:
+                    elements.append(Paragraph(activity.description, small_style))
+                
+                if activity.meetingPoint:
+                    elements.append(Paragraph(f"<i>Meeting Point: {activity.meetingPoint}</i>", small_style))
+                
+                elements.append(Spacer(1, 5))
+        
+        elements.append(Spacer(1, 10))
+    
+    # Pricing Section
+    elements.append(Paragraph("PRICING DETAILS", heading_style))
+    
+    pricing_data = [
+        ["Subtotal:", f"₹{quotation_data.pricing.subtotal:,.2f}"],
+        ["Taxes (18% GST):", f"₹{quotation_data.pricing.taxes:,.2f}"],
+        ["Discount:", f"- ₹{quotation_data.pricing.discount:,.2f}"],
+        ["<b>Total Amount:</b>", f"<b>₹{quotation_data.pricing.total:,.2f}</b>"],
+        ["Per Person:", f"₹{quotation_data.pricing.perPerson:,.2f}"],
+        [f"<b>Deposit Due (30%):</b>", f"<b>₹{quotation_data.pricing.depositDue:,.2f}</b>"],
+    ]
+    
+    pricing_table = Table(pricing_data, colWidths=[5*inch, 2*inch])
+    pricing_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
+        ('LINEABOVE', (0, 3), (-1, 3), 2, colors.HexColor('#f97316')),
+        ('LINEABOVE', (0, 5), (-1, 5), 1, colors.grey),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(pricing_table)
+    elements.append(Spacer(1, 20))
+    
+    # Inclusions
+    if quotation_data.inclusions:
+        elements.append(Paragraph("INCLUSIONS", heading_style))
+        for inclusion in quotation_data.inclusions:
+            elements.append(Paragraph(f"✓ {inclusion}", normal_style))
+        elements.append(Spacer(1, 15))
+    
+    # Exclusions
+    if quotation_data.exclusions:
+        elements.append(Paragraph("EXCLUSIONS", heading_style))
+        for exclusion in quotation_data.exclusions:
+            elements.append(Paragraph(f"✗ {exclusion}", normal_style))
+        elements.append(Spacer(1, 15))
+    
+    # Terms and Conditions
+    if quotation_data.detailedTerms:
+        elements.append(Paragraph("TERMS & CONDITIONS", heading_style))
+        elements.append(Paragraph(quotation_data.detailedTerms, small_style))
+        elements.append(Spacer(1, 15))
+    
+    # Privacy Policy
+    if quotation_data.privacyPolicy:
+        elements.append(Paragraph("PRIVACY POLICY", heading_style))
+        elements.append(Paragraph(quotation_data.privacyPolicy, small_style))
+        elements.append(Spacer(1, 15))
+    
+    # Testimonials
+    if quotation_data.testimonials:
+        elements.append(Paragraph("WHAT OUR CUSTOMERS SAY", heading_style))
+        for testimonial in quotation_data.testimonials:
+            stars = "⭐" * testimonial.rating
+            testimonial_text = f"<b>{testimonial.name}</b> {stars}<br/><i>\"{testimonial.text}\"</i>"
+            elements.append(Paragraph(testimonial_text, normal_style))
+            elements.append(Spacer(1, 8))
+        elements.append(Spacer(1, 15))
+    
+    # Salesperson Contact
+    elements.append(Paragraph("YOUR TRAVEL CONSULTANT", heading_style))
+    salesperson_data = [
+        ["Name:", quotation_data.salesperson.name],
+        ["Phone:", quotation_data.salesperson.phone],
+        ["Email:", quotation_data.salesperson.email],
+    ]
+    
+    salesperson_table = Table(salesperson_data, colWidths=[1.5*inch, 5.5*inch])
+    salesperson_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(salesperson_table)
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and return as response
+    buffer.seek(0)
+    
+    filename = f"quotation_{quotation_data.bookingRef}.pdf"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # Invoice endpoints
 @api_router.get("/invoices", response_model=List[Invoice])
 async def get_invoices(request_id: Optional[str] = None):
