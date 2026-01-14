@@ -22,6 +22,7 @@ const QuotationBuilder = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [adminSettings, setAdminSettings] = useState(null);
   const [catalog, setCatalog] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
