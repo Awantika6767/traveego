@@ -221,13 +221,118 @@ export const RequestDetail = () => {
     setQuotation(updatedQuotation);
   };
 
+  const buildPdfPayload = () => {
+    if (!request || !quotation) return null;
+
+    const currentVersion = getCurrentVersion();
+    const firstOption = currentVersion?.options?.[0];
+
+    // Basic derived values
+    const tripTitle = request.title || 'Custom Trip Plan';
+    const customerName = request.client_name;
+    const dates = request.preferred_dates;
+    const city = request.destination || 'To Be Decided';
+    const bookingRef = request.id.substring(0, 8).toUpperCase();
+
+    const travelers = request.people_count || 2;
+    const subtotal = firstOption?.subtotal || quotation.grand_total;
+    const taxes = firstOption?.tax_amount || 0;
+    const total = firstOption?.total || quotation.grand_total;
+    const discount = 0;
+    const perPerson = travelers ? total / travelers : total;
+    const depositDue = quotation.advance_amount || 0;
+
+    // Simple day breakdown from line items (group by type)
+    const days = [
+      {
+        dayNumber: 1,
+        date: dates,
+        location: city,
+        meals: {
+          breakfast: 'Included',
+          lunch: 'Self Sponsored',
+          dinner: 'Self Sponsored'
+        },
+        hotel: undefined,
+        activities: (firstOption?.line_items || []).map(item => ({
+          time: '',
+          title: item.name,
+          description: item.type,
+          images: [],
+          meetingPoint: city,
+          type: 'included'
+        }))
+      }
+    ];
+
+    const payload = {
+      tripTitle,
+      customerName,
+      dates,
+      city,
+      bookingRef,
+      coverImage: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop',
+      salesperson: {
+        name: request.assigned_salesperson_name || 'Sales Team',
+        phone: '',
+        email: '',
+        photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop'
+      },
+      summary: {
+        duration: `${dates}`,
+        travelers,
+        rating: 4.8,
+        highlights: [
+          'Curated experiences for your preferences',
+          'Quality stays and transfers',
+          'Personalized support from our team'
+        ]
+      },
+      pricing: {
+        subtotal,
+        taxes,
+        discount,
+        total,
+        perPerson,
+        depositDue,
+        currency: 'INR'
+      },
+      days,
+      gallery: [
+        {
+          url: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=800&fit=crop',
+          caption: 'Destination Preview'
+        }
+      ],
+      terms: pdfTerms,
+      inclusions: [
+        'Accommodation and services as per quotation',
+        'Daily breakfast where mentioned',
+        'All inclusions as itemized in your quotation'
+      ],
+      exclusions: [
+        'International or domestic airfare unless mentioned',
+        'Visa fees and travel insurance',
+        'Personal expenses and anything not mentioned in inclusions'
+      ],
+      detailedTerms: 'Full booking, cancellation and other terms as per company policy.',
+      privacyPolicy: pdfPrivacyPolicy,
+      testimonials: pdfTestimonials
+    };
+
+    return payload;
+  };
+
   const saveQuotation = async () => {
     try {
+      const pdfPayload = buildPdfPayload();
+      const payload = pdfPayload ? { ...quotation, pdf_payload: pdfPayload } : quotation;
+
       if (quotation.id) {
-        await api.updateQuotation(quotation.id, quotation);
+        await api.updateQuotation(quotation.id, payload);
         toast.success('Quotation saved');
       } else {
-        const response = await api.createQuotation(quotation);
+        const response = await api.createQuotation(payload);
         setQuotation(response.data);
         toast.success('Quotation created');
       }
