@@ -2170,3 +2170,108 @@ agent_communication:
       ✅ No breaking changes
       ✅ Ready for testing
 
+  - agent: "main"
+    message: |
+      QUOTATION BUILDER ENHANCEMENT: Inclusions & Exclusions Now Editable
+      
+      **User Requirement:** Make Inclusions and Exclusions editable in the Quotation Builder form for each specific quotation creation.
+      
+      **IMPLEMENTATION:**
+      
+      **Changes Made to QuotationBuilder Component:**
+      
+      1. Added State Variables:
+         - newInclusion: stores input for new inclusion items
+         - newExclusion: stores input for new exclusion items
+      
+      2. Added Functions:
+         - addInclusion(): Adds new inclusion item to the list
+         - removeInclusion(index): Removes specific inclusion item
+         - addExclusion(): Adds new exclusion item to the list
+         - removeExclusion(index): Removes specific exclusion item
+      
+      3. Updated UI - Inclusions Section:
+         - ✅ Input field to add new inclusion items
+         - ✅ Green "Add" button with Plus icon
+         - ✅ Each inclusion item displayed in green card with checkmark (✓)
+         - ✅ Delete button (Trash icon) for each item
+         - ✅ Pre-filled from admin settings but fully customizable
+         - ✅ Empty state message when no items
+         - ℹ️ Helper text: "Pre-filled from admin settings. You can add or remove items for this specific quotation."
+      
+      4. Updated UI - Exclusions Section:
+         - ✅ Input field to add new exclusion items
+         - ✅ Red "Add" button with Plus icon
+         - ✅ Each exclusion item displayed in red card with cross mark (✗)
+         - ✅ Delete button (Trash icon) for each item
+         - ✅ Pre-filled from admin settings but fully customizable
+         - ✅ Empty state message when no items
+         - ℹ️ Helper text: "Pre-filled from admin settings. You can add or remove items for this specific quotation."
+      
+      **FIELDS CONFIGURATION:**
+      
+      **Editable Fields (User Input):**
+      - Trip Title, Customer Name, Dates, City, Cover Image
+      - Summary (Duration, Travelers, Rating, Highlights)
+      - Pricing (Subtotal, Taxes, Discount, Total, Per Person, Deposit)
+      - Day-by-day Itinerary (Days, Hotels, Activities, Meals)
+      - Gallery Images
+      - Terms (Cancellation, Payment, Insurance, Changes)
+      - ✅ **Inclusions** (Add/Remove items)
+      - ✅ **Exclusions** (Add/Remove items)
+      
+      **Auto-filled Fields (Not Editable/Hidden):**
+      - Booking Reference (auto-generated from request ID)
+      - Salesperson Info (from logged-in user: name, phone, email, photo)
+      - Privacy Policy (from admin settings)
+      - Detailed Terms & Conditions (from admin settings)
+      - Testimonials (from admin settings)
+      
+      **USER EXPERIENCE IMPROVEMENTS:**
+      
+      ✅ Keyboard support: Press Enter to add items
+      ✅ Visual distinction: Green for inclusions, Red for exclusions
+      ✅ Clear icons: Checkmark (✓) for inclusions, Cross (✗) for exclusions
+      ✅ Instant feedback: Items appear immediately after adding
+      ✅ Easy removal: One-click delete for any item
+      ✅ Flexibility: Start with admin defaults, customize as needed
+      
+      **DATA FLOW:**
+      
+      1. Load: QuotationBuilder fetches admin settings
+      2. Pre-fill: Inclusions/Exclusions populated from admin settings
+      3. Customize: User can add/remove items for this specific quotation
+      4. Save: Customized inclusions/exclusions saved with quotation
+      5. Result: Each quotation can have unique inclusions/exclusions
+      
+      **BENEFITS:**
+      
+      ✅ Flexibility: Each quotation can be tailored to specific customer needs
+      ✅ Efficiency: Starts with sensible defaults from admin settings
+      ✅ Control: Operations/Sales teams can customize per trip
+      ✅ Consistency: Admin defaults ensure baseline quality
+      ✅ User-friendly: Simple add/remove interface
+      
+      **FILES MODIFIED:**
+      - /app/frontend/src/components/QuotationBuilder.js
+        * Added newInclusion and newExclusion state variables
+        * Added addInclusion, removeInclusion, addExclusion, removeExclusion functions
+        * Updated Inclusions section UI (lines 898-949)
+        * Updated Exclusions section UI (lines 951-1002)
+      
+      **STATUS:**
+      ✅ Frontend updated successfully
+      ✅ Services restarted
+      ✅ No backend changes required (existing API supports this)
+      ✅ Ready for testing
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Login as operations/sales user
+      2. Navigate to a travel request
+      3. Click "Create Detailed Quotation"
+      4. Verify inclusions/exclusions pre-filled from admin settings
+      5. Add new inclusion/exclusion items
+      6. Remove existing items
+      7. Save quotation and verify data persisted
+      8. Generate PDF and verify inclusions/exclusions appear correctly
+
