@@ -21,6 +21,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from playwright.async_api import async_playwright
+from jinja2 import Template
+import tempfile
 
 
 
@@ -39,6 +42,89 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # Enums
+# Data Models
+class Salesperson(BaseModel):
+    name: str
+    phone: str
+    email: str
+    photo: str
+
+class Summary(BaseModel):
+    duration: str
+    travelers: int
+    rating: float
+    highlights: List[str]
+
+class Pricing(BaseModel):
+    subtotal: float
+    taxes: float
+    discount: float
+    total: float
+    perPerson: float
+    depositDue: float
+    currency: str
+
+class Meals(BaseModel):
+    breakfast: str
+    lunch: str
+    dinner: str
+
+class Hotel(BaseModel):
+    name: str
+    stars: int
+    image: str
+    address: str
+    amenities: Optional[List[str]] = None
+
+class ActivityPDF(BaseModel):
+    time: str
+    title: str
+    description: str
+    images: Optional[List[str]] = None
+    meetingPoint: str
+    type: str
+
+class Day(BaseModel):
+    dayNumber: int
+    date: str
+    location: str
+    meals: Optional[Meals] = None
+    hotel: Optional[Hotel] = None
+    activities: List[ActivityPDF]
+
+class GalleryItem(BaseModel):
+    url: str
+    caption: str
+
+class Terms(BaseModel):
+    cancellation: str
+    payment: str
+    insurance: str
+    changes: str
+
+class Testimonial(BaseModel):
+    name: str
+    rating: int
+    text: str
+
+class QuotationData(BaseModel):
+    tripTitle: str
+    customerName: str
+    dates: str
+    city: str
+    bookingRef: str
+    coverImage: str
+    salesperson: Salesperson
+    summary: Summary
+    pricing: Pricing
+    days: List[Day]
+    gallery: Optional[List[GalleryItem]] = None
+    terms: Terms
+    inclusions: Optional[List[str]] = None
+    exclusions: Optional[List[str]] = None
+    detailedTerms: Optional[str] = None
+    privacyPolicy: Optional[str] = None
+    testimonials: Optional[List[Testimonial]] = None
 class UserRole(str, Enum):
     OPERATIONS = "operations"
     SALES = "sales"
@@ -233,6 +319,85 @@ MOCK_USERS = {
     "accountant@travel.com": {"password": "acc123", "role": UserRole.ACCOUNTANT, "name": "Accountant", "id": "acc-001"},
     "customer@travel.com": {"password": "customer123", "role": UserRole.CUSTOMER, "name": "John Customer", "id": "customer-001"},
 }
+
+@api_router.post("/generate-pdf")
+async def generate_pdf(data: QuotationData):
+    """
+    Generate PDF from quotation data
+    """
+    try:
+        print(f"Received request for booking: {data.bookingRef}")
+        
+        # Read HTML template
+        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'pdf_template.html')
+        print(f"Template path: {template_path}")
+        
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+        
+        print("Template loaded successfully")
+        
+        # Render template with data
+        template = Template(template_content)
+        html_content = template.render(data=data.model_dump())
+        
+        print("Template rendered successfully")
+        
+        # Create temporary files
+        temp_dir = tempfile.mkdtemp()
+        html_file = os.path.join(temp_dir, 'quotation.html')
+        pdf_file = os.path.join(temp_dir, f'quotation-{data.bookingRef}.pdf')
+        
+        print(f"Temp dir: {temp_dir}")
+        
+        # Write HTML to file
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"HTML file created: {html_file}")
+        
+        # Generate PDF using Playwright
+        print("Starting Playwright...")
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            print("Browser launched")
+            page = await browser.new_page()
+            print(f"Loading HTML: file://{html_file}")
+            await page.goto(f'file://{html_file}', wait_until='networkidle')
+            print("Page loaded, generating PDF...")
+            await page.pdf(
+                path=pdf_file,
+                format='A4',
+                print_background=True,
+                margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'}
+            )
+            await browser.close()
+        
+        print(f"PDF generated: {pdf_file}")
+        
+        # Check if PDF was created
+        if not os.path.exists(pdf_file):
+            raise Exception("PDF file was not created")
+        
+        # Return PDF file
+        response = FileResponse(
+            pdf_file,
+            media_type='application/pdf',
+            filename=f'quotation-{data.bookingRef}.pdf'
+        )
+        
+        # Clean up temp HTML file immediately
+        os.remove(html_file)
+        print("Success! Returning PDF")
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
 
 # Auth endpoints
 @api_router.post("/auth/register")
@@ -1579,6 +1744,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8001))
+    host = os.getenv("HOST", "0.0.0.0")
+    uvicorn.run(app, host=host, port=port)

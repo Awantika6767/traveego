@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Quotation - {{ data.bookingRef }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .playfair {
+            font-family: 'Playfair Display', serif;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 840px; margin: 0 auto;">
+        
+        <!-- Cover Page -->
+        <div style="position: relative; height: 1188px; background-image: linear-gradient(rgba(12, 12, 12, 0.45), rgba(12, 12, 12, 0.15)), url('{{ data.coverImage }}'); background-size: cover; background-position: center; display: flex; flex-direction: column; justify-content: space-between; padding: 48px;">
+            <div style="color: white;">
+                <div style="width: 128px; height: 48px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 24px; font-weight: bold; color: #ea580c;">Traveego</span>
+                </div>
+            </div>
+
+            <div style="color: white;">
+                <h1 class="playfair" style="font-size: 60px; font-weight: bold; margin-bottom: 16px;">
+                    {{ data.customerName }} — {{ data.tripTitle }}
+                </h1>
+                <p style="font-size: 24px; margin-bottom: 8px;">{{ data.dates }}</p>
+                <p style="font-size: 20px; color: #fb923c;">{{ data.city }}</p>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div style="color: white; font-size: 14px;">
+                    <p style="margin-bottom: 4px;">📞 {{ data.salesperson.phone }}</p>
+                    <p style="margin-bottom: 4px;">✉️ {{ data.salesperson.email }}</p>
+                    <p style="font-size: 12px; margin-top: 8px;">Booking Ref: {{ data.bookingRef }}</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <div id="qrcode" style="display: inline-block; margin-bottom: 8px; padding: 4px; background: white; border-radius: 4px;"></div>
+                    <p style="color: white; font-size: 14px;">Scan to Book</p>
+                    <div style="margin-top: 16px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 24px;">
+                        <p style="font-size: 30px; font-weight: bold; color: black;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.total|int) }}</p>
+                        <p style="font-size: 14px; color: #4b5563;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.perPerson|int) }} per person</p>
+                        <div style="margin-top: 8px; background: #ea580c; color: white; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600;">
+                            Reserve Now
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trip Overview -->
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Trip Overview</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+                <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #ea580c;">Highlights</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for highlight in data.summary.highlights %}
+                        <li style="display: flex; gap: 8px; margin-bottom: 12px; color: #374151;">
+                            <span style="color: #ea580c;">✓</span>
+                            <span>{{ highlight }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 8px;">📅</div>
+                            <p style="font-size: 14px; color: #6b7280;">Duration</p>
+                            <p style="font-weight: 600; color: #1f2937;">{{ data.summary.duration }}</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 8px;">👥</div>
+                            <p style="font-size: 14px; color: #6b7280;">Travelers</p>
+                            <p style="font-weight: 600; color: #1f2937;">{{ data.summary.travelers }}</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 8px;">⭐</div>
+                            <p style="font-size: 14px; color: #6b7280;">Rating</p>
+                            <p style="font-weight: 600; color: #1f2937;">{{ data.summary.rating }}/5</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #ea580c;">Investment Summary</h3>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: #374151;">
+                            <span>Subtotal</span>
+                            <span>{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.subtotal|int) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: #374151;">
+                            <span>Taxes & Fees</span>
+                            <span>{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.taxes|int) }}</span>
+                        </div>
+                        {% if data.pricing.discount > 0 %}
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: #dc2626; font-weight: 600;">
+                            <span>Discount</span>
+                            <span>- {{ data.pricing.currency }} {{ "{:,}".format(data.pricing.discount|int) }}</span>
+                        </div>
+                        {% endif %}
+                        <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; color: black; padding-top: 12px; border-top: 2px solid #d1d5db; margin-top: 12px;">
+                            <span>Total</span>
+                            <span>{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.total|int) }}</span>
+                        </div>
+                        <div style="background: #fff7ed; border: 2px solid #ea580c; border-radius: 4px; padding: 16px; margin-top: 16px;">
+                            <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">Amount Due Now</p>
+                            <p style="font-size: 24px; font-weight: bold; color: #ea580c;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.depositDue|int) }}</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; display: flex; gap: 8px;">
+                        <div style="flex: 1; background: #f3f4f6; border-radius: 4px; padding: 8px; text-align: center; font-size: 12px; color: #6b7280;">
+                            🔒 Secure Payment
+                        </div>
+                        <div style="flex: 1; background: #f3f4f6; border-radius: 4px; padding: 8px; text-align: center; font-size: 12px; color: #6b7280;">
+                            ✓ Verified Hotels
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Itinerary -->
+        <div style="padding: 48px;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Detailed Itinerary</h2>
+
+            {% for day in data.days %}
+            <div style="margin-bottom: 48px; padding-bottom: 48px; {% if not loop.last %}border-bottom: 1px solid #e5e7eb;{% endif %}">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 32px;">
+                    <div style="background: #fff7ed; border-left: 4px solid #ea580c; padding: 24px; border-radius: 0 8px 8px 0;">
+                        <div style="font-size: 36px; font-weight: bold; color: #ea580c; margin-bottom: 8px;">Day {{ day.dayNumber }}</div>
+                        <div style="font-size: 18px; color: #1f2937; margin-bottom: 4px;">{{ day.date }}</div>
+                        <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; margin-bottom: 16px;">
+                            <span>📍</span>
+                            <span>{{ day.location }}</span>
+                        </div>
+
+                        {% if day.meals %}
+                        <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #fed7aa;">
+                            <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Meals</p>
+                            <div style="font-size: 14px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #6b7280;">🍳 Breakfast:</span>
+                                    <span style="font-weight: 600; color: {% if day.meals.breakfast == 'Included' %}#16a34a{% else %}#ea580c{% endif %};">{{ day.meals.breakfast }}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #6b7280;">🍽️ Lunch:</span>
+                                    <span style="font-weight: 600; color: {% if day.meals.lunch == 'Included' %}#16a34a{% else %}#ea580c{% endif %};">{{ day.meals.lunch }}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #6b7280;">🍷 Dinner:</span>
+                                    <span style="font-weight: 600; color: {% if day.meals.dinner == 'Included' %}#16a34a{% else %}#ea580c{% endif %};">{{ day.meals.dinner }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if day.hotel %}
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #fed7aa;">
+                            <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Overnight Stay</p>
+                            <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <img src="{{ day.hotel.image }}" alt="{{ day.hotel.name }}" style="width: 100%; height: 128px; object-fit: cover;">
+                                <div style="padding: 12px;">
+                                    <p style="font-weight: 600; color: #1f2937; font-size: 14px;">{{ day.hotel.name }}</p>
+                                    <div style="margin-top: 4px;">
+                                        {% for i in range(day.hotel.stars) %}⭐{% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        {% for activity in day.activities %}
+                        <div style="background: white; border: 2px solid {% if activity.type == 'included' %}#fed7aa{% else %}#fecaca; border-style: dashed{% endif %}; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="background: #fff7ed; border-radius: 50%; padding: 8px;">
+                                        🕐
+                                    </div>
+                                    <div>
+                                        <p style="font-size: 14px; color: #ea580c; font-weight: 600;">{{ activity.time }}</p>
+                                        <h3 style="font-size: 18px; font-weight: bold; color: #1f2937;">{{ activity.title }}</h3>
+                                    </div>
+                                </div>
+                                <span style="font-size: 12px; padding: 4px 12px; border-radius: 9999px; font-weight: 600; background: {% if activity.type == 'included' %}#fff7ed; color: #c2410c{% else %}#fee2e2; color: #dc2626{% endif %};">
+                                    {% if activity.type == 'included' %}Included{% else %}Optional{% endif %}
+                                </span>
+                            </div>
+
+                            <p style="color: #6b7280; margin-bottom: 16px;">{{ activity.description }}</p>
+
+                            {% if activity.images and activity.images|length > 0 %}
+                            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                                {% for img in activity.images %}
+                                <img src="{{ img }}" alt="{{ activity.title }}" style="width: 96px; height: 96px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280;">
+                                <span>📍</span>
+                                <span>{{ activity.meetingPoint }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Accommodation -->
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Accommodation</h2>
+
+            {% set unique_hotels = [] %}
+            {% for day in data.days %}
+                {% if day.hotel and day.hotel.name not in unique_hotels %}
+                    {% set _ = unique_hotels.append(day.hotel.name) %}
+                    <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 24px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px;">
+                            <img src="{{ day.hotel.image }}" alt="{{ day.hotel.name }}" style="width: 100%; height: 256px; object-fit: cover; border-radius: 8px;">
+                            <div>
+                                <h3 style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 8px;">{{ day.hotel.name }}</h3>
+                                <div style="margin-bottom: 16px;">
+                                    {% for i in range(day.hotel.stars) %}⭐{% endfor %}
+                                </div>
+                                <div style="display: flex; align-items: flex-start; gap: 8px; color: #6b7280; margin-bottom: 16px;">
+                                    <span style="flex-shrink: 0;">📍</span>
+                                    <span>{{ day.hotel.address }}</span>
+                                </div>
+                                {% if day.hotel.amenities %}
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    {% for amenity in day.hotel.amenities %}
+                                    <span style="background: #fff7ed; color: #c2410c; padding: 4px 12px; border-radius: 9999px; font-size: 14px;">{{ amenity }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Inclusions -->
+        {% if data.inclusions and data.inclusions|length > 0 %}
+        <div style="padding: 48px; background: white;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">What's Included</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                {% for item in data.inclusions %}
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="color: #16a34a; flex-shrink: 0;">✓</span>
+                    <span style="color: #374151;">{{ item }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Exclusions -->
+        {% if data.exclusions and data.exclusions|length > 0 %}
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">What's Not Included</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                {% for item in data.exclusions %}
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="color: #dc2626; flex-shrink: 0;">✗</span>
+                    <span style="color: #374151;">{{ item }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Terms & Conditions -->
+        {% if data.detailedTerms %}
+        <div style="padding: 48px; background: white;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Terms & Conditions</h2>
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
+                <div style="color: #374151; font-size: 14px; white-space: pre-line; line-height: 1.6;">{{ data.detailedTerms }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Privacy Policy -->
+        {% if data.privacyPolicy %}
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Privacy Policy</h2>
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
+                <div style="color: #374151; font-size: 14px; white-space: pre-line; line-height: 1.6;">{{ data.privacyPolicy }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Cost Breakdown -->
+        <div style="padding: 48px; background: white;">
+            <div style="padding: 24px; background: #fff7ed; border: 2px solid #ea580c; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">Deposit Required to Confirm</p>
+                        <p style="font-size: 30px; font-weight: bold; color: #ea580c;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.depositDue|int) }}</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div id="qrcode2" style="display: inline-block;"></div>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Scan to Pay</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Testimonials -->
+        {% if data.testimonials and data.testimonials|length > 0 %}
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; text-align: center; color: black;">What Our Travelers Say</h2>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+                {% for testimonial in data.testimonials %}
+                <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="margin-bottom: 12px;">
+                        {% for i in range(testimonial.rating) %}⭐{% endfor %}
+                    </div>
+                    <p style="color: #374151; margin-bottom: 16px; font-style: italic;">"{{ testimonial.text }}"</p>
+                    <p style="font-weight: 600; color: #1f2937;">— {{ testimonial.name }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Contact & CTA -->
+        <div style="padding: 48px; background: linear-gradient(to bottom right, #ea580c, #dc2626); color: white;">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <h2 class="playfair" style="font-size: 36px; font-weight: bold; margin-bottom: 16px;">Ready to Begin Your Journey?</h2>
+                <p style="font-size: 20px;">Let's make this trip a reality</p>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: center; gap: 48px; margin-bottom: 32px;">
+                <img src="{{ data.salesperson.photo }}" alt="{{ data.salesperson.name }}" style="width: 128px; height: 128px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); object-fit: cover;">
+                <div style="text-align: left;">
+                    <p style="font-size: 18px; margin-bottom: 8px;">Your Travel Expert</p>
+                    <p style="font-size: 30px; font-weight: bold; margin-bottom: 16px;">{{ data.salesperson.name }}</p>
+                    <p style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        📞 {{ data.salesperson.phone }}
+                    </p>
+                    <p style="display: flex; align-items: center; gap: 8px;">
+                        ✉️ {{ data.salesperson.email }}
+                    </p>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: center; gap: 24px;">
+                <div style="background: white; text-align: center; padding: 32px; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1);">
+                    <div id="qrcode3" style="display: inline-block;"></div>
+                    <p style="color: black; font-weight: bold; margin-top: 16px; font-size: 18px;">Scan to Book Now</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 32px; text-align: center; font-size: 14px; color: #fed7aa;">
+                <p style="margin-bottom: 8px;">✓ 1200+ Successful Trips | ✓ 24/7 Support | ✓ Flexible Cancellation</p>
+                <p>Booking Reference: {{ data.bookingRef }}</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Generate QR codes
+        new QRCode(document.getElementById("qrcode"), {
+            text: "https://traveego.com/book/{{ data.bookingRef }}",
+            width: 100,
+            height: 100
+        });
+        new QRCode(document.getElementById("qrcode2"), {
+            text: "https://traveego.com/pay/{{ data.bookingRef }}",
+            width: 100,
+            height: 100
+        });
+        new QRCode(document.getElementById("qrcode3"), {
+            text: "https://traveego.com/book/{{ data.bookingRef }}",
+            width: 120,
+            height: 120
+        });
+    </script>
+</body>
+</html>
