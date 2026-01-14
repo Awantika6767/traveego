@@ -474,6 +474,18 @@ export const RequestDetail = () => {
                         Accept & Pay
                       </Button>
                     )}
+                    {(user.role === 'operations' || user.role === 'sales') && (
+                      <Button
+                        size="sm"
+                        onClick={() => navigate('/quotation-builder', { state: { request, quotation } })}
+                        variant="outline"
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                        data-testid="create-detailed-quotation-button"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Create Detailed Quotation
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
