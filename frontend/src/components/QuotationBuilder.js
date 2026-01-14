@@ -72,6 +72,8 @@ const QuotationBuilder = () => {
   });
 
   const [newHighlight, setNewHighlight] = useState('');
+  const [newInclusion, setNewInclusion] = useState('');
+  const [newExclusion, setNewExclusion] = useState('');
   const [newActivity, setNewActivity] = useState({
     time: '',
     title: '',
