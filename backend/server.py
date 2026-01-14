@@ -2121,22 +2121,214 @@ async def seed_data():
     await db.requests.delete_many({})
     await db.quotations.delete_many({})
     await db.activities.delete_many({})
+    await db.admin_settings.delete_many({})
     
-    # Seed catalog
+    # Seed catalog with image URLs and hotel ratings
     catalog_items = [
-        CatalogItem(name="Luxury Hotel - Manali", type="hotel", destination="Manali", supplier="Hotel Paradise", default_price=5000),
-        CatalogItem(name="Budget Hotel - Manali", type="hotel", destination="Manali", supplier="Hotel Comfort", default_price=2000),
-        CatalogItem(name="Luxury Hotel - Goa", type="hotel", destination="Goa", supplier="Beach Resort", default_price=8000),
-        CatalogItem(name="Private Cab - SUV", type="transport", destination="All", supplier="Quick Cabs", default_price=3000),
-        CatalogItem(name="Private Cab - Sedan", type="transport", destination="All", supplier="Quick Cabs", default_price=2000),
-        CatalogItem(name="Paragliding", type="activity", destination="Manali", supplier="Adventure Co", default_price=2500),
-        CatalogItem(name="River Rafting", type="activity", destination="Rishikesh", supplier="Rapids Inc", default_price=1500),
-        CatalogItem(name="Scuba Diving", type="activity", destination="Goa", supplier="Deep Blue", default_price=4500),
-        CatalogItem(name="Breakfast Buffet", type="meal", destination="All", supplier="Various", default_price=500),
-        CatalogItem(name="Dinner Buffet", type="meal", destination="All", supplier="Various", default_price=800),
+        CatalogItem(
+            name="Luxury Hotel - Manali", 
+            type="hotel", 
+            destination="Manali", 
+            supplier="Hotel Paradise", 
+            default_price=5000,
+            image_url="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
+            rating=5
+        ),
+        CatalogItem(
+            name="Budget Hotel - Manali", 
+            type="hotel", 
+            destination="Manali", 
+            supplier="Hotel Comfort", 
+            default_price=2000,
+            image_url="https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800",
+            rating=3
+        ),
+        CatalogItem(
+            name="Luxury Hotel - Goa", 
+            type="hotel", 
+            destination="Goa", 
+            supplier="Beach Resort", 
+            default_price=8000,
+            image_url="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
+            rating=5
+        ),
+        CatalogItem(
+            name="Resort Hotel - Goa", 
+            type="hotel", 
+            destination="Goa", 
+            supplier="Seaside Resort", 
+            default_price=6000,
+            image_url="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800",
+            rating=4
+        ),
+        CatalogItem(
+            name="Private Cab - SUV", 
+            type="transport", 
+            destination="All", 
+            supplier="Quick Cabs", 
+            default_price=3000,
+            image_url="https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800"
+        ),
+        CatalogItem(
+            name="Private Cab - Sedan", 
+            type="transport", 
+            destination="All", 
+            supplier="Quick Cabs", 
+            default_price=2000,
+            image_url="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800"
+        ),
+        CatalogItem(
+            name="Paragliding", 
+            type="activity", 
+            destination="Manali", 
+            supplier="Adventure Co", 
+            default_price=2500,
+            image_url="https://images.unsplash.com/photo-1529413683045-2a8e34f10d87?w=800"
+        ),
+        CatalogItem(
+            name="River Rafting", 
+            type="activity", 
+            destination="Rishikesh", 
+            supplier="Rapids Inc", 
+            default_price=1500,
+            image_url="https://images.unsplash.com/photo-1594122230689-45899d9e6f69?w=800"
+        ),
+        CatalogItem(
+            name="Scuba Diving", 
+            type="activity", 
+            destination="Goa", 
+            supplier="Deep Blue", 
+            default_price=4500,
+            image_url="https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800"
+        ),
+        CatalogItem(
+            name="Breakfast Buffet", 
+            type="meal", 
+            destination="All", 
+            supplier="Various", 
+            default_price=500,
+            image_url="https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800"
+        ),
+        CatalogItem(
+            name="Dinner Buffet", 
+            type="meal", 
+            destination="All", 
+            supplier="Various", 
+            default_price=800,
+            image_url="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800"
+        ),
     ]
     for item in catalog_items:
         await db.catalog.insert_one(item.dict())
+    
+    # Seed Admin Settings with defaults
+    admin_settings = AdminSettings(
+        privacy_policy="""
+        PRIVACY POLICY
+        
+        At TravelCo, we are committed to protecting your privacy and personal information. This policy outlines how we collect, use, and safeguard your data.
+        
+        Information Collection:
+        - We collect personal information such as name, email, phone number, and travel preferences when you create an account or make a booking.
+        - Payment information is processed securely through our payment partners and is not stored on our servers.
+        
+        Use of Information:
+        - Your information is used to process bookings, provide customer support, and improve our services.
+        - We may send promotional emails with your consent, which you can opt out of at any time.
+        
+        Data Security:
+        - We implement industry-standard security measures to protect your data.
+        - Your information is encrypted during transmission and storage.
+        
+        Third-Party Sharing:
+        - We do not sell your personal information to third parties.
+        - We may share necessary information with travel partners (hotels, airlines) to fulfill your bookings.
+        
+        Your Rights:
+        - You have the right to access, modify, or delete your personal information.
+        - Contact us at privacy@travelco.com for any privacy-related concerns.
+        
+        Last Updated: January 2025
+        """,
+        terms_and_conditions="""
+        TERMS AND CONDITIONS
+        
+        Welcome to TravelCo. By using our services, you agree to the following terms:
+        
+        1. BOOKING AND PAYMENT
+        - All bookings require a 30% advance payment to confirm your reservation.
+        - Full payment must be received 15 days before travel date.
+        - Prices are subject to change until booking is confirmed with advance payment.
+        
+        2. CANCELLATION POLICY
+        - Cancellations made 30+ days before travel: 90% refund
+        - Cancellations made 15-29 days before travel: 50% refund
+        - Cancellations made less than 15 days: No refund
+        - Cancellation charges may vary for special packages (peak season, festivals, etc.)
+        
+        3. MODIFICATIONS
+        - Changes to travel dates or itinerary are subject to availability and may incur additional charges.
+        - Modifications must be requested at least 7 days before travel.
+        
+        4. TRAVEL DOCUMENTS
+        - Valid government-issued ID is mandatory for all travelers.
+        - International travel requires valid passport and visa (where applicable).
+        - Travelers are responsible for ensuring all documents are in order.
+        
+        5. INCLUSIONS AND EXCLUSIONS
+        - Services included are explicitly mentioned in your quotation.
+        - Personal expenses, optional activities, and items not mentioned in inclusions are at traveler's expense.
+        
+        6. LIABILITY
+        - TravelCo acts as an intermediary between travelers and service providers.
+        - We are not liable for delays, cancellations, or changes made by airlines, hotels, or other service providers.
+        - Travel insurance is strongly recommended.
+        
+        7. FORCE MAJEURE
+        - We are not responsible for circumstances beyond our control (natural disasters, strikes, political unrest, pandemics).
+        
+        8. DISPUTES
+        - Any disputes will be subject to jurisdiction of courts in Mumbai, India.
+        
+        For questions, contact us at support@travelco.com
+        """,
+        default_inclusions=[
+            "Accommodation as per itinerary",
+            "Daily breakfast",
+            "All transfers and sightseeing by private vehicle",
+            "Driver allowance and fuel charges",
+            "Parking and toll charges",
+            "All applicable hotel taxes"
+        ],
+        default_exclusions=[
+            "Airfare / Train fare",
+            "Lunch and dinner (unless specified)",
+            "Entry fees to monuments and tourist attractions",
+            "Personal expenses (laundry, telephone, tips)",
+            "Travel insurance",
+            "Any expenses arising due to unforeseen circumstances",
+            "GST (Goods and Services Tax) - 5%",
+            "Anything not mentioned in inclusions"
+        ],
+        testimonials=[
+            Testimonial(
+                name="Amit Patel",
+                rating=5,
+                text="Exceptional service! Our Manali trip was perfectly organized. The hotel was amazing and all transfers were smooth. Highly recommend TravelCo!"
+            ),
+            Testimonial(
+                name="Priya Sharma",
+                rating=5,
+                text="Best honeymoon package ever! The team took care of every detail. The beach resort in Goa was paradise. Thank you TravelCo!"
+            ),
+            Testimonial(
+                name="Rajesh Kumar",
+                rating=5,
+                text="Great experience with TravelCo. Professional service, competitive pricing, and excellent customer support throughout our family vacation."
+            )
+        ]
+    )
+    await db.admin_settings.insert_one(admin_settings.dict())
     
     # Seed requests
     requests = [
