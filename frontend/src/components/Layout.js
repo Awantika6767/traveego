@@ -42,8 +42,16 @@ export const Layout = ({ children }) => {
 
   const getNavItems = () => {
     const baseItems = [
-      { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['operations', 'sales', 'accountant', 'customer'] }
+      { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['operations', 'sales', 'accountant', 'customer', 'admin'] }
     ];
+
+    if (user?.role === 'admin') {
+      return [
+        ...baseItems,
+        { path: '/requests', icon: FileText, label: 'Requests', roles: ['admin'] },
+        { path: '/admin-panel', icon: Users, label: 'Admin Panel', roles: ['admin'] }
+      ];
+    }
 
     if (user?.role === 'operations') {
       return [
