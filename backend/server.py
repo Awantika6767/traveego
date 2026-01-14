@@ -162,6 +162,7 @@ class User(BaseModel):
     role: UserRole
     phone: Optional[str] = None
     country_code: Optional[str] = "+91"  # Default to India
+    can_see_cost_breakup: bool = False  # Admin can control cost breakup visibility for salespeople
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class UserLogin(BaseModel):
