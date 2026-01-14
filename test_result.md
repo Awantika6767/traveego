@@ -1249,6 +1249,9 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Created comprehensive QuotationBuilder component with all form sections for detailed quotation data including trip header, salesperson info, summary, pricing, day-by-day itinerary with activities, inclusions, exclusions, terms, and testimonials. Component pre-fills data from admin settings, request, and user info."
+      - working: "NA"
+        agent: "main"
+        comment: "UPDATED: Made Inclusions and Exclusions fully editable in the form. Users can now add/remove items for each specific quotation. Pre-filled from admin settings but customizable per quotation. Privacy Policy, Terms & Conditions, and Testimonials remain read-only (auto-filled from admin settings)."
 
   - task: "Add Create Detailed Quotation button to RequestDetail"
     implemented: true
