@@ -13,6 +13,7 @@ import { CatalogManagement } from "./components/CatalogManagement";
 import { OpenRequests } from "./components/OpenRequests";
 import LeaveManagement from "./components/LeaveManagement";
 import AdminPanel from "./components/AdminPanel";
+import AdminSettings from "./components/AdminSettings";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
