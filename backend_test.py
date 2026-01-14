@@ -139,36 +139,55 @@ class QuotationPDFPayloadTester:
                 "request_id": self.created_request_id,
                 "versions": [
                     {
-                        "version": 1,
-                        "line_items": [
+                        "id": str(uuid.uuid4()),
+                        "version_number": 1,
+                        "options": [
                             {
                                 "id": str(uuid.uuid4()),
-                                "name": "Manali Hotel Package",
-                                "supplier": "Hotel Paradise",
-                                "unit_price": 5000.0,
-                                "quantity": 4,
-                                "total": 20000.0
-                            },
-                            {
-                                "id": str(uuid.uuid4()),
-                                "name": "Transportation",
-                                "supplier": "Travel Express",
-                                "unit_price": 15000.0,
-                                "quantity": 1,
-                                "total": 15000.0
+                                "name": "Standard Package",
+                                "line_items": [
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "type": "hotel",
+                                        "name": "Manali Hotel Package",
+                                        "supplier": "Hotel Paradise",
+                                        "unit_price": 5000.0,
+                                        "quantity": 4,
+                                        "tax_percent": 18.0,
+                                        "markup_percent": 0.0,
+                                        "total": 20000.0,
+                                        "is_manual_rate": False
+                                    },
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "type": "transport",
+                                        "name": "Transportation",
+                                        "supplier": "Travel Express",
+                                        "unit_price": 15000.0,
+                                        "quantity": 1,
+                                        "tax_percent": 18.0,
+                                        "markup_percent": 0.0,
+                                        "total": 15000.0,
+                                        "is_manual_rate": False
+                                    }
+                                ],
+                                "subtotal": 35000.0,
+                                "tax_amount": 6300.0,
+                                "total": 41300.0,
+                                "is_recommended": True
                             }
                         ],
-                        "subtotal": 35000.0,
-                        "tax_amount": 6300.0,
-                        "discount_amount": 1000.0,
-                        "total_amount": 40300.0,
-                        "created_at": datetime.now(timezone.utc).isoformat()
+                        "created_by": "ops-001",
+                        "created_by_name": "Operations Manager",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "change_notes": "Initial quotation",
+                        "is_current": True
                     }
                 ],
                 "status": "DRAFT",
                 "advance_percent": 30.0,
-                "advance_amount": 12090.0,
-                "grand_total": 40300.0,
+                "advance_amount": 12390.0,
+                "grand_total": 41300.0,
                 "pdf_payload": pdf_payload,  # This is the key field we're testing
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
