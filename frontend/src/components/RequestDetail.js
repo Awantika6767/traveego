@@ -478,6 +478,34 @@ export const RequestDetail = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Message for Operations/Sales to use Detailed Quotation Builder */}
+                {(user.role === 'operations' || user.role === 'sales') && !quotation.detailed_quotation_data && (
+                  <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <FileText className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-blue-900 mb-2">
+                          Create Comprehensive Quotation
+                        </h4>
+                        <p className="text-blue-700 mb-4">
+                          Use the Detailed Quotation Builder to create professional quotations with day-by-day itineraries, 
+                          activities, pricing details, and more.
+                        </p>
+                        <Button
+                          onClick={() => navigate('/quotation-builder', { state: { request, quotation } })}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Open Quotation Builder
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Display existing line items (read-only) */}
                 {currentVersion.options.map((option, optIndex) => (
                   <div key={optIndex} className="mb-6">
                     <div className="flex items-center justify-between mb-4">
@@ -487,59 +515,19 @@ export const RequestDetail = () => {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      {option.line_items.map((item, itemIndex) => (
-                        <div 
-                          key={itemIndex} 
-                          className={`line-item-row ${!canEdit && !showCostBreakup ? 'line-item-row-simple' : ''}`}
-                          data-testid={`line-item-${itemIndex}`}
-                        >
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
-                            {itemIndex + 1}
-                          </div>
-                          
-                          {canEdit ? (
-                            <>
-                              <Input
-                                placeholder="Item name"
-                                value={item.name}
-                                onChange={(e) => updateLineItem(optIndex, itemIndex, 'name', e.target.value)}
-                                data-testid={`item-name-${itemIndex}`}
-                              />
-                              <Input
-                                placeholder="Supplier"
-                                value={item.supplier}
-                                onChange={(e) => updateLineItem(optIndex, itemIndex, 'supplier', e.target.value)}
-                                data-testid={`item-supplier-${itemIndex}`}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Price"
-                                value={item.unit_price}
-                                onChange={(e) => updateLineItem(optIndex, itemIndex, 'unit_price', e.target.value)}
-                                data-testid={`item-price-${itemIndex}`}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Qty"
-                                value={item.quantity}
-                                onChange={(e) => updateLineItem(optIndex, itemIndex, 'quantity', e.target.value)}
-                                className="w-20"
-                                data-testid={`item-qty-${itemIndex}`}
-                              />
-                              <div className="text-right font-medium">{formatCurrency(item.total)}</div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeLineItem(optIndex, itemIndex)}
-                                className="text-red-600 hover:text-red-700"
-                                data-testid={`remove-item-${itemIndex}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
+                    {option.line_items.length > 0 ? (
+                      <>
+                        <div className="space-y-2">
+                          {option.line_items.map((item, itemIndex) => (
+                            <div 
+                              key={itemIndex} 
+                              className={`line-item-row ${!showCostBreakup ? 'line-item-row-simple' : ''}`}
+                              data-testid={`line-item-${itemIndex}`}
+                            >
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
+                                {itemIndex + 1}
+                              </div>
+                              
                               {showCostBreakup ? (
                                 // Show full cost breakup for authorized users
                                 <>
@@ -560,58 +548,30 @@ export const RequestDetail = () => {
                                   <div className="text-right font-medium">{formatCurrency(item.total)}</div>
                                 </>
                               )}
-                            </>
-                          )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
 
-                      {canEdit && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addLineItem(optIndex)}
-                            data-testid="add-line-item-button"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Line Item
-                          </Button>
-                          <select
-                            onChange={(e) => {
-                              const catalogItem = catalog.find(c => c.id === e.target.value);
-                              if (catalogItem) {
-                                addItemFromCatalog(optIndex, catalogItem);
-                                e.target.value = '';
-                              }
-                            }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            data-testid="catalog-select"
-                          >
-                            <option value="">Add from Catalog</option>
-                            {catalog.map(item => (
-                              <option key={item.id} value={item.id}>
-                                {item.name} - {formatCurrency(item.default_price)}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Subtotal:</span>
+                            <span className="font-medium">{formatCurrency(option.subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">GST (18%):</span>
+                            <span className="font-medium">{formatCurrency(option.tax_amount)}</span>
+                          </div>
+                          <div className="flex justify-between text-lg font-bold">
+                            <span>Total:</span>
+                            <span>{formatCurrency(option.total)}</span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="font-medium">{formatCurrency(option.subtotal)}</span>
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No line items added yet</p>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">GST (18%):</span>
-                        <span className="font-medium">{formatCurrency(option.tax_amount)}</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total:</span>
-                        <span>{formatCurrency(option.total)}</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 ))}
               </CardContent>
