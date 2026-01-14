@@ -341,6 +341,48 @@ const QuotationBuilder = () => {
     }
   };
 
+  const handleGeneratePDF = async () => {
+    try {
+      setGeneratingPDF(true);
+      
+      // Validation
+      if (!formData.tripTitle || !formData.customerName) {
+        toast.error('Please fill in trip title and customer name');
+        return;
+      }
+      
+      if (formData.days.length === 0) {
+        toast.error('Please add at least one day to the itinerary');
+        return;
+      }
+      
+      // Calculate pricing before generating PDF
+      calculatePricing();
+      
+      // Generate PDF
+      const response = await api.generateDetailedPDF(formData);
+      
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `quotation_${formData.bookingRef}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('PDF generated successfully!');
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
