@@ -1,412 +1,543 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Testing for Leave Management System
-Tests all Leave Management APIs with detailed scenarios
+Backend Testing Suite for Quotation PDF Payload Feature
+Tests the new pdf_payload field in Quotation model and related endpoints
 """
 
 import requests
 import json
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timezone
+import sys
 
-# Configuration
-BASE_URL = "https://quote-json-builder.preview.emergentagent.com/api"
+# Backend URL from environment
+BACKEND_URL = "https://quote-json-builder.preview.emergentagent.com/api"
 
-# Mock users available for testing
-MOCK_USERS = {
-    "operations": {"email": "ops@travel.com", "password": "ops123", "id": "ops-001", "name": "Operations Manager"},
-    "sales": {"email": "sales@travel.com", "password": "sales123", "id": "sales-001", "name": "Sales Executive"},
-    "accountant": {"email": "accountant@travel.com", "password": "acc123", "id": "acc-001", "name": "Accountant"}
-}
-
-class LeaveManagementTester:
+class QuotationPDFPayloadTester:
     def __init__(self):
         self.session = requests.Session()
         self.test_results = []
-        self.created_leaves = []
-        self.created_requests = []
+        self.created_quotation_id = None
+        self.created_request_id = None
         
-    def log_test(self, test_name, success, details=""):
+    def log_test(self, test_name, success, message="", details=None):
         """Log test results"""
         status = "✅ PASS" if success else "❌ FAIL"
-        self.test_results.append(f"{status}: {test_name}")
-        if details:
-            self.test_results.append(f"    Details: {details}")
+        self.test_results.append({
+            "test": test_name,
+            "status": status,
+            "message": message,
+            "details": details
+        })
         print(f"{status}: {test_name}")
-        if details:
+        if message:
+            print(f"    {message}")
+        if details and not success:
             print(f"    Details: {details}")
     
-    def login_user(self, user_type):
-        """Login and return user data"""
-        user = MOCK_USERS[user_type]
-        response = self.session.post(f"{BASE_URL}/auth/login", json={
-            "email": user["email"],
-            "password": user["password"]
-        })
-        
-        if response.status_code == 200:
-            data = response.json()
-            return data["user"]
-        else:
-            raise Exception(f"Failed to login {user_type}: {response.text}")
-    
-    def create_travel_request(self, assigned_to_user_id, assigned_to_name):
-        """Create a travel request for testing delegated requests"""
-        request_data = {
-            "id": str(uuid.uuid4()),
-            "client_name": "Test Client",
-            "client_email": "client@test.com",
-            "client_phone": "9876543210",
-            "client_country_code": "+91",
-            "title": "Test Travel Request",
-            "people_count": 2,
-            "budget_min": 50000,
-            "budget_max": 100000,
-            "travel_vibe": ["beach", "adventure"],
-            "preferred_dates": "2024-02-15 to 2024-02-20",
-            "destination": "Goa",
-            "special_requirements": "Beach resort preferred",
-            "status": "PENDING",
-            "assigned_salesperson_id": assigned_to_user_id,
-            "assigned_salesperson_name": assigned_to_name,
-            "created_by": assigned_to_user_id
-        }
-        
-        response = self.session.post(f"{BASE_URL}/requests", json=request_data)
-        if response.status_code == 200:
-            self.created_requests.append(request_data["id"])
-            return request_data
-        else:
-            raise Exception(f"Failed to create travel request: {response.text}")
-    
-    def test_create_leave_api(self):
-        """Test 1: Create Leave API (POST /api/leaves)"""
-        print("\n=== Testing Create Leave API ===")
-        
-        # Test 1a: Create leave for sales user with another sales user as backup
+    def create_test_request(self):
+        """Create a test travel request for quotation testing"""
         try:
-            # For this test, we'll create a second sales user in our test data
-            # Since we only have one sales user in MOCK_USERS, we'll simulate having multiple
-            leave_data = {
+            request_data = {
                 "id": str(uuid.uuid4()),
-                "user_id": "sales-001",
-                "user_name": "Sales Executive",
-                "user_role": "sales",
-                "start_date": "2024-02-15",
-                "end_date": "2024-02-20",
-                "backup_user_id": "sales-002",  # Simulated second sales user
-                "backup_user_name": "Sales Executive 2",
-                "reason": "Personal vacation",
-                "status": "active"
+                "client_name": "John Doe",
+                "client_email": "john.doe@example.com",
+                "client_phone": "9876543210",
+                "client_country_code": "+1",
+                "destination": "Manali",
+                "travel_dates": "2024-03-15 to 2024-03-20",
+                "number_of_travelers": 4,
+                "budget_range": "50000-75000",
+                "special_requirements": "Family trip with kids",
+                "status": "PENDING",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
-            response = self.session.post(f"{BASE_URL}/leaves", json=leave_data)
-            
-            # This might fail due to backup user validation, but let's test the API structure
-            if response.status_code == 200:
-                self.created_leaves.append(leave_data["id"])
-                self.log_test("Create leave for sales user", True, "Leave created successfully")
-            else:
-                # Expected to fail due to backup user not existing, but API structure is correct
-                self.log_test("Create leave API structure", True, f"API responded correctly with validation: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Create leave for sales user", False, str(e))
-        
-        # Test 1b: Create leave for operations user
-        try:
-            leave_data = {
-                "id": str(uuid.uuid4()),
-                "user_id": "ops-001",
-                "user_name": "Operations Manager",
-                "user_role": "operations",
-                "start_date": "2024-03-01",
-                "end_date": "2024-03-05",
-                "backup_user_id": "ops-002",  # Simulated second ops user
-                "backup_user_name": "Operations Manager 2",
-                "reason": "Training program",
-                "status": "active"
-            }
-            
-            response = self.session.post(f"{BASE_URL}/leaves", json=leave_data)
+            response = self.session.post(f"{BACKEND_URL}/requests", json=request_data)
             
             if response.status_code == 200:
-                self.created_leaves.append(leave_data["id"])
-                self.log_test("Create leave for operations user", True, "Leave created successfully")
+                self.created_request_id = request_data["id"]
+                self.log_test("Create test travel request", True, f"Request ID: {self.created_request_id}")
+                return True
             else:
-                self.log_test("Create leave API validation", True, f"API validation working: {response.status_code}")
+                self.log_test("Create test travel request", False, f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Create leave for operations user", False, str(e))
+            self.log_test("Create test travel request", False, f"Exception: {str(e)}")
+            return False
     
-    def test_date_overlap_validation(self):
-        """Test date overlap validation"""
-        print("\n=== Testing Date Overlap Validation ===")
-        
+    def test_quotation_model_with_pdf_payload(self):
+        """Test 1: Create quotation with pdf_payload field"""
         try:
-            # First, try to create a leave
-            leave1_data = {
+            # Sample PDF payload matching travel quotation JSON structure
+            pdf_payload = {
+                "tripTitle": "Magical Manali Adventure",
+                "pricing": {
+                    "subtotal": 60000.0,
+                    "taxes": 10800.0,
+                    "discount": 5000.0,
+                    "total": 65800.0,
+                    "perPerson": 16450.0,
+                    "depositDue": 19740.0,
+                    "currency": "INR"
+                },
+                "days": [
+                    {
+                        "dayNumber": 1,
+                        "date": "2024-03-15",
+                        "location": "Delhi to Manali",
+                        "activities": [
+                            {
+                                "time": "06:00",
+                                "title": "Departure from Delhi",
+                                "description": "Start your journey to the beautiful hill station",
+                                "meetingPoint": "Delhi Airport",
+                                "type": "transport"
+                            }
+                        ]
+                    },
+                    {
+                        "dayNumber": 2,
+                        "date": "2024-03-16",
+                        "location": "Manali Sightseeing",
+                        "activities": [
+                            {
+                                "time": "09:00",
+                                "title": "Hadimba Temple Visit",
+                                "description": "Visit the famous wooden temple",
+                                "meetingPoint": "Hotel Lobby",
+                                "type": "sightseeing"
+                            }
+                        ]
+                    }
+                ],
+                "terms": {
+                    "cancellation": "Free cancellation up to 7 days before travel",
+                    "payment": "30% advance required to confirm booking",
+                    "inclusions": ["Accommodation", "Meals", "Transportation", "Guide"],
+                    "exclusions": ["Personal expenses", "Tips", "Insurance"]
+                },
+                "testimonials": [
+                    {
+                        "name": "Sarah Johnson",
+                        "rating": 5,
+                        "comment": "Amazing experience! Highly recommended."
+                    }
+                ],
+                "privacyPolicy": "Your data is safe with us. We follow strict privacy guidelines.",
+                "bookingRef": "MAN2024001"
+            }
+            
+            quotation_data = {
                 "id": str(uuid.uuid4()),
-                "user_id": "sales-001",
-                "user_name": "Sales Executive",
-                "user_role": "sales",
-                "start_date": "2024-01-15",
-                "end_date": "2024-01-20",
-                "backup_user_id": "sales-002",
-                "backup_user_name": "Sales Executive 2",
-                "reason": "First leave",
-                "status": "active"
+                "request_id": self.created_request_id,
+                "versions": [
+                    {
+                        "version": 1,
+                        "line_items": [
+                            {
+                                "id": str(uuid.uuid4()),
+                                "name": "Manali Hotel Package",
+                                "supplier": "Hotel Paradise",
+                                "unit_price": 5000.0,
+                                "quantity": 4,
+                                "total": 20000.0
+                            },
+                            {
+                                "id": str(uuid.uuid4()),
+                                "name": "Transportation",
+                                "supplier": "Travel Express",
+                                "unit_price": 15000.0,
+                                "quantity": 1,
+                                "total": 15000.0
+                            }
+                        ],
+                        "subtotal": 35000.0,
+                        "tax_amount": 6300.0,
+                        "discount_amount": 1000.0,
+                        "total_amount": 40300.0,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "status": "DRAFT",
+                "advance_percent": 30.0,
+                "advance_amount": 12090.0,
+                "grand_total": 40300.0,
+                "pdf_payload": pdf_payload,  # This is the key field we're testing
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
-            response1 = self.session.post(f"{BASE_URL}/leaves", json=leave1_data)
-            
-            # Now try to create overlapping leave with same backup
-            leave2_data = {
-                "id": str(uuid.uuid4()),
-                "user_id": "sales-003",
-                "user_name": "Sales Executive 3",
-                "user_role": "sales",
-                "start_date": "2024-01-17",
-                "end_date": "2024-01-22",
-                "backup_user_id": "sales-002",  # Same backup user
-                "backup_user_name": "Sales Executive 2",
-                "reason": "Overlapping leave",
-                "status": "active"
-            }
-            
-            response2 = self.session.post(f"{BASE_URL}/leaves", json=leave2_data)
-            
-            if response2.status_code == 400:
-                self.log_test("Date overlap validation", True, "API correctly rejected overlapping leave")
-            else:
-                self.log_test("Date overlap validation", False, f"Expected 400 error, got {response2.status_code}")
-                
-        except Exception as e:
-            self.log_test("Date overlap validation", False, str(e))
-    
-    def test_get_available_backups_api(self):
-        """Test 2: Get Available Backups API (GET /api/leaves/available-backups)"""
-        print("\n=== Testing Get Available Backups API ===")
-        
-        try:
-            # Test for sales role
-            params = {
-                "role": "sales",
-                "start_date": "2024-02-10",
-                "end_date": "2024-02-15",
-                "exclude_user_id": "sales-001"
-            }
-            
-            response = self.session.get(f"{BASE_URL}/leaves/available-backups", params=params)
+            response = self.session.post(f"{BACKEND_URL}/quotations", json=quotation_data)
             
             if response.status_code == 200:
-                backups = response.json()
-                self.log_test("Get available backups for sales role", True, f"Found {len(backups)} available backups")
-            else:
-                self.log_test("Get available backups for sales role", False, f"Status: {response.status_code}")
+                created_quotation = response.json()
+                self.created_quotation_id = created_quotation["id"]
                 
-        except Exception as e:
-            self.log_test("Get available backups for sales role", False, str(e))
-        
-        try:
-            # Test for operations role
-            params = {
-                "role": "operations",
-                "start_date": "2024-03-10",
-                "end_date": "2024-03-15",
-                "exclude_user_id": "ops-001"
-            }
-            
-            response = self.session.get(f"{BASE_URL}/leaves/available-backups", params=params)
-            
-            if response.status_code == 200:
-                backups = response.json()
-                self.log_test("Get available backups for operations role", True, f"Found {len(backups)} available backups")
-            else:
-                self.log_test("Get available backups for operations role", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Get available backups for operations role", False, str(e))
-    
-    def test_get_my_leaves_api(self):
-        """Test 3: Get My Leaves API (GET /api/leaves/my-leaves)"""
-        print("\n=== Testing Get My Leaves API ===")
-        
-        try:
-            # Test getting leaves for sales user
-            params = {"user_id": "sales-001"}
-            response = self.session.get(f"{BASE_URL}/leaves/my-leaves", params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if "my_leaves" in data and "backup_for" in data:
-                    self.log_test("Get my leaves API structure", True, f"Returned my_leaves: {len(data['my_leaves'])}, backup_for: {len(data['backup_for'])}")
+                # Verify pdf_payload is present and matches
+                if "pdf_payload" in created_quotation and created_quotation["pdf_payload"] == pdf_payload:
+                    self.log_test("POST /api/quotations with pdf_payload", True, 
+                                f"Quotation created with ID: {self.created_quotation_id}")
+                    return True
                 else:
-                    self.log_test("Get my leaves API structure", False, "Missing required fields in response")
+                    self.log_test("POST /api/quotations with pdf_payload", False, 
+                                "pdf_payload not stored correctly", created_quotation.get("pdf_payload"))
+                    return False
             else:
-                self.log_test("Get my leaves API", False, f"Status: {response.status_code}")
+                self.log_test("POST /api/quotations with pdf_payload", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Get my leaves API", False, str(e))
+            self.log_test("POST /api/quotations with pdf_payload", False, f"Exception: {str(e)}")
+            return False
     
-    def test_delegated_requests_api(self):
-        """Test 4: Delegated Requests API (GET /api/requests/delegated)"""
-        print("\n=== Testing Delegated Requests API ===")
-        
+    def test_get_quotation_with_pdf_payload(self):
+        """Test 2: GET quotation by ID returns pdf_payload unchanged"""
         try:
-            # Create a travel request assigned to sales user
-            request_data = self.create_travel_request("sales-001", "Sales Executive")
-            self.log_test("Create travel request for delegation test", True, f"Request ID: {request_data['id']}")
-            
-            # Test delegated requests API
-            params = {"user_id": "sales-002"}  # Backup user
-            response = self.session.get(f"{BASE_URL}/requests/delegated", params=params)
+            response = self.session.get(f"{BACKEND_URL}/quotations/{self.created_quotation_id}")
             
             if response.status_code == 200:
-                delegated_requests = response.json()
-                self.log_test("Get delegated requests API", True, f"Found {len(delegated_requests)} delegated requests")
+                quotation = response.json()
                 
-                # Check if delegated_from field is present
-                if delegated_requests:
-                    has_delegated_from = any("delegated_from" in req for req in delegated_requests)
-                    if has_delegated_from:
-                        self.log_test("Delegated requests contain delegation info", True, "delegated_from field present")
+                # Verify pdf_payload is present and contains expected structure
+                if "pdf_payload" in quotation and quotation["pdf_payload"]:
+                    pdf_payload = quotation["pdf_payload"]
+                    
+                    # Check key fields exist
+                    required_fields = ["tripTitle", "pricing", "days", "terms", "testimonials"]
+                    missing_fields = [field for field in required_fields if field not in pdf_payload]
+                    
+                    if not missing_fields:
+                        self.log_test("GET /api/quotations/{id} returns pdf_payload", True, 
+                                    "pdf_payload retrieved with all required fields")
+                        return True
                     else:
-                        self.log_test("Delegated requests contain delegation info", False, "delegated_from field missing")
+                        self.log_test("GET /api/quotations/{id} returns pdf_payload", False, 
+                                    f"Missing fields: {missing_fields}")
+                        return False
+                else:
+                    self.log_test("GET /api/quotations/{id} returns pdf_payload", False, 
+                                "pdf_payload not found in response")
+                    return False
             else:
-                self.log_test("Get delegated requests API", False, f"Status: {response.status_code}")
+                self.log_test("GET /api/quotations/{id} returns pdf_payload", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Get delegated requests API", False, str(e))
+            self.log_test("GET /api/quotations/{id} returns pdf_payload", False, f"Exception: {str(e)}")
+            return False
     
-    def test_backup_chain_scenario(self):
-        """Test 5: Backup Chain Test (A→B→C)"""
-        print("\n=== Testing Backup Chain Scenario ===")
-        
+    def test_get_all_quotations_with_pdf_payload(self):
+        """Test 3: GET all quotations returns pdf_payload"""
         try:
-            # This is a complex scenario that would require multiple users and leaves
-            # For now, we'll test the API endpoint structure
-            params = {"user_id": "sales-003"}  # Third level backup
-            response = self.session.get(f"{BASE_URL}/requests/delegated", params=params)
+            response = self.session.get(f"{BACKEND_URL}/quotations")
             
             if response.status_code == 200:
-                self.log_test("Backup chain API endpoint", True, "API endpoint accessible")
+                quotations = response.json()
+                
+                # Find our test quotation
+                test_quotation = None
+                for q in quotations:
+                    if q["id"] == self.created_quotation_id:
+                        test_quotation = q
+                        break
+                
+                if test_quotation and "pdf_payload" in test_quotation and test_quotation["pdf_payload"]:
+                    self.log_test("GET /api/quotations returns pdf_payload", True, 
+                                "pdf_payload present in quotations list")
+                    return True
+                else:
+                    self.log_test("GET /api/quotations returns pdf_payload", False, 
+                                "pdf_payload not found in quotations list")
+                    return False
             else:
-                self.log_test("Backup chain API endpoint", False, f"Status: {response.status_code}")
+                self.log_test("GET /api/quotations returns pdf_payload", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Backup chain API endpoint", False, str(e))
+            self.log_test("GET /api/quotations returns pdf_payload", False, f"Exception: {str(e)}")
+            return False
     
-    def test_cancel_leave_api(self):
-        """Test 6: Cancel Leave API (DELETE /api/leaves/{leave_id})"""
-        print("\n=== Testing Cancel Leave API ===")
-        
+    def test_update_quotation_with_pdf_payload(self):
+        """Test 4: PUT quotation updates pdf_payload correctly"""
         try:
-            # First create a leave to cancel
-            leave_data = {
+            # First get the current quotation
+            response = self.session.get(f"{BACKEND_URL}/quotations/{self.created_quotation_id}")
+            if response.status_code != 200:
+                self.log_test("PUT /api/quotations/{id} with pdf_payload", False, 
+                            "Could not fetch quotation for update")
+                return False
+            
+            quotation = response.json()
+            
+            # Update the pdf_payload
+            updated_pdf_payload = quotation["pdf_payload"].copy()
+            updated_pdf_payload["tripTitle"] = "Updated Magical Manali Adventure"
+            updated_pdf_payload["pricing"]["total"] = 70000.0
+            updated_pdf_payload["terms"]["cancellation"] = "Updated: Free cancellation up to 10 days before travel"
+            
+            quotation["pdf_payload"] = updated_pdf_payload
+            quotation["updated_at"] = datetime.now(timezone.utc).isoformat()
+            
+            # Update the quotation
+            response = self.session.put(f"{BACKEND_URL}/quotations/{self.created_quotation_id}", json=quotation)
+            
+            if response.status_code == 200:
+                updated_quotation = response.json()
+                
+                # Verify the pdf_payload was updated
+                if (updated_quotation["pdf_payload"]["tripTitle"] == "Updated Magical Manali Adventure" and
+                    updated_quotation["pdf_payload"]["pricing"]["total"] == 70000.0):
+                    self.log_test("PUT /api/quotations/{id} with pdf_payload", True, 
+                                "pdf_payload updated successfully")
+                    return True
+                else:
+                    self.log_test("PUT /api/quotations/{id} with pdf_payload", False, 
+                                "pdf_payload not updated correctly")
+                    return False
+            else:
+                self.log_test("PUT /api/quotations/{id} with pdf_payload", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.log_test("PUT /api/quotations/{id} with pdf_payload", False, f"Exception: {str(e)}")
+            return False
+    
+    def test_quotation_without_pdf_payload(self):
+        """Test 5: Create quotation without pdf_payload (regression test)"""
+        try:
+            quotation_data = {
                 "id": str(uuid.uuid4()),
-                "user_id": "acc-001",
-                "user_name": "Accountant",
-                "user_role": "accountant",
-                "start_date": "2024-04-01",
-                "end_date": "2024-04-05",
-                "backup_user_id": "acc-002",
-                "backup_user_name": "Accountant 2",
-                "reason": "Test leave for cancellation",
-                "status": "active"
+                "request_id": self.created_request_id,
+                "versions": [
+                    {
+                        "version": 1,
+                        "line_items": [
+                            {
+                                "id": str(uuid.uuid4()),
+                                "name": "Basic Package",
+                                "supplier": "Test Supplier",
+                                "unit_price": 1000.0,
+                                "quantity": 2,
+                                "total": 2000.0
+                            }
+                        ],
+                        "subtotal": 2000.0,
+                        "tax_amount": 360.0,
+                        "discount_amount": 0.0,
+                        "total_amount": 2360.0,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "status": "DRAFT",
+                "advance_percent": 30.0,
+                "advance_amount": 708.0,
+                "grand_total": 2360.0,
+                # Note: No pdf_payload field
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
-            create_response = self.session.post(f"{BASE_URL}/leaves", json=leave_data)
+            response = self.session.post(f"{BACKEND_URL}/quotations", json=quotation_data)
             
-            if create_response.status_code == 200:
-                # Now try to cancel it
-                leave_id = leave_data["id"]
-                cancel_response = self.session.delete(f"{BASE_URL}/leaves/{leave_id}")
+            if response.status_code == 200:
+                created_quotation = response.json()
                 
-                if cancel_response.status_code == 200:
-                    self.log_test("Cancel leave API", True, "Leave cancelled successfully")
+                # Verify pdf_payload is None or not present
+                pdf_payload = created_quotation.get("pdf_payload")
+                if pdf_payload is None:
+                    self.log_test("Create quotation without pdf_payload (regression)", True, 
+                                "Quotation created successfully without pdf_payload")
+                    return True
                 else:
-                    self.log_test("Cancel leave API", False, f"Cancel failed with status: {cancel_response.status_code}")
+                    self.log_test("Create quotation without pdf_payload (regression)", False, 
+                                f"Unexpected pdf_payload: {pdf_payload}")
+                    return False
             else:
-                self.log_test("Cancel leave API setup", False, "Could not create leave for cancellation test")
+                self.log_test("Create quotation without pdf_payload (regression)", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Cancel leave API", False, str(e))
+            self.log_test("Create quotation without pdf_payload (regression)", False, f"Exception: {str(e)}")
+            return False
     
-    def test_general_leaves_api(self):
-        """Test general leaves API (GET /api/leaves)"""
-        print("\n=== Testing General Leaves API ===")
-        
+    def test_existing_quotation_endpoints(self):
+        """Test 6: Verify existing quotation endpoints still work (regression)"""
         try:
-            # Test getting all leaves
-            response = self.session.get(f"{BASE_URL}/leaves")
+            # Test publish quotation
+            publish_data = {
+                "expiry_date": "2024-04-15",
+                "notes": "Test publication"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/quotations/{self.created_quotation_id}/publish", 
+                                       json=publish_data)
             
             if response.status_code == 200:
-                leaves = response.json()
-                self.log_test("Get all leaves API", True, f"Retrieved {len(leaves)} leaves")
+                self.log_test("POST /api/quotations/{id}/publish (regression)", True, 
+                            "Publish endpoint working correctly")
+                
+                # Test download proforma
+                response = self.session.get(f"{BACKEND_URL}/quotations/{self.created_quotation_id}/download-proforma")
+                
+                if response.status_code == 200 and response.headers.get('content-type') == 'application/pdf':
+                    self.log_test("GET /api/quotations/{id}/download-proforma (regression)", True, 
+                                f"PDF generated successfully ({len(response.content)} bytes)")
+                    return True
+                else:
+                    self.log_test("GET /api/quotations/{id}/download-proforma (regression)", False, 
+                                f"Status: {response.status_code}, Content-Type: {response.headers.get('content-type')}")
+                    return False
             else:
-                self.log_test("Get all leaves API", False, f"Status: {response.status_code}")
+                self.log_test("POST /api/quotations/{id}/publish (regression)", False, 
+                            f"Status: {response.status_code}", response.text)
+                return False
                 
         except Exception as e:
-            self.log_test("Get all leaves API", False, str(e))
-        
+            self.log_test("Existing quotation endpoints (regression)", False, f"Exception: {str(e)}")
+            return False
+    
+    def test_generate_pdf_endpoint(self):
+        """Test 7: Verify /api/generate-pdf endpoint still works with QuotationData"""
         try:
-            # Test with filters
-            params = {"status": "active"}
-            response = self.session.get(f"{BASE_URL}/leaves", params=params)
+            # Sample QuotationData for PDF generation
+            quotation_data = {
+                "bookingRef": "TEST2024001",
+                "tripTitle": "Test PDF Generation",
+                "salesperson": {
+                    "name": "Test Agent",
+                    "phone": "+91-9876543210",
+                    "email": "agent@travel.com",
+                    "photo": "https://example.com/photo.jpg"
+                },
+                "summary": {
+                    "duration": "5 Days 4 Nights",
+                    "travelers": 2,
+                    "rating": 4.8,
+                    "highlights": ["Scenic Views", "Adventure Activities", "Cultural Experience"]
+                },
+                "pricing": {
+                    "subtotal": 25000.0,
+                    "taxes": 4500.0,
+                    "discount": 2000.0,
+                    "total": 27500.0,
+                    "perPerson": 13750.0,
+                    "depositDue": 8250.0,
+                    "currency": "INR"
+                },
+                "days": [
+                    {
+                        "dayNumber": 1,
+                        "date": "2024-03-15",
+                        "location": "Test Location",
+                        "activities": [
+                            {
+                                "time": "09:00",
+                                "title": "Test Activity",
+                                "description": "Test description",
+                                "meetingPoint": "Test Point",
+                                "type": "sightseeing"
+                            }
+                        ]
+                    }
+                ],
+                "gallery": [
+                    {
+                        "url": "https://example.com/image1.jpg",
+                        "caption": "Test Image"
+                    }
+                ],
+                "terms": {
+                    "cancellation": "Test cancellation policy",
+                    "payment": "Test payment terms",
+                    "inclusions": ["Test inclusion"],
+                    "exclusions": ["Test exclusion"]
+                },
+                "testimonials": [
+                    {
+                        "name": "Test Customer",
+                        "rating": 5,
+                        "comment": "Test testimonial"
+                    }
+                ],
+                "privacyPolicy": "Test privacy policy"
+            }
             
-            if response.status_code == 200:
-                leaves = response.json()
-                self.log_test("Get leaves with status filter", True, f"Retrieved {len(leaves)} active leaves")
+            response = self.session.post(f"{BACKEND_URL}/generate-pdf", json=quotation_data)
+            
+            if response.status_code == 200 and response.headers.get('content-type') == 'application/pdf':
+                self.log_test("POST /api/generate-pdf with QuotationData (regression)", True, 
+                            f"PDF generated successfully ({len(response.content)} bytes)")
+                return True
             else:
-                self.log_test("Get leaves with status filter", False, f"Status: {response.status_code}")
+                self.log_test("POST /api/generate-pdf with QuotationData (regression)", False, 
+                            f"Status: {response.status_code}, Content-Type: {response.headers.get('content-type')}")
+                return False
                 
         except Exception as e:
-            self.log_test("Get leaves with status filter", False, str(e))
+            self.log_test("POST /api/generate-pdf with QuotationData (regression)", False, f"Exception: {str(e)}")
+            return False
     
     def run_all_tests(self):
-        """Run all Leave Management tests"""
-        print("🚀 Starting Leave Management System Backend Testing")
+        """Run all tests in sequence"""
+        print("🧪 Starting Quotation PDF Payload Testing Suite")
         print("=" * 60)
         
-        try:
-            # Test all Leave Management APIs
-            self.test_create_leave_api()
-            self.test_date_overlap_validation()
-            self.test_get_available_backups_api()
-            self.test_get_my_leaves_api()
-            self.test_delegated_requests_api()
-            self.test_backup_chain_scenario()
-            self.test_cancel_leave_api()
-            self.test_general_leaves_api()
-            
-        except Exception as e:
-            self.log_test("Test execution", False, f"Critical error: {str(e)}")
+        # Setup
+        if not self.create_test_request():
+            print("❌ Failed to create test request. Aborting tests.")
+            return False
         
-        # Print summary
-        print("\n" + "=" * 60)
-        print("🎯 LEAVE MANAGEMENT TESTING SUMMARY")
+        # Core tests
+        tests = [
+            self.test_quotation_model_with_pdf_payload,
+            self.test_get_quotation_with_pdf_payload,
+            self.test_get_all_quotations_with_pdf_payload,
+            self.test_update_quotation_with_pdf_payload,
+            self.test_quotation_without_pdf_payload,
+            self.test_existing_quotation_endpoints,
+            self.test_generate_pdf_endpoint
+        ]
+        
+        passed = 0
+        total = len(tests)
+        
+        for test in tests:
+            if test():
+                passed += 1
+            print()  # Add spacing between tests
+        
+        # Summary
+        print("=" * 60)
+        print("📊 TEST SUMMARY")
         print("=" * 60)
         
-        passed = sum(1 for result in self.test_results if "✅ PASS" in result)
-        failed = sum(1 for result in self.test_results if "❌ FAIL" in result)
-        
-        print(f"Total Tests: {passed + failed}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {failed}")
-        print(f"Success Rate: {(passed/(passed+failed)*100):.1f}%" if (passed+failed) > 0 else "0%")
-        
-        print("\nDetailed Results:")
         for result in self.test_results:
-            print(result)
+            print(f"{result['status']}: {result['test']}")
+            if result['message']:
+                print(f"    {result['message']}")
         
-        return passed, failed
+        print(f"\n🎯 OVERALL RESULT: {passed}/{total} tests passed")
+        
+        if passed == total:
+            print("🎉 ALL TESTS PASSED! Quotation PDF payload feature is working correctly.")
+            return True
+        else:
+            print(f"⚠️  {total - passed} tests failed. Please review the issues above.")
+            return False
+
+def main():
+    """Main test runner"""
+    tester = QuotationPDFPayloadTester()
+    success = tester.run_all_tests()
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
-    tester = LeaveManagementTester()
-    passed, failed = tester.run_all_tests()
-    
-    if failed == 0:
-        print("\n🎉 ALL TESTS PASSED!")
-    else:
-        print(f"\n⚠️  {failed} TESTS FAILED - See details above")
+    main()
