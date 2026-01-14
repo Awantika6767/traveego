@@ -931,41 +931,113 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
-        {/* Inclusions (Read-only from admin settings but editable) */}
+        {/* Inclusions (Editable for current quotation) */}
         <Card>
           <CardHeader>
             <CardTitle>Inclusions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {formData.inclusions.map((item, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                  <span className="flex-1">✓ {item}</span>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {/* Add new inclusion */}
+              <div className="flex gap-2">
+                <Input
+                  value={newInclusion}
+                  onChange={(e) => setNewInclusion(e.target.value)}
+                  placeholder="Add inclusion item..."
+                  onKeyPress={(e) => e.key === 'Enter' && addInclusion()}
+                />
+                <Button
+                  type="button"
+                  onClick={addInclusion}
+                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Inclusions list */}
+              <div className="space-y-2">
+                {formData.inclusions.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    No inclusions added yet
+                  </div>
+                ) : (
+                  formData.inclusions.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <span className="flex-1 text-green-800">✓ {item}</span>
+                      <Button
+                        type="button"
+                        onClick={() => removeInclusion(index)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-sm text-gray-500">
+                Pre-filled from admin settings. You can add or remove items for this specific quotation.
+              </p>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Populated from admin settings. Operations can edit via backend API.
-            </p>
           </CardContent>
         </Card>
 
-        {/* Exclusions (Read-only from admin settings but editable) */}
+        {/* Exclusions (Editable for current quotation) */}
         <Card>
           <CardHeader>
             <CardTitle>Exclusions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {formData.exclusions.map((item, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-red-50 rounded">
-                  <span className="flex-1">✗ {item}</span>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {/* Add new exclusion */}
+              <div className="flex gap-2">
+                <Input
+                  value={newExclusion}
+                  onChange={(e) => setNewExclusion(e.target.value)}
+                  placeholder="Add exclusion item..."
+                  onKeyPress={(e) => e.key === 'Enter' && addExclusion()}
+                />
+                <Button
+                  type="button"
+                  onClick={addExclusion}
+                  className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Exclusions list */}
+              <div className="space-y-2">
+                {formData.exclusions.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    No exclusions added yet
+                  </div>
+                ) : (
+                  formData.exclusions.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <span className="flex-1 text-red-800">✗ {item}</span>
+                      <Button
+                        type="button"
+                        onClick={() => removeExclusion(index)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-sm text-gray-500">
+                Pre-filled from admin settings. You can add or remove items for this specific quotation.
+              </p>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Populated from admin settings. Operations can edit via backend API.
-            </p>
           </CardContent>
         </Card>
 
