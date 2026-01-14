@@ -35,6 +35,7 @@ export const api = {
   publishQuotation: (id, data) => axios.post(`${API_BASE}/quotations/${id}/publish`, data),
   acceptQuotation: (id, data) => axios.post(`${API_BASE}/quotations/${id}/accept`, data),
   downloadProformaInvoice: (id) => `${API_BASE}/quotations/${id}/download-proforma`,
+  generateDetailedPDF: (quotationData) => axios.post(`${API_BASE}/generate-pdf`, quotationData, { responseType: 'blob' }),
   
   // Invoices
   getInvoices: (params) => axios.get(`${API_BASE}/invoices`, { params }),
