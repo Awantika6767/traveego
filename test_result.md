@@ -469,10 +469,174 @@ frontend:
         agent: "main"
         comment: "Updated RequestList to fetch and display delegated requests in separate section with orange badges showing who the user is covering for"
 
-metadata:
-  created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 3
+  - task: "Add can_see_cost_breakup field to User model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added can_see_cost_breakup boolean field to User model with default value False"
+
+  - task: "Create get_current_user dependency function"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created get_current_user async function to extract user from authorization token, supporting both MOCK_USERS and database users"
+
+  - task: "Create admin endpoint to get all salespeople"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/admin/salespeople endpoint to fetch all users with sales role and their cost breakup permissions. Protected with admin role check."
+
+  - task: "Create admin endpoint to toggle cost breakup permission"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added PUT /api/admin/salespeople/{user_id}/cost-breakup-permission endpoint to toggle permission for specific salesperson. Includes validation and activity logging. Protected with admin role check."
+
+  - task: "Update login endpoint to return can_see_cost_breakup"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modified login endpoint response to include can_see_cost_breakup field in user object"
+
+  - task: "Add admin user to MOCK_USERS"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added admin@travel.com user to MOCK_USERS with admin123 password and can_see_cost_breakup set to true"
+
+frontend:
+  - task: "Create CountryCodeSelect component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CountryCodeSelect.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created reusable CountryCodeSelect component with 24 country codes including flags"
+
+  - task: "Update CreateRequest form to include country code dropdown"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/CreateRequest.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added CountryCodeSelect component alongside phone input in CreateRequest form with client_country_code field"
+
+  - task: "Update LoginPage registration to include country code dropdown"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/LoginPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added CountryCodeSelect component to registration form with country_code field"
+
+  - task: "Create OpenRequests page for salespeople"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/OpenRequests.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created OpenRequests component showing unassigned requests in card grid layout with Assign to Me button"
+
+  - task: "Add route for Open Requests page"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added /open-requests route in App.js with ProtectedRoute wrapper"
+
+  - task: "Add navigation link for Open Requests in sidebar"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Layout.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added Open Requests navigation item to Layout for sales role users"
+
+  - task: "Add Download Proforma Invoice button in RequestDetail"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added Download Proforma button that appears when quotation status is SENT, calls API to download PDF"
+
+  - task: "Update API utility with new endpoints"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/utils/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added getOpenRequests, assignRequestToMe, and downloadProformaInvoice to API utility"
   run_ui: false
 
 test_plan:
