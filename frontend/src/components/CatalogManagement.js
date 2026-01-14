@@ -48,6 +48,12 @@ export const CatalogManagement = () => {
         ...newItem,
         default_price: parseFloat(newItem.default_price)
       };
+      
+      // Only include rating if it's a hotel
+      if (itemData.type !== 'hotel') {
+        delete itemData.rating;
+      }
+      
       await api.createCatalogItem(itemData);
       toast.success('Catalog item added successfully');
       setShowModal(false);
@@ -57,7 +63,9 @@ export const CatalogManagement = () => {
         destination: '',
         supplier: '',
         default_price: 0,
-        description: ''
+        description: '',
+        image_url: '',
+        rating: 3
       });
       loadCatalog();
     } catch (error) {
