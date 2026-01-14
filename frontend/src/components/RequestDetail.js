@@ -11,7 +11,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { 
   ArrowLeft, Plus, Trash2, Save, Send, Check, Calendar, 
-  Users, DollarSign, MapPin, Clock, Download
+  Users, DollarSign, MapPin, Clock, Download, FileText
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, getStatusColor, formatDate } from '../utils/formatters';
 import { toast } from 'sonner';
