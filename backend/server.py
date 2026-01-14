@@ -315,11 +315,48 @@ class Leave(BaseModel):
 
 # Mock users for login
 MOCK_USERS = {
-    "ops@travel.com": {"password": "ops123", "role": UserRole.OPERATIONS, "name": "Operations Manager", "id": "ops-001"},
-    "sales@travel.com": {"password": "sales123", "role": UserRole.SALES, "name": "Sales Executive", "id": "sales-001"},
-    "accountant@travel.com": {"password": "acc123", "role": UserRole.ACCOUNTANT, "name": "Accountant", "id": "acc-001"},
-    "customer@travel.com": {"password": "customer123", "role": UserRole.CUSTOMER, "name": "John Customer", "id": "customer-001"},
+    "ops@travel.com": {"password": "ops123", "role": UserRole.OPERATIONS, "name": "Operations Manager", "id": "ops-001", "can_see_cost_breakup": True},
+    "sales@travel.com": {"password": "sales123", "role": UserRole.SALES, "name": "Sales Executive", "id": "sales-001", "can_see_cost_breakup": False},
+    "accountant@travel.com": {"password": "acc123", "role": UserRole.ACCOUNTANT, "name": "Accountant", "id": "acc-001", "can_see_cost_breakup": True},
+    "customer@travel.com": {"password": "customer123", "role": UserRole.CUSTOMER, "name": "John Customer", "id": "customer-001", "can_see_cost_breakup": False},
+    "admin@travel.com": {"password": "admin123", "role": UserRole.ADMIN, "name": "Admin User", "id": "admin-001", "can_see_cost_breakup": True},
 }
+
+# Dependency to get current user from token
+async def get_current_user(authorization: str = Header(None)):
+    """Extract user from authorization header token"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.replace("Bearer ", "")
+    
+    # For mock implementation, extract user_id from token
+    if token.startswith("mock-token-"):
+        user_id = token.replace("mock-token-", "")
+        
+        # Find user in MOCK_USERS
+        for email, user_data in MOCK_USERS.items():
+            if user_data["id"] == user_id:
+                return {
+                    "id": user_data["id"],
+                    "email": email,
+                    "name": user_data["name"],
+                    "role": user_data["role"],
+                    "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False)
+                }
+        
+        # If not in MOCK_USERS, check database
+        user = await db.users.find_one({"id": user_id})
+        if user:
+            return {
+                "id": user["id"],
+                "email": user["email"],
+                "name": user["name"],
+                "role": user["role"],
+                "can_see_cost_breakup": user.get("can_see_cost_breakup", False)
+            }
+    
+    raise HTTPException(status_code=401, detail="Invalid token")
 
 @api_router.post("/generate-pdf")
 async def generate_pdf(data: QuotationData):
