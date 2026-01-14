@@ -1662,9 +1662,9 @@ async def update_admin_settings(
     settings_data: dict,
     current_user: dict = Depends(get_current_user)
 ):
-    """Update admin settings. Only accessible by admin and operations."""
-    if current_user.get("role") not in ["admin", "operations"]:
-        raise HTTPException(status_code=403, detail="Only admin and operations can modify settings")
+    """Update admin settings. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can modify settings")
     
     # Get existing settings or create new
     existing_settings = await db.admin_settings.find_one({})
