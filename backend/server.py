@@ -288,6 +288,8 @@ class CatalogItem(BaseModel):
     supplier: Optional[str] = None
     default_price: float
     description: Optional[str] = None
+    image_url: Optional[str] = None
+    rating: Optional[int] = None  # For hotels: 1-5 stars
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class Notification(BaseModel):
