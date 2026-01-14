@@ -1330,6 +1330,124 @@ agent_communication:
 
   - agent: "main"
     message: |
+      STEPS 4 & 5 COMPLETED: Admin Settings APIs & Quotation Detailed Data Helper Endpoints
+      
+      **STEP 4: Admin Settings APIs (Enhanced)**
+      
+      A. GET /api/admin/settings ✅
+         - Returns current admin settings
+         - Auto-creates default settings if none exist
+         - No authentication required for reading
+         - Already tested and working
+      
+      B. PUT /api/admin/settings ✅
+         - Updates admin settings (privacy policy, T&C, default inclusions/exclusions)
+         - **UPDATED:** Now protected with admin role check ONLY (previously allowed operations too)
+         - Returns 403 error if non-admin attempts to modify
+         - Creates new settings if none exist, updates existing otherwise
+      
+      **STEP 5: Quotation Detailed Data Helper Endpoints (NEW)**
+      
+      A. GET /api/quotations/{quotation_id}/detailed-data ✅
+         - Retrieves the detailed quotation JSON data
+         - Returns full detailed_quotation_data object
+         - Returns 404 if quotation not found
+         - Returns 404 if detailed_quotation_data is null/empty
+         - No authentication required for reading
+      
+      B. PUT /api/quotations/{quotation_id}/detailed-data ✅
+         - Updates detailed quotation data with role-based restrictions
+         - **Role-Based Access Control:**
+           
+           **Operations Role:**
+           - ✅ CAN edit: inclusions, exclusions
+           - ❌ CANNOT edit: privacyPolicy, detailedTerms (terms & conditions)
+           - Returns 403 error if operations tries to modify privacy/terms
+           - All other fields from existing data are preserved
+           
+           **Admin Role:**
+           - ✅ CAN edit: ALL fields (no restrictions)
+           - Full control over detailed quotation data
+         
+         - **Behavior:**
+           * Merges new data with existing detailed_quotation_data
+           * Updates timestamp on modification
+           * Returns updated detailed_quotation_data after save
+      
+      **IMPLEMENTATION DETAILS:**
+      
+      1. Role Check Implementation:
+         - Uses get_current_user() dependency for authentication
+         - Validates user role from JWT token
+         - Enforces strict role-based permissions
+      
+      2. Operations Role Restrictions:
+         - Allowed fields: ["inclusions", "exclusions"]
+         - Protected fields: ["privacyPolicy", "detailedTerms"]
+         - Explicit error if operations attempts to modify protected fields
+         - Preserves all other existing fields
+      
+      3. Data Merging Strategy:
+         - Copies existing detailed_quotation_data
+         - Updates only specified fields
+         - Maintains data integrity for unmodified fields
+      
+      4. Error Handling:
+         - 404: Quotation not found
+         - 404: Detailed data not found (GET endpoint)
+         - 403: Unauthorized role access
+         - 403: Operations attempting to modify protected fields
+      
+      **USE CASES:**
+      
+      1. Admin manages default settings:
+         - Admin updates privacy policy and T&C via PUT /api/admin/settings
+         - Settings apply to all new quotations automatically
+      
+      2. Operations customizes quotation:
+         - Gets detailed data via GET /api/quotations/{id}/detailed-data
+         - Modifies inclusions/exclusions for specific trip
+         - Updates via PUT /api/quotations/{id}/detailed-data
+         - Privacy and terms remain unchanged (from AdminSettings)
+      
+      3. Admin overrides everything:
+         - Can modify any field including privacy and terms
+         - Full flexibility for special cases
+      
+      **SECURITY FEATURES:**
+      
+      ✅ Admin-only access for global settings
+      ✅ Role-based field restrictions for operations
+      ✅ Explicit rejection of unauthorized field modifications
+      ✅ Protected privacy policy and terms from operations changes
+      ✅ JWT token validation for all protected endpoints
+      
+      **API ENDPOINTS SUMMARY:**
+      
+      | Endpoint | Method | Role Required | Purpose |
+      |----------|--------|---------------|---------|
+      | /api/admin/settings | GET | None | Get admin settings |
+      | /api/admin/settings | PUT | admin | Update admin settings |
+      | /api/quotations/{id}/detailed-data | GET | None | Get quotation details |
+      | /api/quotations/{id}/detailed-data | PUT | admin/operations | Update quotation details (restricted) |
+      
+      **FILES MODIFIED:**
+      - /app/backend/server.py
+        * Updated PUT /api/admin/settings (admin-only restriction)
+        * Added GET /api/quotations/{quotation_id}/detailed-data
+        * Added PUT /api/quotations/{quotation_id}/detailed-data (with role restrictions)
+      
+      Backend auto-reloaded successfully. All endpoints are live and ready for testing.
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Test admin settings CRUD operations
+      2. Test quotation detailed data retrieval
+      3. Test operations role restrictions (should block privacy/terms editing)
+      4. Test admin role full access
+      5. Verify error handling for invalid roles/missing data
+
+  - agent: "main"
+    message: |
       NEW FEATURE IMPLEMENTED: Enhanced Catalog Management with Images and Hotel Ratings
       
       **Requirement:** When adding catalog items, ask for 1 image. If it's a hotel, also ask for rating (how many stars).
