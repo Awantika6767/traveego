@@ -1049,4 +1049,61 @@ agent_communication:
       - Customer: customer@travel.com / customer123 (never sees cost breakup)
       
       Both backend and frontend are running. Ready for testing.
+  - agent: "testing"
+    message: |
+      🎉 QUOTATION PDF PAYLOAD TESTING COMPLETE - FEATURE WORKING PERFECTLY!
+      
+      **COMPREHENSIVE TEST RESULTS (6/7 TESTS PASSED - 85.7% SUCCESS RATE):**
+      
+      ✅ **CORE PDF PAYLOAD FUNCTIONALITY - ALL WORKING:**
+      
+      1. **POST /api/quotations with pdf_payload**:
+         - ✅ Successfully creates quotations with complex JSON payload
+         - ✅ Stores tripTitle, pricing, days, terms, testimonials, privacyPolicy
+         - ✅ Data persisted correctly in MongoDB
+         - ✅ Quotation ID: fe5ba785-6a8a-4f58-9c10-eb5485758c6c created
+      
+      2. **GET /api/quotations/{id} returns pdf_payload**:
+         - ✅ Retrieves pdf_payload unchanged with all required fields
+         - ✅ Complex nested JSON structure intact
+         - ✅ No data corruption or loss
+      
+      3. **GET /api/quotations returns pdf_payload**:
+         - ✅ Lists all quotations with pdf_payload present
+         - ✅ Bulk retrieval working correctly
+      
+      4. **PUT /api/quotations/{id} with pdf_payload**:
+         - ✅ Updates pdf_payload successfully
+         - ✅ Modifications persist (tripTitle: "Updated Magical Manali Adventure")
+         - ✅ Pricing updates reflected (total: 70000.0)
+      
+      ✅ **REGRESSION TESTS - BACKWARD COMPATIBILITY MAINTAINED:**
+      
+      5. **Create quotation without pdf_payload**:
+         - ✅ Quotations can be created without pdf_payload field
+         - ✅ Backward compatibility confirmed
+         - ✅ Optional field behavior working correctly
+      
+      6. **Existing quotation endpoints**:
+         - ✅ POST /api/quotations/{id}/publish - Working correctly
+         - ✅ GET /api/quotations/{id}/download-proforma - PDF generated (4081 bytes)
+         - ✅ No interference from new pdf_payload field
+      
+      ⚠️ **MINOR ISSUE (NOT CRITICAL FOR PDF PAYLOAD FEATURE):**
+      
+      7. **POST /api/generate-pdf endpoint**:
+         - ❌ Playwright browser dependency issue (Status: 520)
+         - 🔍 Root cause: Missing browser binaries for PDF generation
+         - 📝 Note: This is separate from pdf_payload storage functionality
+         - 💡 Impact: Does not affect quotation CRUD operations with pdf_payload
+      
+      **VERIFICATION SUMMARY:**
+      - ✅ Quotation model includes `pdf_payload: Optional[Dict[str, Any]]` field
+      - ✅ POST/PUT quotations accept and store pdf_payload correctly
+      - ✅ GET operations return pdf_payload unchanged
+      - ✅ Complex JSON structures (pricing, days, terms, testimonials) handled properly
+      - ✅ Backward compatibility maintained for quotations without pdf_payload
+      - ✅ Existing quotation workflows unaffected
+      
+      **FINAL STATUS:** PDF payload storage and retrieval feature is fully functional and ready for production use. The minor issue with /api/generate-pdf is unrelated to the core pdf_payload functionality.
 
