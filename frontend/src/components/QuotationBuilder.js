@@ -986,13 +986,31 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
-        {/* Save Button */}
+        {/* Action Buttons */}
         <div className="flex justify-end gap-4 pb-6">
           <Button
             onClick={() => navigate(-1)}
             variant="outline"
           >
             Cancel
+          </Button>
+          <Button
+            onClick={handleGeneratePDF}
+            disabled={generatingPDF}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+          >
+            {generatingPDF ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mr-2"></div>
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-2" />
+                Generate PDF
+              </>
+            )}
           </Button>
           <Button
             onClick={handleSave}
