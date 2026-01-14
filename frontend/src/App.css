@@ -210,6 +210,10 @@ select:focus {
   transition: all 150ms ease;
 }
 
+.line-item-row-simple {
+  grid-template-columns: 40px 4fr 1fr;
+}
+
 .line-item-row:hover {
   border-color: #FF6A00;
   background: #fff7ed;
