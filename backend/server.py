@@ -322,6 +322,7 @@ class AdminSettings(BaseModel):
     terms_and_conditions: str = ""
     default_inclusions: List[str] = []
     default_exclusions: List[str] = []
+    testimonials: List[Testimonial] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
