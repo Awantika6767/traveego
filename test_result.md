@@ -1240,7 +1240,7 @@ backend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 6
+  test_sequence: 7
   run_ui: false
 
 test_plan:
@@ -1248,6 +1248,8 @@ test_plan:
     - "Create AdminSettings model"
     - "Create admin settings GET endpoint"
     - "Create admin settings PUT endpoint"
+    - "Add testimonials field to AdminSettings model"
+    - "Update admin settings endpoints to handle testimonials"
     - "Add detailed_quotation_data field to Quotation model"
     - "Update create_quotation endpoint to populate from AdminSettings"
     - "Update update_quotation endpoint to populate from AdminSettings"
