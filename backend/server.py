@@ -1478,6 +1478,66 @@ async def get_delegated_requests(user_id: str):
     
     return result
 
+# Admin endpoints
+@api_router.get("/admin/salespeople")
+async def get_all_salespeople(current_user: dict = Depends(get_current_user)):
+    """Get all salespeople with their cost breakup permissions. Only accessible by admin."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can access this endpoint")
+    
+    # Fetch all users with sales role
+    salespeople_cursor = db.users.find({"role": "sales"})
+    salespeople = []
+    
+    async for sp in salespeople_cursor:
+        salespeople.append({
+            "id": sp["id"],
+            "name": sp["name"],
+            "email": sp["email"],
+            "phone": sp.get("phone", ""),
+            "can_see_cost_breakup": sp.get("can_see_cost_breakup", False),
+            "created_at": sp.get("created_at", "")
+        })
+    
+    return salespeople
+
+@api_router.put("/admin/salespeople/{user_id}/cost-breakup-permission")
+async def toggle_cost_breakup_permission(
+    user_id: str, 
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Toggle cost breakup visibility permission for a salesperson. Only accessible by admin."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can modify permissions")
+    
+    # Verify the user exists and is a salesperson
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.get("role") != "sales":
+        raise HTTPException(status_code=400, detail="Can only modify permissions for salespeople")
+    
+    # Update the permission
+    can_see = data.get("can_see_cost_breakup", False)
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"can_see_cost_breakup": can_see}}
+    )
+    
+    # Log the activity
+    activity = Activity(
+        user_id=current_user["id"],
+        user_name=current_user["name"],
+        action=f"{'Enabled' if can_see else 'Disabled'} cost breakup visibility for {user.get('name')}",
+        entity_type="user_permission",
+        entity_id=user_id
+    )
+    await db.activities.insert_one(activity.dict())
+    
+    return {"message": "Permission updated successfully", "can_see_cost_breakup": can_see}
+
 # File upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
