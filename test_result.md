@@ -1477,6 +1477,105 @@ agent_communication:
 
   - agent: "main"
     message: |
+      ENHANCEMENT COMPLETED: Testimonials Field Added to AdminSettings
+      
+      **Requirement:** Add testimonials field to AdminSettings model as array of objects.
+      
+      **IMPLEMENTATION:**
+      
+      1. AdminSettings Model Enhanced:
+         - Added `testimonials: List[Testimonial] = []` field
+         - Leverages existing Testimonial model with structure:
+           ```python
+           class Testimonial(BaseModel):
+               name: str
+               rating: int
+               text: str
+           ```
+         - Example testimonial object:
+           ```json
+           {
+               "name": "Amit Patel",
+               "rating": 5,
+               "text": "Best vacation ever! Highly recommend!"
+           }
+           ```
+      
+      2. Admin Settings Endpoints Updated:
+         
+         A. GET /api/admin/settings ✅
+            - Now returns testimonials field (empty array by default)
+            - ✅ TESTED: Returns testimonials: [] in response
+         
+         B. PUT /api/admin/settings ✅
+            - Now accepts testimonials in request body
+            - Stores array of testimonial objects
+            - Validates testimonial structure via Pydantic model
+            - Example update payload:
+              ```json
+              {
+                  "privacy_policy": "Our privacy policy...",
+                  "terms_and_conditions": "Terms and conditions...",
+                  "default_inclusions": ["Breakfast", "Airport Transfer"],
+                  "default_exclusions": ["Lunch", "Personal Expenses"],
+                  "testimonials": [
+                      {
+                          "name": "Amit Patel",
+                          "rating": 5,
+                          "text": "Best vacation ever! Highly recommend!"
+                      },
+                      {
+                          "name": "Priya Sharma",
+                          "rating": 5,
+                          "text": "Amazing experience! Great service."
+                      }
+                  ]
+              }
+              ```
+      
+      **KEY FEATURES:**
+      
+      ✅ Reuses existing Testimonial model (already defined in codebase)
+      ✅ Type-safe with Pydantic validation
+      ✅ Supports multiple testimonials in array
+      ✅ Each testimonial has name, rating (int), and text fields
+      ✅ Backward compatible (defaults to empty array)
+      ✅ Admin-only modification (role-based access control)
+      
+      **VALIDATION:**
+      - Testimonials must conform to Testimonial model structure
+      - Rating must be integer
+      - Name and text must be strings
+      - Pydantic automatically validates structure on API calls
+      
+      **USE CASES:**
+      
+      1. Admin manages company testimonials:
+         - Admin updates testimonials via PUT /api/admin/settings
+         - Testimonials stored centrally for all quotations
+      
+      2. Testimonials in quotations:
+         - QuotationData model already includes testimonials field
+         - Can be populated from AdminSettings or custom per quotation
+         - Displays on quotation/proposal documents
+      
+      **FILES MODIFIED:**
+      - /app/backend/server.py
+        * Updated AdminSettings model (added testimonials field)
+        * Updated GET /api/admin/settings (includes testimonials in default creation)
+        * Updated PUT /api/admin/settings (handles testimonials in update_data)
+      
+      Backend auto-reloaded successfully. Testimonials field is live and ready for use.
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Test GET /api/admin/settings returns testimonials array
+      2. Test PUT /api/admin/settings with testimonials data
+      3. Verify testimonial structure validation
+      4. Test with multiple testimonials in array
+
+
+  - agent: "main"
+    message: |
       NEW FEATURE IMPLEMENTED: Enhanced Catalog Management with Images and Hotel Ratings
       
       **Requirement:** When adding catalog items, ask for 1 image. If it's a hotel, also ask for rating (how many stars).
