@@ -318,6 +318,28 @@ export const RequestDetail = () => {
   const canPublish = user.role === 'operations' && quotation?.status === 'DRAFT';
   const canAccept = user.role === 'customer' && quotation?.status === 'SENT';
 
+  // Determine if cost breakup should be shown
+  const shouldShowCostBreakup = () => {
+    // Never show cost breakup to customers
+    if (user.role === 'customer') {
+      return false;
+    }
+    
+    // Always show to operations, admin, and accountant (they need it for their work)
+    if (user.role === 'operations' || user.role === 'admin' || user.role === 'accountant') {
+      return true;
+    }
+    
+    // For salespeople, check their permission
+    if (user.role === 'sales') {
+      return user.can_see_cost_breakup === true;
+    }
+    
+    return false;
+  };
+
+  const showCostBreakup = shouldShowCostBreakup();
+
   return (
     <div data-testid="request-detail">
       <Button
