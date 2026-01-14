@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import uuid
 
 # Configuration
-BASE_URL = "https://mock-data-update.preview.emergentagent.com/api"
+BASE_URL = "https://quote-manager-30.preview.emergentagent.com/api"
 
 # Mock users available for testing
 MOCK_USERS = {
