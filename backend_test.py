@@ -449,6 +449,10 @@ class QuotationPDFPayloadTester:
             quotation_data = {
                 "bookingRef": "TEST2024001",
                 "tripTitle": "Test PDF Generation",
+                "customerName": "John Doe",
+                "dates": "March 15-20, 2024",
+                "city": "Manali",
+                "coverImage": "https://example.com/cover.jpg",
                 "salesperson": {
                     "name": "Test Agent",
                     "phone": "+91-9876543210",
@@ -495,14 +499,14 @@ class QuotationPDFPayloadTester:
                 "terms": {
                     "cancellation": "Test cancellation policy",
                     "payment": "Test payment terms",
-                    "inclusions": ["Test inclusion"],
-                    "exclusions": ["Test exclusion"]
+                    "insurance": "Test insurance policy",
+                    "changes": "Test change policy"
                 },
                 "testimonials": [
                     {
                         "name": "Test Customer",
                         "rating": 5,
-                        "comment": "Test testimonial"
+                        "text": "Test testimonial"
                     }
                 ],
                 "privacyPolicy": "Test privacy policy"
