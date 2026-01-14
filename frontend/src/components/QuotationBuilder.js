@@ -412,23 +412,43 @@ const QuotationBuilder = () => {
             <p className="text-gray-600">Create detailed quotation with itinerary</p>
           </div>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2"
-        >
-          {saving ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Save Quotation
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleGeneratePDF}
+            disabled={generatingPDF}
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+          >
+            {generatingPDF ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                Generate PDF
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2"
+          >
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Quotation
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
