@@ -233,6 +233,7 @@ class Quotation(BaseModel):
     advance_percent: float = 30.0
     advance_amount: float = 0.0
     grand_total: float = 0.0
+    pdf_payload: Optional[Dict[str, Any]] = None  # JSON data for PDF generation
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
