@@ -1691,6 +1691,83 @@ async def update_admin_settings(
         await db.admin_settings.insert_one(new_settings.dict())
         return new_settings
 
+# Quotation Detailed Data Helper Endpoints
+@api_router.get("/quotations/{quotation_id}/detailed-data")
+async def get_quotation_detailed_data(quotation_id: str):
+    """Get the detailed quotation JSON data."""
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    detailed_data = quotation.get("detailed_quotation_data")
+    if not detailed_data:
+        raise HTTPException(status_code=404, detail="Detailed quotation data not found")
+    
+    return detailed_data
+
+@api_router.put("/quotations/{quotation_id}/detailed-data")
+async def update_quotation_detailed_data(
+    quotation_id: str,
+    detailed_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update detailed quotation data.
+    Operations can edit inclusions/exclusions but not privacy policy or terms & conditions.
+    Admin can edit everything.
+    """
+    # Check authorization
+    user_role = current_user.get("role")
+    if user_role not in ["admin", "operations"]:
+        raise HTTPException(status_code=403, detail="Only admin and operations can modify detailed quotation data")
+    
+    # Get existing quotation
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    existing_detailed_data = quotation.get("detailed_quotation_data", {})
+    
+    # If operations role, restrict what they can edit
+    if user_role == "operations":
+        # Operations can only edit inclusions and exclusions
+        allowed_fields = ["inclusions", "exclusions"]
+        
+        # Preserve all existing fields except the ones being updated
+        updated_detailed_data = existing_detailed_data.copy()
+        
+        # Only update allowed fields
+        for field in allowed_fields:
+            if field in detailed_data:
+                updated_detailed_data[field] = detailed_data[field]
+        
+        # Ensure privacy policy and terms remain from AdminSettings or existing data
+        # Operations CANNOT modify these fields
+        if "privacyPolicy" in detailed_data or "detailedTerms" in detailed_data:
+            raise HTTPException(
+                status_code=403, 
+                detail="Operations role cannot modify privacy policy or terms & conditions"
+            )
+    else:
+        # Admin can update any fields
+        updated_detailed_data = existing_detailed_data.copy()
+        updated_detailed_data.update(detailed_data)
+    
+    # Update the quotation with new detailed data
+    await db.quotations.update_one(
+        {"id": quotation_id},
+        {
+            "$set": {
+                "detailed_quotation_data": updated_detailed_data,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Return updated detailed data
+    updated_quotation = await db.quotations.find_one({"id": quotation_id})
+    return updated_quotation.get("detailed_quotation_data")
+
 # File upload endpoint
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
