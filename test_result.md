@@ -1868,3 +1868,61 @@ agent_communication:
       Frontend compiled successfully. Both backend and frontend running with hot reload.
       Ready for testing and user feedback.
 
+
+
+  - agent: "main"
+    message: |
+      NEW FEATURE: PDF Generation from Detailed Quotation Data
+      
+      **Requirement:** Replace proforma invoice endpoint with comprehensive PDF generation from detailed quotation data.
+      
+      **IMPLEMENTATION:**
+      
+      **1. Backend - New PDF Generation Endpoint:**
+      
+      Created POST /api/generate-pdf endpoint that accepts QuotationData JSON format.
+      
+      **Endpoint Details:**
+      - Method: POST
+      - Path: /api/generate-pdf
+      - Request Body: QuotationData model (full detailed quotation JSON)
+      - Response: PDF file download
+      
+      **PDF Content Includes:**
+      1. Trip Header (title, booking ref, dates)
+      2. Trip Summary (duration, travelers, destination, rating, highlights)
+      3. Day-by-Day Itinerary (days with date, location, meals, activities)
+      4. Pricing Details (subtotal, taxes, discount, total, per person, deposit)
+      5. Inclusions & Exclusions (with ✓ and ✗ symbols)
+      6. Terms & Conditions
+      7. Privacy Policy
+      8. Customer Testimonials (with star ratings)
+      9. Travel Consultant Contact (salesperson details)
+      
+      **PDF Styling:**
+      - Professional layout with proper margins
+      - Orange color theme (#f97316)
+      - Clear section headers (16px bold)
+      - Star emojis for ratings
+      - Clean typography with Helvetica font
+      
+      **2. Frontend - QuotationBuilder Enhancement:**
+      
+      Added "Generate PDF" button to QuotationBuilder:
+      - Blue button with FileText icon
+      - Appears in header and bottom action section
+      - Validates data before generation
+      - Auto-downloads PDF file
+      - Loading state during generation
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py (added POST /api/generate-pdf)
+      - Frontend: /app/frontend/src/utils/api.js (added generateDetailedPDF method)
+      - Frontend: /app/frontend/src/components/QuotationBuilder.js (added Generate PDF button and handler)
+      
+      **STATUS:**
+      ✅ Backend endpoint implemented
+      ✅ Frontend integration complete
+      ✅ Both services running successfully
+      ✅ Ready for testing
+
