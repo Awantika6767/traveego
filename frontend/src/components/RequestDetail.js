@@ -411,24 +411,13 @@ export const RequestDetail = () => {
             </CardContent>
           </Card>
 
-          {/* Quotation Builder / View */}
+          {/* Quotation View / Detailed Quotation Builder */}
           {quotation && currentVersion && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Quotation - Version {currentVersion.version_number}</CardTitle>
                   <div className="flex gap-2">
-                    {canEdit && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={saveQuotation}
-                        data-testid="save-quotation-button"
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
-                      </Button>
-                    )}
                     {canPublish && (
                       <Button
                         size="sm"
@@ -478,12 +467,11 @@ export const RequestDetail = () => {
                       <Button
                         size="sm"
                         onClick={() => navigate('/quotation-builder', { state: { request, quotation } })}
-                        variant="outline"
-                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                         data-testid="create-detailed-quotation-button"
                       >
                         <FileText className="w-4 h-4 mr-2" />
-                        Create Detailed Quotation
+                        {quotation.detailed_quotation_data ? 'Edit Detailed Quotation' : 'Create Detailed Quotation'}
                       </Button>
                     )}
                   </div>
