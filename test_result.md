@@ -469,6 +469,18 @@ frontend:
         agent: "main"
         comment: "Updated RequestList to fetch and display delegated requests in separate section with orange badges showing who the user is covering for"
 
+  - task: "Store quotation PDF JSON payload on save"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py, /app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added pdf_payload field to Quotation model and wired quotation save to build and persist JSON payload for /api/generate-pdf based on request and quotation data, with editable defaults for testimonials, terms and privacy policy."
+
   - task: "Add can_see_cost_breakup field to User model"
     implemented: true
     working: "NA"
