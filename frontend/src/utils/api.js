@@ -60,6 +60,10 @@ export const api = {
   }),
   getDelegatedRequests: (userId) => axios.get(`${API_BASE}/requests/delegated`, { params: { user_id: userId } }),
   
+  // Admin
+  getAllSalespeople: () => axios.get(`${API_BASE}/admin/salespeople`),
+  toggleCostBreakupPermission: (userId, canSee) => axios.put(`${API_BASE}/admin/salespeople/${userId}/cost-breakup-permission`, { can_see_cost_breakup: canSee }),
+  
   // Dashboard
   getDashboardStats: (role) => axios.get(`${API_BASE}/dashboard/stats`, { params: { role } }),
   
