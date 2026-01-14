@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import uuid
 
 # Configuration
-BASE_URL = "https://price-policy-mgmt.preview.emergentagent.com/api"
+BASE_URL = "https://quote-json-builder.preview.emergentagent.com/api"
 
 class EnhancedLeaveManagementTester:
     def __init__(self):
