@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import uuid
 
 # Configuration
-BASE_URL = "https://trip-quote-system.preview.emergentagent.com/api"
+BASE_URL = "https://mock-data-update.preview.emergentagent.com/api"
 
 # Test credentials from the review request
 TEST_CREDENTIALS = {
