@@ -471,15 +471,18 @@ frontend:
 
   - task: "Store quotation PDF JSON payload on save"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py, /app/frontend/src/components/RequestDetail.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Added pdf_payload field to Quotation model and wired quotation save to build and persist JSON payload for /api/generate-pdf based on request and quotation data, with editable defaults for testimonials, terms and privacy policy."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE TESTING COMPLETE - PDF PAYLOAD FEATURE WORKING PERFECTLY! Tested 7 scenarios: 1) ✅ POST /api/quotations with pdf_payload - Creates quotations with complex JSON payload including tripTitle, pricing, days, terms, testimonials. Data stored correctly. 2) ✅ GET /api/quotations/{id} - Returns pdf_payload unchanged with all required fields. 3) ✅ GET /api/quotations - Lists quotations with pdf_payload intact. 4) ✅ PUT /api/quotations/{id} - Updates pdf_payload successfully, modifications persist. 5) ✅ Regression: Create quotation without pdf_payload works (backward compatibility). 6) ✅ Regression: Existing endpoints (publish, download-proforma) unaffected by new field. 7) ⚠️ Minor: /api/generate-pdf has playwright browser dependency issue (not critical for pdf_payload storage feature). CORE FUNCTIONALITY: All quotation CRUD operations with pdf_payload working flawlessly. Data persistence verified. Backward compatibility maintained."
 
   - task: "Add can_see_cost_breakup field to User model"
     implemented: true
