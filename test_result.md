@@ -730,17 +730,19 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Create Leave model in backend"
-    - "Create API endpoint to add leave with backup validation"
-    - "Create API endpoint to get user's leaves"
-    - "Create API endpoint to get available backups"
-    - "Create API endpoint to cancel leave"
-    - "Create API endpoint for delegated requests with backup chain resolution"
-    - "Create LeaveManagement component"
-    - "Update API utility with leave management endpoints"
-    - "Add Leave Management route in App.js"
-    - "Add Leave Management navigation link in Layout"
-    - "Update RequestList to show delegated requests"
+    - "Add can_see_cost_breakup field to User model"
+    - "Create get_current_user dependency function"
+    - "Create admin endpoint to get all salespeople"
+    - "Create admin endpoint to toggle cost breakup permission"
+    - "Update login endpoint to return can_see_cost_breakup"
+    - "Add admin user to MOCK_USERS"
+    - "Add conditional cost breakup display in RequestDetail"
+    - "Create AdminPanel component"
+    - "Add admin API methods to API utility"
+    - "Add admin panel route in App.js"
+    - "Add admin navigation in Layout"
+    - "Add admin dashboard view"
+    - "Add CSS for simplified line item layout"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
