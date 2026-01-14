@@ -26,6 +26,17 @@ export const RequestDetail = () => {
   const [catalog, setCatalog] = useState([]);
   const [invoice, setInvoice] = useState(null);
   const [payment, setPayment] = useState(null);
+  const [pdfTestimonials, setPdfTestimonials] = useState([
+    { name: 'Rahul & Sneha', rating: 5, text: 'Amazing trip! Every detail was perfectly planned.' },
+    { name: 'Amit Patel', rating: 5, text: 'Best vacation ever! Highly recommend!' }
+  ]);
+  const [pdfTerms, setPdfTerms] = useState({
+    cancellation: 'Free cancellation up to 15 days before travel. 50% refund if cancelled 7-14 days before. Non-refundable within 7 days.',
+    payment: '25% deposit required to confirm booking. Balance due 7 days before departure.',
+    insurance: 'Travel insurance highly recommended. We partner with leading insurance providers.',
+    changes: 'Date changes subject to availability and may incur additional charges.'
+  });
+  const [pdfPrivacyPolicy, setPdfPrivacyPolicy] = useState('Traveego privacy policy summary.');
   const [loading, setLoading] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
