@@ -10,7 +10,7 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { 
   ArrowLeft, Plus, Trash2, Save, Upload, Star, Calendar, 
-  Users, DollarSign, MapPin, Clock, Hotel, Plane, Activity as ActivityIcon
+  Users, DollarSign, MapPin, Clock, Hotel, Plane, Activity as ActivityIcon, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 
