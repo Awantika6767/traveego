@@ -1651,7 +1651,8 @@ async def get_admin_settings():
             privacy_policy="",
             terms_and_conditions="",
             default_inclusions=[],
-            default_exclusions=[]
+            default_exclusions=[],
+            testimonials=[]
         )
         await db.admin_settings.insert_one(default_settings.dict())
         return default_settings
@@ -1675,6 +1676,7 @@ async def update_admin_settings(
         "terms_and_conditions": settings_data.get("terms_and_conditions", ""),
         "default_inclusions": settings_data.get("default_inclusions", []),
         "default_exclusions": settings_data.get("default_exclusions", []),
+        "testimonials": settings_data.get("testimonials", []),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
