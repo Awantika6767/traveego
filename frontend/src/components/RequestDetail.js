@@ -578,7 +578,43 @@ export const RequestDetail = () => {
             </Card>
           )}
 
-          {!quotation && user.role !== 'operations' && (
+          {!quotation && (user.role === 'operations' || user.role === 'sales') && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center max-w-md mx-auto">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-blue-600" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    No Quotation Created Yet
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Create a comprehensive quotation with detailed itinerary, activities, and pricing using our Quotation Builder.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/quotation-builder', { state: { request, quotation: null } })}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    size="lg"
+                  >
+                    <FileText className="w-5 h-5 mr-2" />
+                    Create Detailed Quotation
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!quotation && user.role === 'customer' && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-gray-500">No quotation available yet</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!quotation && user.role === 'accountant' && (
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-gray-500">No quotation available yet</p>
