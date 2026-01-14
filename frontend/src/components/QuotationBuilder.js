@@ -180,6 +180,40 @@ const QuotationBuilder = () => {
     }));
   };
 
+  const addInclusion = () => {
+    if (newInclusion.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        inclusions: [...prev.inclusions, newInclusion.trim()]
+      }));
+      setNewInclusion('');
+    }
+  };
+
+  const removeInclusion = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      inclusions: prev.inclusions.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addExclusion = () => {
+    if (newExclusion.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        exclusions: [...prev.exclusions, newExclusion.trim()]
+      }));
+      setNewExclusion('');
+    }
+  };
+
+  const removeExclusion = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      exclusions: prev.exclusions.filter((_, i) => i !== index)
+    }));
+  };
+
   const addDay = () => {
     const dayNumber = formData.days.length + 1;
     setFormData(prev => ({
