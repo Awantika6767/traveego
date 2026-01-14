@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Plus, Hotel, Car, Activity, Utensils, Search } from 'lucide-react';
+import { Plus, Hotel, Car, Activity, Utensils, Search, Star } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { toast } from 'sonner';
 
