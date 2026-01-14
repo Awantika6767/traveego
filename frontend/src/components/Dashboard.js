@@ -318,6 +318,15 @@ export const Dashboard = () => {
       {user?.role === 'sales' && renderSalesDashboard()}
       {user?.role === 'accountant' && renderAccountantDashboard()}
       {user?.role === 'customer' && renderCustomerDashboard()}
+      {user?.role === 'admin' && (
+        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Admin Dashboard</h2>
+          <p className="text-gray-600 mb-6">Manage system settings and user permissions</p>
+          <Button onClick={() => navigate('/admin-panel')} className="bg-orange-600 hover:bg-orange-700">
+            Go to Admin Panel
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
