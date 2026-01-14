@@ -1282,17 +1282,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Create AdminSettings model"
-    - "Create admin settings GET endpoint"
-    - "Create admin settings PUT endpoint"
-    - "Add testimonials field to AdminSettings model"
-    - "Update admin settings endpoints to handle testimonials"
-    - "Add detailed_quotation_data field to Quotation model"
-    - "Update create_quotation endpoint to populate from AdminSettings"
-    - "Update update_quotation endpoint to populate from AdminSettings"
-    - "Restrict admin settings PUT to admin role only"
-    - "Create GET endpoint for quotation detailed data"
-    - "Create PUT endpoint for quotation detailed data with role-based restrictions"
+    - "Create QuotationBuilder component"
+    - "Add Create Detailed Quotation button to RequestDetail"
+    - "Add QuotationBuilder route in App.js"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
