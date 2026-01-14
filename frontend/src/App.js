@@ -131,6 +131,15 @@ const AppRoutes = () => {
         }
       />
       
+      <Route
+        path="/admin-settings"
+        element={
+          <ProtectedRoute>
+            <AdminSettings />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
