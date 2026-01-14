@@ -470,7 +470,8 @@ async def login(credentials: UserLogin):
                     "id": user_data["id"],
                     "email": credentials.email,
                     "name": user_data["name"],
-                    "role": user_data["role"]
+                    "role": user_data["role"],
+                    "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False)
                 },
                 "token": f"mock-token-{user_data['id']}"
             }
