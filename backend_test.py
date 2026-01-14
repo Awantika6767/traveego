@@ -340,22 +340,37 @@ class QuotationPDFPayloadTester:
                 "request_id": self.created_request_id,
                 "versions": [
                     {
-                        "version": 1,
-                        "line_items": [
+                        "id": str(uuid.uuid4()),
+                        "version_number": 1,
+                        "options": [
                             {
                                 "id": str(uuid.uuid4()),
                                 "name": "Basic Package",
-                                "supplier": "Test Supplier",
-                                "unit_price": 1000.0,
-                                "quantity": 2,
-                                "total": 2000.0
+                                "line_items": [
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "type": "hotel",
+                                        "name": "Basic Package",
+                                        "supplier": "Test Supplier",
+                                        "unit_price": 1000.0,
+                                        "quantity": 2,
+                                        "tax_percent": 18.0,
+                                        "markup_percent": 0.0,
+                                        "total": 2000.0,
+                                        "is_manual_rate": False
+                                    }
+                                ],
+                                "subtotal": 2000.0,
+                                "tax_amount": 360.0,
+                                "total": 2360.0,
+                                "is_recommended": True
                             }
                         ],
-                        "subtotal": 2000.0,
-                        "tax_amount": 360.0,
-                        "discount_amount": 0.0,
-                        "total_amount": 2360.0,
-                        "created_at": datetime.now(timezone.utc).isoformat()
+                        "created_by": "ops-001",
+                        "created_by_name": "Operations Manager",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "change_notes": "Basic quotation",
+                        "is_current": True
                     }
                 ],
                 "status": "DRAFT",
