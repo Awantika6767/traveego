@@ -536,13 +536,26 @@ export const RequestDetail = () => {
                             </>
                           ) : (
                             <>
-                              <div className="col-span-2">
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-sm text-gray-500">{item.supplier}</p>
-                              </div>
-                              <div className="text-right">{formatCurrency(item.unit_price)}</div>
-                              <div className="text-center">x {item.quantity}</div>
-                              <div className="text-right font-medium">{formatCurrency(item.total)}</div>
+                              {showCostBreakup ? (
+                                // Show full cost breakup for authorized users
+                                <>
+                                  <div className="col-span-2">
+                                    <p className="font-medium">{item.name}</p>
+                                    <p className="text-sm text-gray-500">{item.supplier}</p>
+                                  </div>
+                                  <div className="text-right">{formatCurrency(item.unit_price)}</div>
+                                  <div className="text-center">x {item.quantity}</div>
+                                  <div className="text-right font-medium">{formatCurrency(item.total)}</div>
+                                </>
+                              ) : (
+                                // Hide cost breakup - only show item name and total
+                                <>
+                                  <div className="col-span-4">
+                                    <p className="font-medium">{item.name}</p>
+                                  </div>
+                                  <div className="text-right font-medium">{formatCurrency(item.total)}</div>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
