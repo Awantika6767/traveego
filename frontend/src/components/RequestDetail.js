@@ -489,7 +489,11 @@ export const RequestDetail = () => {
 
                     <div className="space-y-2">
                       {option.line_items.map((item, itemIndex) => (
-                        <div key={itemIndex} className="line-item-row" data-testid={`line-item-${itemIndex}`}>
+                        <div 
+                          key={itemIndex} 
+                          className={`line-item-row ${!canEdit && !showCostBreakup ? 'line-item-row-simple' : ''}`}
+                          data-testid={`line-item-${itemIndex}`}
+                        >
                           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
                             {itemIndex + 1}
                           </div>
