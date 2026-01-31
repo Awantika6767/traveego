@@ -180,7 +180,7 @@ select:focus {
 
 /* Sticky summary */
 .sticky-summary {
-  position: sticky;
+  /* position: sticky; */
   top: 80px;
   max-height: calc(100vh - 100px);
   overflow-y: auto;

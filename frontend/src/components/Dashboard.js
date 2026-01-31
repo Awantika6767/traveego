@@ -27,7 +27,7 @@ export const Dashboard = () => {
 
   const loadStats = async () => {
     try {
-      const response = await api.getDashboardStats(user.role);
+      const response = await api.getDashboardStats();
       setStats(response.data);
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -208,7 +208,7 @@ export const Dashboard = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           <Button
-            onClick={() => navigate('/requests/new')}
+            onClick={() => navigate('/new-request')}
             className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
             data-testid="create-request-button"
           >
@@ -280,12 +280,12 @@ export const Dashboard = () => {
   const renderCustomerDashboard = () => (
     <Card>
       <CardHeader>
-        <CardTitle>Welcome to QuoteVista</CardTitle>
+        <CardTitle>Welcome to Traveego</CardTitle>
         <CardDescription>Manage your travel requests and quotations</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Button
-          onClick={() => navigate('/requests/new')}
+          onClick={() => navigate('/new-request')}
           className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
           data-testid="create-new-request-button"
         >
@@ -293,7 +293,7 @@ export const Dashboard = () => {
           Create New Request
         </Button>
         <Button
-          onClick={() => navigate('/my-requests')}
+          onClick={() => navigate('/requests')}
           variant="outline"
           className="w-full justify-start"
           data-testid="view-my-requests-button"

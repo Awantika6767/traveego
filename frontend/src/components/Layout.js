@@ -19,6 +19,7 @@ import {
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { api } from '../utils/api';
+import Notifications from './Notifications';
 
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -34,7 +35,7 @@ export const Layout = ({ children }) => {
 
   const loadNotifications = async () => {
     try {
-      const response = await api.getNotifications(user.id, true);
+      const response = await api.getNotifications(true);
       setNotifications(response.data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
@@ -50,7 +51,8 @@ export const Layout = ({ children }) => {
       return [
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['admin'] },
-        { path: '/admin-panel', icon: Users, label: 'Admin Panel', roles: ['admin'] },
+        { path: '/user-management', icon: Users, label: 'User Management', roles: ['admin'] },
+        { path: '/admin-panel', icon: Settings, label: 'Admin Panel', roles: ['admin'] },
         { path: '/admin-settings', icon: Settings, label: 'Admin Settings', roles: ['admin'] }
       ];
     }
@@ -59,6 +61,7 @@ export const Layout = ({ children }) => {
       return [
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['operations'] },
+        { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['operations'] },
         { path: '/catalog', icon: Package, label: 'Catalog', roles: ['operations'] },
         { path: '/payments', icon: DollarSign, label: 'Payments', roles: ['operations'] },
         { path: '/leaves', icon: Calendar, label: 'Leave Management', roles: ['operations'] }
@@ -69,8 +72,9 @@ export const Layout = ({ children }) => {
       return [
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['sales'] },
+        { path: '/new-request', icon: Plus, label: 'New Request', roles: ['sales'] },
         { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['sales'] },
-        { path: '/quotes', icon: FileText, label: 'My Quotes', roles: ['sales'] },
+        // { path: '/quotes', icon: FileText, label: 'My Quotes', roles: ['sales'] },
         { path: '/leaves', icon: Calendar, label: 'Leave Management', roles: ['sales'] }
       ];
     }
@@ -78,6 +82,7 @@ export const Layout = ({ children }) => {
     if (user?.role === 'accountant') {
       return [
         ...baseItems,
+        { path: '/requests', icon: FileText, label: 'Requests', roles: ['sales'] },
         { path: '/payments', icon: DollarSign, label: 'Payments', roles: ['accountant'] }
       ];
     }
@@ -85,8 +90,8 @@ export const Layout = ({ children }) => {
     if (user?.role === 'customer') {
       return [
         ...baseItems,
-        { path: '/my-requests', icon: FileText, label: 'My Requests', roles: ['customer'] },
-        { path: '/requests/new', icon: Plus, label: 'New Request', roles: ['customer'] }
+        { path: '/requests', icon: FileText, label: 'My Requests', roles: ['customer'] },
+        { path: '/new-request', icon: Plus, label: 'New Request', roles: ['customer'] }
       ];
     }
 
@@ -113,12 +118,12 @@ export const Layout = ({ children }) => {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <Plane className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-lg text-gray-900 hidden sm:inline">QuoteVista</span>
+              <span className="font-bold text-lg text-gray-900 hidden sm:inline">Traveego</span>
             </Link>
           </div>
 
           <div className="flex items-center gap-3">
-            <button 
+            {/* <button 
               className="relative p-2 hover:bg-gray-100 rounded-lg"
               data-testid="notifications-button"
             >
@@ -128,7 +133,8 @@ export const Layout = ({ children }) => {
                   {notifications.length}
                 </Badge>
               )}
-            </button>
+            </button> */}
+            <Notifications notifications={notifications} />
 
             <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
               <div className="text-right hidden sm:block">
@@ -158,7 +164,7 @@ export const Layout = ({ children }) => {
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname.startsWith(item.path);
             
             return (
               <Link

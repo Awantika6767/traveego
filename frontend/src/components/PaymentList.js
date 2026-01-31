@@ -121,7 +121,7 @@ export const PaymentList = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-lg font-bold text-gray-900">
-                        {invoice ? invoice.invoice_number : 'Loading...'}
+                        {payment.invoice_id?.split('-')[0].toUpperCase()}
                       </h3>
                       <Badge className={getStatusColor(payment.status)}>
                         {payment.status.replace(/_/g, ' ')}
@@ -131,7 +131,9 @@ export const PaymentList = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Client:</span>
-                        <p className="font-medium text-gray-900">{invoice?.client_name || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{payment?.client_name || 'N/A'}</p>
+                        <p className='font-medium text-gray-500'>{payment?.client_email || ''}</p>
+                        <p className='font-medium text-gray-500'>{payment?.client_country_code} {payment?.client_phone || ''}</p>
                       </div>
                       <div>
                         <span className="text-gray-500">Amount:</span>

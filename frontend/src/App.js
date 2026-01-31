@@ -14,6 +14,7 @@ import { OpenRequests } from "./components/OpenRequests";
 import LeaveManagement from "./components/LeaveManagement";
 import AdminPanel from "./components/AdminPanel";
 import AdminSettings from "./components/AdminSettings";
+import UserManagement from "./components/UserManagement";
 import QuotationBuilder from "./components/QuotationBuilder";
 import { Toaster } from "./components/ui/sonner";
 
@@ -61,7 +62,7 @@ const AppRoutes = () => {
       />
       
       <Route
-        path="/requests/new"
+        path="/new-request"
         element={
           <ProtectedRoute>
             <CreateRequest />
@@ -74,15 +75,6 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <RequestDetail />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/my-requests"
-        element={
-          <ProtectedRoute>
-            <RequestList />
           </ProtectedRoute>
         }
       />
@@ -137,6 +129,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <AdminSettings />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/user-management"
+        element={
+          <ProtectedRoute>
+            <UserManagement />
           </ProtectedRoute>
         }
       />

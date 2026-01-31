@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Hotel, Car, Activity, Utensils, Search, Star } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { toast } from 'sonner';
+import { Textarea } from './ui/textarea';
 
 export const CatalogManagement = () => {
   const [items, setItems] = useState([]);
@@ -260,7 +261,7 @@ export const CatalogManagement = () => {
                   id="type"
                   value={newItem.type}
                   onChange={(e) => setNewItem({ ...newItem, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
                   data-testid="item-type-select"
                 >
                   <option value="hotel">Hotel</option>
@@ -309,12 +310,12 @@ export const CatalogManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
+              <Label htmlFor="description">{newItem.type === 'hotel' ? 'Amenities' : 'Description'}</Label>
+              <Textarea
                 id="description"
                 value={newItem.description}
                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                placeholder="Brief description..."
+                placeholder={newItem.type === 'hotel' ? 'Comma separated Amenities (e.g Common Washroom, Wi-Fi, Gym, Swimming Pool  )' : 'Brief description...'}
                 data-testid="item-description-input"
               />
             </div>
@@ -339,7 +340,7 @@ export const CatalogManagement = () => {
                   id="rating"
                   value={newItem.rating}
                   onChange={(e) => setNewItem({ ...newItem, rating: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
                   data-testid="item-rating-select"
                 >
                   <option value="1">1 Star ⭐</option>

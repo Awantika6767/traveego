@@ -40,13 +40,13 @@ export const RequestList = () => {
       if (user.role === 'customer') {
         params.created_by = user.id;
       }
-      const response = await api.getRequests(params);
+      const response = await api.getRequests();
       setRequests(response.data);
       
       // Load delegated requests for sales and operations roles
       if (user.role === 'sales' || user.role === 'operations') {
         try {
-          const delegatedResponse = await api.getDelegatedRequests(user.id);
+          const delegatedResponse = await api.getDelegatedRequests();
           setDelegatedRequests(delegatedResponse.data);
         } catch (err) {
           console.error('Failed to load delegated requests:', err);
@@ -80,7 +80,7 @@ export const RequestList = () => {
 
   const filteredRequests = requests.filter(req => {
     const matchesSearch = 
-      req.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (req.client_name||"").toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.destination?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || req.status === statusFilter;
@@ -120,7 +120,7 @@ export const RequestList = () => {
         </div>
         {canCreateRequest && (
           <Button
-            onClick={() => navigate('/requests/new')}
+            onClick={() => navigate('/new-request')}
             className="bg-orange-600 hover:bg-orange-700 text-white"
             data-testid="create-new-request-button"
           >
@@ -210,9 +210,6 @@ export const RequestList = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-bold text-gray-900">{request.title}</h3>
-                        <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                          Covering for: {request.delegated_from}
-                        </Badge>
                         <Badge className={getStatusColor(request.status)}>
                           {request.status}
                         </Badge>
@@ -303,10 +300,14 @@ export const RequestList = () => {
                       </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
-                        <div>
+                        {user.role !== 'customer' && (<div>
                           <span className="text-gray-500">Client:</span>
                           <p className="font-medium text-gray-900">{request.client_name}</p>
-                        </div>
+                        </div>)}
+                        {user.role === 'customer' && (<div>
+                          <span className="text-gray-500">Travel Dates:</span>
+                          <p className="font-medium text-gray-900">{request.preferred_dates}</p>
+                          </div>)}
                         <div>
                           <span className="text-gray-500">Destination:</span>
                           <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
@@ -324,8 +325,11 @@ export const RequestList = () => {
                       </div>
 
                       <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-                        <span>Travel Dates: {request.preferred_dates}</span>
+                        {user.role !== 'customer' && (
+                          <><span>Travel Dates: {request.preferred_dates}</span>
                         <span>•</span>
+                        </>
+                        )}
                         <span>Created: {formatDate(request.created_at)}</span>
                         {request.assigned_salesperson_name && (
                           <>

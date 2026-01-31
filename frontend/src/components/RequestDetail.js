@@ -9,19 +9,26 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { 
-  ArrowLeft, Plus, Trash2, Save, Send, Check, Calendar, 
-  Users, DollarSign, MapPin, Clock, Download, FileText
+import {
+  ArrowLeft, Plus, Trash2, Save, Send, Check, Calendar,
+  Users, DollarSign, MapPin, Clock, Download, FileText,
+  EyeIcon,
+  DownloadIcon,
+  Edit,
+  Timer,
+  CheckCircle,
+  Wallet
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, getStatusColor, formatDate } from '../utils/formatters';
 import { toast } from 'sonner';
+import { RequestChat } from './RequestChat';
 
 export const RequestDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState(null);
-  const [quotation, setQuotation] = useState(null);
+  const [quotations, setQuotations] = useState(null);
   const [activities, setActivities] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [invoice, setInvoice] = useState(null);
@@ -29,41 +36,75 @@ export const RequestDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showPayRemainingModal, setShowPayRemainingModal] = useState(false);
   const [expiryDate, setExpiryDate] = useState('');
   const [publishNotes, setPublishNotes] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [openCostBreakupModal, setOpenCostBreakupModal] = useState(false);
+  const [costBreakup, setCostBreakup] = useState([]);
+  const [costBreakupLoading, setCostBreakupLoading] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const [showPayRemainingButton, setShowPayRemainingButton] = useState(false);
 
   useEffect(() => {
     loadRequestData();
   }, [id]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const openCostBreakup = async (id) => {
+    setOpenCostBreakupModal(true);
+    setCostBreakup([]);
+    try {
+      setCostBreakupLoading(true);
+      const costBreakupApi = await api.getCostBreakup(id);
+      setCostBreakup(costBreakupApi.data);
+    } catch (error) {
+      console.error('Failed to fetch cost breakup:', error);
+      toast.error('Failed to fetch cost breakup');
+    } finally {
+      setCostBreakupLoading(false);
+    }
+  };
+
   const loadRequestData = async () => {
     try {
-      const [reqResponse, quotResponse, actResponse, catResponse] = await Promise.all([
+      const [reqResponse, actResponse, catResponse] = await Promise.all([
         api.getRequest(id),
-        api.getQuotations({ request_id: id }),
         api.getActivities({ request_id: id }),
         api.getCatalog()
       ]);
 
       setRequest(reqResponse.data);
-      if (quotResponse.data.length > 0) {
-        setQuotation(quotResponse.data[0]);
-      } else if (user.role === 'operations') {
-        // Initialize new quotation for operations
-        initializeNewQuotation();
+      if (reqResponse?.data?.quotations?.length) {
+        setQuotations(reqResponse.data.quotations);
       }
       setActivities(actResponse.data);
       setCatalog(catResponse.data);
-      
+
       // Load invoice and payment data for the request
       try {
-        const invResponse = await api.getInvoices({ request_id: id });
-        if (invResponse.data.length > 0) {
-          const invoiceData = invResponse.data[0];
+        const invResponse = await api.getInvoice({ request_id: id });
+        if (invResponse.data) {
+          const invoiceData = invResponse.data;
           setInvoice(invoiceData);
-          
+
           // Load payment for this invoice
           const payResponse = await api.getPayments();
+          const isFullPaymentDone = payResponse.data.some(p=>p.type=="full-payment");
+          if(isFullPaymentDone) {
+            setShowPayRemainingButton(false);
+          } else {
+            const isPartialPaymentDone = payResponse.data.some(p=>p.type=="partial_payment" && p.status === "VERIFIED_BY_OPS");
+            setShowPayRemainingButton(isPartialPaymentDone);
+          }
           const requestPayment = payResponse.data.find(p => p.invoice_id === invoiceData.id);
           if (requestPayment) {
             setPayment(requestPayment);
@@ -79,37 +120,6 @@ export const RequestDetail = () => {
     }
   };
 
-  const initializeNewQuotation = () => {
-    const newQuotation = {
-      request_id: id,
-      versions: [{
-        version_number: 1,
-        options: [{
-          name: 'Option A',
-          line_items: [],
-          subtotal: 0,
-          tax_amount: 0,
-          total: 0,
-          is_recommended: true
-        }],
-        created_by: user.id,
-        created_by_name: user.name,
-        change_notes: 'Initial quotation',
-        is_current: true
-      }],
-      status: 'DRAFT',
-      advance_percent: 30.0,
-      advance_amount: 0,
-      grand_total: 0
-    };
-    setQuotation(newQuotation);
-  };
-
-  const getCurrentVersion = () => {
-    if (!quotation || !quotation.versions) return null;
-    return quotation.versions.find(v => v.is_current) || quotation.versions[quotation.versions.length - 1];
-  };
-
   const calculateLineItemTotal = (item) => {
     const subtotal = item.unit_price * item.quantity;
     const taxAmount = (subtotal * item.tax_percent) / 100;
@@ -123,91 +133,8 @@ export const RequestDetail = () => {
       return sum + (itemSubtotal * item.tax_percent) / 100;
     }, 0);
     const total = subtotal + taxAmount;
-    
+
     return { subtotal, tax_amount: taxAmount, total };
-  };
-
-  const addLineItem = (optionIndex) => {
-    const newItem = {
-      id: `temp-${Date.now()}`,
-      type: 'hotel',
-      name: '',
-      supplier: '',
-      unit_price: 0,
-      quantity: 1,
-      tax_percent: 18.0,
-      markup_percent: 0,
-      total: 0,
-      is_manual_rate: false
-    };
-
-    const updatedQuotation = { ...quotation };
-    const currentVersion = getCurrentVersion();
-    currentVersion.options[optionIndex].line_items.push(newItem);
-    
-    // Recalculate totals
-    const totals = calculateOptionTotals(currentVersion.options[optionIndex]);
-    currentVersion.options[optionIndex] = { ...currentVersion.options[optionIndex], ...totals };
-    
-    setQuotation(updatedQuotation);
-  };
-
-  const removeLineItem = (optionIndex, itemIndex) => {
-    const updatedQuotation = { ...quotation };
-    const currentVersion = getCurrentVersion();
-    currentVersion.options[optionIndex].line_items.splice(itemIndex, 1);
-    
-    // Recalculate totals
-    const totals = calculateOptionTotals(currentVersion.options[optionIndex]);
-    currentVersion.options[optionIndex] = { ...currentVersion.options[optionIndex], ...totals };
-    
-    setQuotation(updatedQuotation);
-  };
-
-  const updateLineItem = (optionIndex, itemIndex, field, value) => {
-    const updatedQuotation = { ...quotation };
-    const currentVersion = getCurrentVersion();
-    const item = currentVersion.options[optionIndex].line_items[itemIndex];
-    
-    item[field] = field === 'unit_price' || field === 'quantity' || field === 'tax_percent' ? parseFloat(value) || 0 : value;
-    item.total = calculateLineItemTotal(item);
-    
-    // Recalculate option totals
-    const totals = calculateOptionTotals(currentVersion.options[optionIndex]);
-    currentVersion.options[optionIndex] = { ...currentVersion.options[optionIndex], ...totals };
-    
-    // Recalculate grand total
-    updatedQuotation.grand_total = currentVersion.options.reduce((sum, opt) => sum + opt.total, 0);
-    updatedQuotation.advance_amount = updatedQuotation.grand_total * (updatedQuotation.advance_percent / 100);
-    
-    setQuotation(updatedQuotation);
-  };
-
-  const addItemFromCatalog = (optionIndex, catalogItem) => {
-    const newItem = {
-      id: `temp-${Date.now()}`,
-      type: catalogItem.type,
-      name: catalogItem.name,
-      supplier: catalogItem.supplier || '',
-      unit_price: catalogItem.default_price,
-      quantity: 1,
-      tax_percent: 18.0,
-      markup_percent: 0,
-      total: 0,
-      is_manual_rate: false
-    };
-
-    newItem.total = calculateLineItemTotal(newItem);
-
-    const updatedQuotation = { ...quotation };
-    const currentVersion = getCurrentVersion();
-    currentVersion.options[optionIndex].line_items.push(newItem);
-    
-    // Recalculate totals
-    const totals = calculateOptionTotals(currentVersion.options[optionIndex]);
-    currentVersion.options[optionIndex] = { ...currentVersion.options[optionIndex], ...totals };
-    
-    setQuotation(updatedQuotation);
   };
 
   const saveQuotation = async () => {
@@ -217,7 +144,7 @@ export const RequestDetail = () => {
         toast.success('Quotation saved');
       } else {
         const response = await api.createQuotation(quotation);
-        setQuotation(response.data);
+        setQuotations(response.data);
         toast.success('Quotation created');
       }
       loadRequestData();
@@ -251,10 +178,7 @@ export const RequestDetail = () => {
 
   const acceptQuotation = async () => {
     try {
-      await api.acceptQuotation(quotation.id, {
-        actor_id: user.id,
-        actor_name: user.name
-      });
+      await api.acceptQuotation(selectedQuotation.quotation_id);
 
       toast.success('Quotation accepted! Invoice generated.');
       setShowAcceptModal(false);
@@ -265,13 +189,25 @@ export const RequestDetail = () => {
     }
   };
 
+  const payRemaining = async () => {
+    try {
+      await api.payRemainingInvoice(invoice.id);
+      toast.success('Payment successful!');
+      setShowPayRemainingModal(false);
+      loadRequestData();
+    } catch (error) {
+      console.error('Failed to pay remaining amount:', error);
+      toast.error('Failed to process payment');
+    }
+  };
+
   const downloadProformaInvoice = () => {
     if (!quotation?.id) {
       toast.error('No quotation available to download');
       return;
     }
     const downloadUrl = api.downloadProformaInvoice(quotation.id);
-    
+
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -279,7 +215,7 @@ export const RequestDetail = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success('Downloading proforma invoice...');
   };
 
@@ -288,12 +224,8 @@ export const RequestDetail = () => {
       toast.error('No invoice available to download');
       return;
     }
-    if (payment?.status !== 'VERIFIED_BY_OPS') {
-      toast.error('Invoice can only be downloaded after payment verification');
-      return;
-    }
     const downloadUrl = api.downloadInvoice(invoice.id);
-    
+
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -301,7 +233,7 @@ export const RequestDetail = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success('Downloading invoice...');
   };
 
@@ -313,38 +245,90 @@ export const RequestDetail = () => {
     return <div className="text-center py-12">Request not found</div>;
   }
 
-  const currentVersion = getCurrentVersion();
-  const canEdit = user.role === 'operations' && quotation?.status === 'DRAFT';
-  const canPublish = user.role === 'operations' && quotation?.status === 'DRAFT';
-  const canAccept = user.role === 'customer' && quotation?.status === 'SENT';
-
   // Determine if cost breakup should be shown
   const shouldShowCostBreakup = () => {
     // Never show cost breakup to customers
     if (user.role === 'customer') {
       return false;
     }
-    
+
     // Always show to operations, admin, and accountant (they need it for their work)
     if (user.role === 'operations' || user.role === 'admin' || user.role === 'accountant') {
       return true;
     }
-    
+
     // For salespeople, check their permission
     if (user.role === 'sales') {
       return user.can_see_cost_breakup === true;
     }
-    
+
     return false;
+  };
+
+  const validateRequest = async () => {
+    try {
+      setValidating(true);
+
+      await api.validateRequest(id);
+
+      toast.success('Request validated successfully');
+      loadRequestData();
+    } catch (error) {
+      console.error('Validation failed:', error);
+      toast.error('Failed to validate request');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const getTimeLeft = (expiryDate) => {
+    if (!expiryDate) return null;
+
+    const now = new Date().getTime();
+    const expiry = new Date(expiryDate).getTime();
+    const diff = expiry - now;
+
+    if (diff <= 0) {
+      return { expired: true, text: 'Expired' };
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    return {
+      expired: false,
+      text: `${hours}h ${minutes}m ${seconds}s`
+    };
+  };
+
+  const downloadPDF = (id) => { 
+    if (!id) {
+      toast.error('No quotation available to download');
+      return;
+    }
+    const downloadUrl = api.downloadQuotationPDF(id);
+
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `quotation_${id.substring(0, 8)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('Downloading quotation...');
   };
 
   const showCostBreakup = shouldShowCostBreakup();
 
+
   return (
+
     <div data-testid="request-detail">
       <Button
         variant="ghost"
-        onClick={() => navigate('/requests')}
+        onClick={() => navigate(-1)}
         className="mb-6"
         data-testid="back-button"
       >
@@ -362,9 +346,14 @@ export const RequestDetail = () => {
                   <CardTitle className="text-2xl">{request.title}</CardTitle>
                   <p className="text-gray-500 mt-1">Request ID: {request.id.substring(0, 8)}</p>
                 </div>
-                <Badge className={getStatusColor(request.status)}>
-                  {request.status}
-                </Badge>
+                <div >
+                  {(user.role === 'sales') && !request.is_salesperson_validated && <Button onClick={validateRequest} size="sm" variant="outline" className="bg-green-100 text-green-800 border-green-200 mr-5 hover:bg-green-200" disabled={validating || request.is_salesperson_validated} data-testid="validate-button">
+                    {validating ? 'Validating...' : 'VALIDATE'}
+                  </Button>}
+                  <Badge className={getStatusColor(request.status)}>
+                    {request.status}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -411,8 +400,15 @@ export const RequestDetail = () => {
             </CardContent>
           </Card>
 
+          {/* Chat Component */}
+          {request && (
+            <RequestChat requestId={id} currentUser={user} />
+          )}
+
+
+
           {/* Quotation View / Detailed Quotation Builder */}
-          {quotation && currentVersion && (
+          {/* {quotation && currentVersion && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -463,7 +459,7 @@ export const RequestDetail = () => {
                         Accept & Pay
                       </Button>
                     )}
-                    {(user.role === 'operations' || user.role === 'sales') && (
+                    {(user.role === 'operations') && (
                       <Button
                         size="sm"
                         onClick={() => navigate('/quotation-builder', { state: { request, quotation } })}
@@ -478,8 +474,7 @@ export const RequestDetail = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Message for Operations/Sales to use Detailed Quotation Builder */}
-                {(user.role === 'operations' || user.role === 'sales') && !quotation.detailed_quotation_data && (
+                {(user.role === 'operations') && !quotation.detailed_quotation_data && (
                   <div className="mb-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0">
@@ -505,7 +500,6 @@ export const RequestDetail = () => {
                   </div>
                 )}
 
-                {/* Display existing line items (read-only) */}
                 {currentVersion.options.map((option, optIndex) => (
                   <div key={optIndex} className="mb-6">
                     <div className="flex items-center justify-between mb-4">
@@ -576,9 +570,9 @@ export const RequestDetail = () => {
                 ))}
               </CardContent>
             </Card>
-          )}
+          )} */}
 
-          {!quotation && (user.role === 'operations' || user.role === 'sales') && (
+          {/* {!quotation && (user.role === 'operations' ) && (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center max-w-md mx-auto">
@@ -620,34 +614,69 @@ export const RequestDetail = () => {
                 <p className="text-gray-500">No quotation available yet</p>
               </CardContent>
             </Card>
-          )}
+          )} */}
         </div>
 
         {/* Right Column - Sticky Summary & Activity */}
         <div className="space-y-6">
-          {quotation && (
+
+          {(
             <div className="sticky-summary">
-              <Card className="border-2 border-orange-200">
+              <Card className="border-2 border-orange-200 overflow-hidden">
                 <CardHeader className="bg-orange-50">
-                  <CardTitle className="text-lg">Price Summary</CardTitle>
+                  <CardTitle className="text-lg">Quotation Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Grand Total:</span>
-                    <span className="font-bold text-xl">{formatCurrency(quotation.grand_total)}</span>
+
+                  {
+                    !quotations?.length && (
+                      <p className="text-gray-500 text-center">No quotations available</p>
+                    )
+                  }
+                  <div className='overflow-y-auto max-h-20 mb-4 space-y-2 pe-2'>
+                    {
+                      quotations?.map((quotation, index) => (
+                        <div key={index} className="flex justify-between gap-2 items-center border-b border-gray-200 pb-2">
+                          <div className='w-[20px]'>{index + 1}.</div>
+                          {(user.role === 'operations' || (user.role === 'sales' && user.can_see_cost_breakup)) && <button className='w-full flex align-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={() => { openCostBreakup(quotation.quotation_id) }}><EyeIcon className="w-4 h-4 my-auto mr-1" /> Cost</button>}
+                          {(user.role === 'operations') && <button onClick={() => navigate('/quotation-builder', { state: { request, quotation_id: quotation.quotation_id } })} className='w-full flex align-center justify-center bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium'><Edit className="w-4 h-4 my-auto mr-1" /> Edit</button>}
+                          {(quotation?.status === 'SENT' || quotation?.status === 'ACCEPTED') && <button onClick={() => downloadPDF(quotation.quotation_id)} className='w-full flex align-center justify-center bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm font-medium'><DownloadIcon className="w-4 h-4 my-auto mr-1" /> Download</button>}
+                          {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'SENT') && <button className='w-full flex align-center justify-center bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={()=>{setShowAcceptModal(true); setSelectedQuotation(quotation)}}><CheckCircle className="w-4 h-4 my-auto mr-1" /> Accept</button>}
+                          {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'ACCEPTED') && showPayRemainingButton && <button className='w-full flex align-center justify-center bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={()=>{setShowPayRemainingModal(true); setSelectedQuotation(quotation)}}><Wallet className="w-4 h-4 my-auto mr-1" /> Pay Remaining</button>}
+                          {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'SENT') && <div className='flex align-center justify-center text-nowrap gap-1 px-2 py-1 rounded-full text-xs font-medium'><Timer className="w-4 h-4 my-auto mr-1" /> <span className={getTimeLeft(quotation.expiry_date)?.expired ? 'text-red-600 font-semibold' : 'text-gray-700'}>{getTimeLeft(quotation.expiry_date)?.text}</span></div>}
+                        </div>
+                      ))
+                    }
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Advance ({quotation.advance_percent}%):</span>
-                    <span className="font-medium">{formatCurrency(quotation.advance_amount)}</span>
-                  </div>
-                  {quotation.expiry_date && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Clock className="w-4 h-4" />
-                        <span>Expires: {formatDate(quotation.expiry_date)}</span>
+
+                  {
+                    invoice && (<>
+                      <div className="border-t border-gray-200 pt-4 mt-4">
+                        <h4 className="text-md font-semibold mb-2">Invoice Details</h4>
+                        <p className="text-sm text-gray-600">Invoice Number: <span className="font-medium text-gray-900">{invoice.invoice_number}</span></p>
+                        <p className="text-sm text-gray-600">Invoice Date: <span className="font-medium text-gray-900">{formatDate(invoice.created_at)}</span></p>
+                        <Button
+                          size="sm"
+                          onClick={downloadInvoice}
+                          className="mt-4 bg-green-600 hover:bg-green-700 text-white w-full"
+                          data-testid="download-invoice-button"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Invoice
+                        </Button>
                       </div>
-                    </div>
-                  )}
+                    </>)
+                  }
+
+                  {(user.role === 'operations') && <Button
+                    size="sm"
+                    onClick={() => navigate('/quotation-builder', { state: { request } })}
+                    className="bg-orange-600 hover:bg-orange-700 text-white w-full"
+                    data-testid="create-detailed-quotation-button"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Create Quotation
+                  </Button>}
                 </CardContent>
               </Card>
             </div>
@@ -658,8 +687,8 @@ export const RequestDetail = () => {
               <CardTitle>Activity Timeline</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="activity-timeline">
-                {activities.map((activity, index) => (
+              <div className="activity-timeline overflow-y-auto max-h-72 space-y-4">
+                {[...activities, ...activities].map((activity, index) => (
                   <div key={index} className="activity-item">
                     <div className="text-sm">
                       <p className="font-medium text-gray-900">{activity.actor_name}</p>
@@ -724,11 +753,11 @@ export const RequestDetail = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-gray-600">
-              By accepting this quotation, an invoice will be generated and you will be required to pay the advance amount of {formatCurrency(quotation?.advance_amount)}.
+              By accepting this quotation, an invoice will be generated and you will be required to pay the advance amount of {formatCurrency(selectedQuotation?.advance_amount)}.
             </p>
             <div className="bg-orange-50 p-4 rounded-lg">
-              <p className="font-medium">Total Amount: {formatCurrency(quotation?.grand_total)}</p>
-              <p className="text-sm text-gray-600 mt-1">Advance to be paid: {formatCurrency(quotation?.advance_amount)}</p>
+              <p className="font-medium">Total Amount: {formatCurrency(selectedQuotation?.total_amount)}</p>
+              <p className="text-sm text-gray-600 mt-1">Advance to be paid: {formatCurrency(selectedQuotation?.advance_amount)}</p>
             </div>
           </div>
           <DialogFooter>
@@ -743,6 +772,76 @@ export const RequestDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pay Remaining Modal */}
+      <Dialog open={showPayRemainingModal} onOpenChange={setShowPayRemainingModal}>
+        <DialogContent data-testid="pay-remaining-modal">
+          <DialogHeader>
+            <DialogTitle>Pay Remaining Amount</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              You have paid the advance amount. Please proceed to pay the remaining amount of {formatCurrency(selectedQuotation?.total_amount - selectedQuotation?.advance_amount)}.
+            </p>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <p className="font-medium">Total Amount: {formatCurrency(selectedQuotation?.total_amount)}</p>
+              <p className="text-sm text-gray-600 mt-1">Remaining to be paid: {formatCurrency(selectedQuotation?.total_amount - selectedQuotation?.advance_amount)}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPayRemainingModal(false)}>Cancel</Button>
+            <Button
+              onClick={payRemaining}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              data-testid="confirm-pay-remaining-button"
+            >
+              Proceed to Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cost Breakup Modal */}
+      <Dialog open={openCostBreakupModal} onOpenChange={setOpenCostBreakupModal}>
+        <DialogContent className="max-w-4xl w-full" data-testid="cost-breakup-modal">
+          <DialogHeader>
+            <DialogTitle>Cost Breakup</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {costBreakupLoading ? (
+              <p>Loading...</p>
+            ) : costBreakup ? (
+              <div className="space-y-2 overflow-y-auto max-h-96">
+                {costBreakup.map((item, itemIndex) => (
+                  <div
+                    key={itemIndex}
+                    className={`line-item-row`}
+                    data-testid={`line-item-${itemIndex}`}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
+                      {itemIndex + 1}
+                    </div>
+                    <>
+                      <div className="col-span-2">
+                        <p className="font-medium">{item.name}</p>
+                      </div>
+                      <div className="text-right">{formatCurrency(item.unit_cost)}</div>
+                      <div className="text-center">x {item.quantity}</div>
+                      <div className="text-right font-medium">{formatCurrency(item.unit_cost * item.quantity)}</div>
+                    </>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No cost breakup available.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenCostBreakupModal(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

@@ -26,10 +26,10 @@ export const LoginPage = () => {
   });
 
   const mockAccounts = [
-    { email: 'ops@travel.com', password: 'ops123', role: 'Operations' },
-    { email: 'sales@travel.com', password: 'sales123', role: 'Sales' },
-    { email: 'accountant@travel.com', password: 'acc123', role: 'Accountant' },
-    { email: 'customer@travel.com', password: 'customer123', role: 'Customer' }
+    { email: 'ops@traveego.com', password: 'ops123', role: 'Operations' },
+    { email: 'sales@traveego.com', password: 'sales123', role: 'Sales' },
+    { email: 'accountant@traveego.com', password: 'acc123', role: 'Accountant' },
+    { email: 'customer@traveego.com', password: 'customer123', role: 'Customer' }
   ];
 
   const handleLogin = async (e) => {
@@ -76,7 +76,7 @@ export const LoginPage = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl mb-4 shadow-lg">
             <Plane className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">QuoteVista</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Traveego</h1>
           <p className="text-lg text-gray-600">Travel Quotation Management System</p>
         </div>
 
@@ -105,6 +105,7 @@ export const LoginPage = () => {
                       type="email"
                       placeholder="your@email.com"
                       value={email}
+                      name="email"
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       data-testid="login-email-input"
@@ -118,6 +119,7 @@ export const LoginPage = () => {
                       type="password"
                       placeholder="Enter password"
                       value={password}
+                      name="password"
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       data-testid="login-password-input"

@@ -36,10 +36,7 @@ export const OpenRequests = () => {
   const handleAssignToMe = async (requestId) => {
     try {
       setAssigningId(requestId);
-      await api.assignRequestToMe(requestId, {
-        salesperson_id: user.id,
-        salesperson_name: user.name
-      });
+      await api.assignRequestToMe(requestId);
       toast.success('Request assigned successfully!');
       // Remove the assigned request from the list
       setRequests(requests.filter(req => req.id !== requestId));
@@ -141,14 +138,6 @@ export const OpenRequests = () => {
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={() => navigate(`/requests/${request.id}`)}
-                    variant="outline"
-                    className="flex-1"
-                    size="sm"
-                  >
-                    View Details
-                  </Button>
                   <Button
                     onClick={() => handleAssignToMe(request.id)}
                     disabled={assigningId === request.id}
