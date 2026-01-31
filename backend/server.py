@@ -15,6 +15,8 @@ from fastapi.responses import StreamingResponse, FileResponse
 import io
 import csv
 import json
+import hashlib
+import hmac
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -24,7 +26,8 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from playwright.async_api import async_playwright
 from jinja2 import Template
 import tempfile
-
+import jwt
+from jwt import InvalidTokenError, ExpiredSignatureError
 
 
 ROOT_DIR = Path(__file__).parent
@@ -34,6 +37,8 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+SECRET_KEY = os.environ["JWT_SECRET"]
+ALGORITHM = "HS256"
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -52,7 +57,7 @@ class Salesperson(BaseModel):
 class Summary(BaseModel):
     duration: str
     travelers: int
-    rating: float
+    rating: float = 4.8
     highlights: List[str]
 
 class Pricing(BaseModel):
@@ -62,7 +67,7 @@ class Pricing(BaseModel):
     total: float
     perPerson: float
     depositDue: float
-    currency: str
+    currency: str = "INR"
 
 class Meals(BaseModel):
     breakfast: str
@@ -70,6 +75,7 @@ class Meals(BaseModel):
     dinner: str
 
 class Hotel(BaseModel):
+    id: str
     name: str
     stars: int
     image: str
@@ -77,10 +83,11 @@ class Hotel(BaseModel):
     amenities: Optional[List[str]] = None
 
 class ActivityPDF(BaseModel):
+    id: str
     time: str
     title: str
     description: str
-    images: Optional[List[str]] = None
+    image: Optional[str] = None
     meetingPoint: str
     type: str
 
@@ -108,23 +115,19 @@ class Testimonial(BaseModel):
     text: str
 
 class QuotationData(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tripTitle: str
-    customerName: str
-    dates: str
     city: str
     bookingRef: str
+    start_date: str
+    end_date: str
     coverImage: str
-    salesperson: Salesperson
     summary: Summary
     pricing: Pricing
     days: List[Day]
-    gallery: Optional[List[GalleryItem]] = None
-    terms: Terms
     inclusions: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
-    detailedTerms: Optional[str] = None
-    privacyPolicy: Optional[str] = None
-    testimonials: Optional[List[Testimonial]] = None
+
 class UserRole(str, Enum):
     OPERATIONS = "operations"
     SALES = "sales"
@@ -137,8 +140,10 @@ class RequestStatus(str, Enum):
     PENDING = "PENDING"
     QUOTED = "QUOTED"
     ACCEPTED = "ACCEPTED"
+    PAID = "PAID"
     REJECTED = "REJECTED"
     EXPIRED = "EXPIRED"
+    CUSTOMERCANCELLED = "CANCELLATION REQUESTED"
 
 class QuotationStatus(str, Enum):
     DRAFT = "DRAFT"
@@ -161,36 +166,54 @@ class User(BaseModel):
     name: str
     role: UserRole
     phone: Optional[str] = None
+    is_active: bool = True
     country_code: Optional[str] = "+91"  # Default to India
     can_see_cost_breakup: bool = False  # Admin can control cost breakup visibility for salespeople
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    deactivated_at: Optional[str] = None
+    deactivated_by: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: str
     password: str
 
+class QuotationVersion(BaseModel):
+    status: str
+    expiry_date: Optional[str] = None
+    quotation_id: str
+    advance_amount: float = 0.0
+    total_amount: float = 0.0
+
 class TravelRequest(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    client_email: EmailStr
-    client_phone: str
-    client_country_code: str = "+91"  # Default to India
+    client_id: Optional[str] = None
     title: str
     people_count: int
     budget_min: float
     budget_max: float
-    travel_vibe: List[str]  # ["hill", "beach", "adventure"]
-    preferred_dates: str
-    destination: Optional[str] = None
+    start_date: str
+    end_date: str
+    is_holiday_package_required: bool = False
+    is_mice_required: bool = False
+    is_hotel_booking_required: bool = False
+    is_sight_seeing_required: bool = False
+    is_visa_required: bool = False
+    is_transport_within_city_required: bool = False
+    is_transport_to_destination_required: bool = False
+    destination: str
+    source: Optional[str] = None
+    visa_citizenship: Optional[str] = None
+    type_of_travel: Optional[str] = None
     special_requirements: Optional[str] = None
     status: RequestStatus = RequestStatus.PENDING
     assigned_salesperson_id: Optional[str] = None
-    assigned_salesperson_name: Optional[str] = None
+    quotations: Optional[List[QuotationVersion]] = []
     created_by: str
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     next_follow_up: Optional[str] = None
     sla_timer: Optional[str] = None
+    is_salesperson_validated: bool = False
 
 class LineItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -206,36 +229,32 @@ class LineItem(BaseModel):
 
 class QuotationOption(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str  # "Option A", "Option B"
-    line_items: List[LineItem] = []
+    name: Optional[str]  # "Option A", "Option B"
+    line_item_ids: List[str] = []
     subtotal: float = 0.0
     tax_amount: float = 0.0
     total: float = 0.0
     is_recommended: bool = False
 
-class QuotationVersion(BaseModel):
+
+class CostBreakupItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    version_number: int
-    options: List[QuotationOption] = []
-    created_by: str
-    created_by_name: str
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    change_notes: Optional[str] = None
-    is_current: bool = True
+    name: str
+    date: str
+    quantity: int
+    unit_cost: float
 
 class Quotation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     request_id: str
-    versions: List[QuotationVersion] = []
     status: QuotationStatus = QuotationStatus.DRAFT
     expiry_date: Optional[str] = None
     published_at: Optional[str] = None
-    advance_percent: float = 30.0
-    advance_amount: float = 0.0
-    grand_total: float = 0.0
-    detailed_quotation_data: Optional[QuotationData] = None  # Detailed quotation with terms, inclusions, etc.
+    detailed_quotation_data: QuotationData
+    cost_breakup: List[CostBreakupItem] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
 
 class Invoice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -244,8 +263,11 @@ class Invoice(BaseModel):
     request_id: str
     client_name: str
     client_email: str
+    client_country_code: str
+    client_phone: str
     total_amount: float
     advance_amount: float
+    status: str = "Verification Pending"  # "Verification Pending", "Paid", "Partially Paid", "Overdue", "Cancelled"
     gst_number: Optional[str] = "GST123456789"
     bank_details: Dict[str, str] = {
         "account_name": "Travel Company Pvt Ltd",
@@ -268,6 +290,20 @@ class Payment(BaseModel):
     accountant_notes: Optional[str] = None
     ops_notes: Optional[str] = None
     proof_url: Optional[str] = None
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
+    client_country_code: Optional[str] = None
+    client_phone: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    type: str = "partial_payment"
+
+class Message(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    request_id: str
+    sender_id: str
+    sender_name: str
+    sender_role: str
+    message_text: str
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class Activity(BaseModel):
@@ -326,6 +362,23 @@ class AdminSettings(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
+class QuoatationPDFData(BaseModel):
+    tripTitle: str
+    customerName: str
+    dates: str
+    city: str
+    bookingRef: str
+    coverImage: str
+    salesperson: Salesperson
+    summary: Summary
+    pricing: Pricing
+    days: List[Day]
+    inclusions: Optional[List[str]] = None
+    exclusions: Optional[List[str]] = None
+    detailedTerms: Optional[str] = None
+    privacyPolicy: Optional[str] = None
+    testimonials: Optional[List[Testimonial]] = None
+
 # Mock users for login
 MOCK_USERS = {
     "ops@travel.com": {"password": "ops123", "role": UserRole.OPERATIONS, "name": "Operations Manager", "id": "ops-001", "can_see_cost_breakup": True},
@@ -337,123 +390,93 @@ MOCK_USERS = {
 
 # Dependency to get current user from token
 async def get_current_user(authorization: str = Header(None)):
-    """Extract user from authorization header token"""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     token = authorization.replace("Bearer ", "")
-    
-    # For mock implementation, extract user_id from token
-    if token.startswith("mock-token-"):
-        user_id = token.replace("mock-token-", "")
-        
-        # Find user in MOCK_USERS
-        for email, user_data in MOCK_USERS.items():
-            if user_data["id"] == user_id:
-                return {
-                    "id": user_data["id"],
-                    "email": email,
-                    "name": user_data["name"],
-                    "role": user_data["role"],
-                    "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False)
-                }
-        
-        # If not in MOCK_USERS, check database
-        user = await db.users.find_one({"id": user_id})
-        if user:
-            return {
-                "id": user["id"],
-                "email": user["email"],
-                "name": user["name"],
-                "role": user["role"],
-                "can_see_cost_breakup": user.get("can_see_cost_breakup", False)
-            }
-    
-    raise HTTPException(status_code=401, detail="Invalid token")
 
-@api_router.post("/generate-pdf")
-async def generate_pdf(data: QuotationData):
-    """
-    Generate PDF from quotation data
-    """
     try:
-        print(f"Received request for booking: {data.bookingRef}")
-        
-        # Read HTML template
-        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'pdf_template.html')
-        print(f"Template path: {template_path}")
-        
-        with open(template_path, 'r', encoding='utf-8') as f:
-            template_content = f.read()
-        
-        print("Template loaded successfully")
-        
-        # Render template with data
-        template = Template(template_content)
-        html_content = template.render(data=data.model_dump())
-        
-        print("Template rendered successfully")
-        
-        # Create temporary files
-        temp_dir = tempfile.mkdtemp()
-        html_file = os.path.join(temp_dir, 'quotation.html')
-        pdf_file = os.path.join(temp_dir, f'quotation-{data.bookingRef}.pdf')
-        
-        print(f"Temp dir: {temp_dir}")
-        
-        # Write HTML to file
-        with open(html_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        print(f"HTML file created: {html_file}")
-        
-        # Generate PDF using Playwright
-        print("Starting Playwright...")
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            print("Browser launched")
-            page = await browser.new_page()
-            print(f"Loading HTML: file://{html_file}")
-            await page.goto(f'file://{html_file}', wait_until='networkidle')
-            print("Page loaded, generating PDF...")
-            await page.pdf(
-                path=pdf_file,
-                format='A4',
-                print_background=True,
-                margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'}
-            )
-            await browser.close()
-        
-        print(f"PDF generated: {pdf_file}")
-        
-        # Check if PDF was created
-        if not os.path.exists(pdf_file):
-            raise Exception("PDF file was not created")
-        
-        # Return PDF file
-        response = FileResponse(
-            pdf_file,
-            media_type='application/pdf',
-            filename=f'quotation-{data.bookingRef}.pdf'
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
         )
-        
-        # Clean up temp HTML file immediately
-        os.remove(html_file)
-        print("Success! Returning PDF")
-        
-        return response
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        return payload
 
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(16)  # 128-bit salt
+    pwd_bytes = password.encode("utf-8")
+
+    hash_bytes = hashlib.pbkdf2_hmac(
+        hash_name="sha256",
+        password=pwd_bytes,
+        salt=salt,
+        iterations=200_000,
+        dklen=32
+    )
+
+    return f"{salt.hex()}:{hash_bytes.hex()}"
+
+def verify_password(password: str, stored_value: str) -> bool:
+    salt_hex, hash_hex = stored_value.split(":")
+    salt = bytes.fromhex(salt_hex)
+    stored_hash = bytes.fromhex(hash_hex)
+
+    pwd_bytes = password.encode("utf-8")
+
+    new_hash = hashlib.pbkdf2_hmac(
+        hash_name="sha256",
+        password=pwd_bytes,
+        salt=salt,
+        iterations=200_000,
+        dklen=32
+    )
+
+    return hmac.compare_digest(new_hash, stored_hash)
+
+def create_access_token(
+    user_id: int,
+    email: str,
+    name: str,
+    role: str,
+    can_see_cost_breakup: bool
+) -> str:
+    payload = {
+        "sub": str(user_id),
+        "email": email,
+        "name": name,
+        "role": role,
+        "can_see_cost_breakup": can_see_cost_breakup,
+        "iat": datetime.now(tz=timezone.utc),
+        "exp": datetime.now(tz=timezone.utc) + timedelta(days=1),
+    }
+
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return token
+
+def verify_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        return payload
+
+    except ExpiredSignatureError:
+        raise ValueError("Token expired")
+    except InvalidTokenError:
+        raise ValueError("Invalid token")
 
 # Auth endpoints
 @api_router.post("/auth/register")
 async def register_customer(user_data: Dict[str, str]):
-    # Check if email already exists
     existing = await db.users.find_one({"email": user_data["email"]})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -465,7 +488,7 @@ async def register_customer(user_data: Dict[str, str]):
         "phone": user_data.get("phone", ""),
         "country_code": user_data.get("country_code", "+91"),
         "role": "customer",
-        "password": user_data["password"],  # In production, hash this
+        "password": hash_password(user_data["password"]),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -474,57 +497,440 @@ async def register_customer(user_data: Dict[str, str]):
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
-    if credentials.email in MOCK_USERS:
-        user_data = MOCK_USERS[credentials.email]
-        if user_data["password"] == credentials.password:
-            return {
-                "success": True,
+    existing = await db.users.find_one({"email": credentials.email})
+    if existing and verify_password(credentials.password, existing["password"]):
+        return {
+            "success": True,
                 "user": {
-                    "id": user_data["id"],
+                    "id": existing["id"],
                     "email": credentials.email,
-                    "name": user_data["name"],
-                    "role": user_data["role"],
-                    "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False)
+                    "name": existing["name"],
+                    "role": existing["role"],
+                    "can_see_cost_breakup": existing.get("can_see_cost_breakup", False)
                 },
-                "token": f"mock-token-{user_data['id']}"
+                "token": create_access_token(
+                    user_id=existing["id"],
+                    email=credentials.email,
+                    name=existing["name"],
+                    role=existing["role"],
+                    can_see_cost_breakup=existing.get("can_see_cost_breakup", False)
+                )
             }
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
+# Customer endpoints
+@api_router.get("/customers/search")
+async def search_customers(query: str):
+    """
+    Search for existing customers by name, email, or phone.
+    Returns list of customers with id, name, email, phone, country_code.
+    """
+    if not query or len(query) < 2:
+        return {"customers": []}
+    
+    # Create search pattern for MongoDB regex
+    search_pattern = {"$regex": query, "$options": "i"}
+    
+    # Search by name, email, or phone
+    search_query = {
+        "role": "customer",
+        "$or": [
+            {"name": search_pattern},
+            {"email": search_pattern},
+            {"phone": search_pattern}
+        ]
+    }
+    
+    customers_cursor = db.users.find(search_query).limit(10)
+    customers = await customers_cursor.to_list(length=10)
+    
+    # Format response
+    result = []
+    for customer in customers:
+        result.append({
+            "id": customer["id"],
+            "name": customer["name"],
+            "email": customer["email"],
+            "phone": customer.get("phone", ""),
+            "country_code": customer.get("country_code", "+91")
+        })
+    
+    return {"customers": result}
+
+@api_router.post("/customers/quick-create")
+async def quick_create_customer(customer_data: Dict[str, str]):
+    """
+    Quick create a new customer.
+    Generates a random password and saves to database.
+    Returns the created customer object.
+    """
+    # Validate required fields
+    if not all(key in customer_data for key in ["name", "email", "phone"]):
+        raise HTTPException(status_code=400, detail="Missing required fields: name, email, phone")
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": customer_data["email"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate random password (8 characters)
+    import random
+    import string
+    random_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    
+    # Create new customer
+    new_customer = {
+        "id": str(uuid.uuid4()),
+        "email": customer_data["email"],
+        "name": customer_data["name"],
+        "phone": customer_data["phone"],
+        "country_code": customer_data.get("country_code", "+91"),
+        "role": "customer",
+        "password": hash_password(random_password),
+        "can_see_cost_breakup": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(new_customer)
+    
+    # Return customer without password
+    return {
+        "success": True,
+        "customer": {
+            "id": new_customer["id"],
+            "name": new_customer["name"],
+            "email": new_customer["email"],
+            "phone": new_customer["phone"],
+            "country_code": new_customer["country_code"]
+        },
+        "message": f"Customer created successfully. Auto-generated password: {random_password}"
+    }
+
+
 # Request endpoints
 @api_router.post("/requests", response_model=TravelRequest)
-async def create_request(request: TravelRequest):
-    request_dict = request.dict()
-    await db.requests.insert_one(request_dict)
+async def create_request(request: Dict[str, Any], current_user: Dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+
+    newRequest = TravelRequest(
+        title=request["title"],
+        people_count=request["people_count"],
+        budget_min=request["budget_min"],
+        budget_max=request["budget_max"],
+        preferred_dates=request["preferred_dates"],
+        destination=request.get("destination"),
+        special_requirements=request.get("special_requirements"),
+        created_by=user_id,
+        start_date=request.get("start_date"),
+        end_date=request.get("end_date"),
+        client_id=user_id if role == UserRole.CUSTOMER else request.get("client_id"),
+        assigned_salesperson_id= user_id if role == UserRole.SALES else None
+    )
+
+    await db.requests.insert_one(newRequest.model_dump())
+
     
     # Create activity
     activity = Activity(
-        request_id=request.id,
-        actor_id=request.created_by,
-        actor_name=request.assigned_salesperson_name or "System",
-        actor_role="sales",
+        request_id=newRequest.id,
+        actor_id=current_user.get("sub"),
+        actor_name=current_user.get("name", ""),
+        actor_role=current_user.get("role", ""),
         action="created",
-        notes=f"Request created for {request.client_name}"
+        notes=f"Request created for {newRequest.client_id}"
     )
-    await db.activities.insert_one(activity.dict())
     
-    return request
+    await db.activities.insert_one(activity.model_dump())
+
+    return newRequest
 
 @api_router.get("/requests", response_model=List[TravelRequest])
-async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] = None):
+async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] = None, current_user: Dict = Depends(get_current_user)):
+    role = current_user.get("role")
+    user_id = current_user.get("sub")
     query = {}
-    if status:
-        query["status"] = status
-    if assigned_to:
-        query["assigned_salesperson_id"] = assigned_to
-    
-    requests = await db.requests.find(query).to_list(1000)
+    if role == UserRole.CUSTOMER:
+        query["client_id"] = user_id
+        requests = await db.requests.find(query).sort("created_at", -1).to_list(1000)
+        user_ids = set()
+
+        for req in requests:
+            if req.get("assigned_salesperson_id"):
+                user_ids.add(req["assigned_salesperson_id"])
+        users = await db.users.find(
+            {"id": {"$in": list(user_ids)}}
+        ).to_list(1000)
+
+        user_map = {str(u["id"]): u for u in users}
+
+        response = []
+
+        for req in requests:
+            salesperson = user_map.get(req.get("assigned_salesperson_id"))
+            response.append(
+                TravelRequest(
+                    id=str(req["id"]),
+                    title=req["title"],
+                    people_count=req["people_count"],
+                    budget_min=req["budget_min"],
+                    budget_max=req["budget_max"],
+                    preferred_dates=req["preferred_dates"],
+                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
+                    status=req["status"],
+
+                    # client_email=client["email"],
+                    # client_phone=client["phone"],
+                    # client_country_code=client["country_code"],
+
+                    assigned_salesperson_name=(
+                        salesperson["name"] if salesperson else "Not Assigned Yet"
+                    ),
+
+                    created_by=req["created_by"],
+                    created_at=req["created_at"],
+                    updated_at=req["updated_at"],
+                )
+            )
+
+        return response
+    elif role == UserRole.SALES:
+        query["assigned_salesperson_id"] = user_id
+        requests = await db.requests.find(query).sort("created_at", -1).to_list(1000)
+        user_ids = set()
+
+        for req in requests:
+            if req.get("client_id"):
+                user_ids.add(req["client_id"])
+            if req.get("assigned_salesperson_id"):
+                user_ids.add(req["assigned_salesperson_id"])
+        users = await db.users.find(
+            {"id": {"$in": list(user_ids)}}
+        ).to_list(1000)
+
+        user_map = {str(u["id"]): u for u in users}
+
+        response = []
+
+        for req in requests:
+            client_id = req.get("client_id")
+            if not client_id:
+                continue
+            client = user_map.get(client_id)
+            salesperson = user_map.get(req.get("assigned_salesperson_id"))
+
+            response.append(
+                TravelRequest(
+                    id=str(req["id"]),
+                    title=req["title"],
+                    people_count=req["people_count"],
+                    budget_min=req["budget_min"],
+                    budget_max=req["budget_max"],
+                    preferred_dates=req["preferred_dates"],
+                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
+                    status=req["status"],
+                    client_name=client["name"] if client else "Unknown Client",
+                    client_email=client["email"],
+                    client_phone=client["phone"],
+                    client_country_code=client["country_code"],
+
+                    assigned_salesperson_name=(
+                        salesperson["name"] if salesperson else "Not Assigned Yet"
+                    ),
+
+                    created_by=req["created_by"],
+                    created_at=req["created_at"],
+                    updated_at=req["updated_at"],
+                )
+            )
+
+        return response
+    elif role == UserRole.OPERATIONS:
+        query["assigned_operation_id"] = user_id
+        requests = await db.requests.find(query).sort("created_at", -1).to_list(1000)
+        user_ids = set()
+
+        for req in requests:
+            if req.get("client_id"):
+                user_ids.add(req["client_id"])
+            if req.get("assigned_salesperson_id"):
+                user_ids.add(req["assigned_salesperson_id"])
+        users = await db.users.find(
+            {"id": {"$in": list(user_ids)}}
+        ).to_list(1000)
+
+        user_map = {str(u["id"]): u for u in users}
+
+        response = []
+
+        for req in requests:
+            client = user_map.get(req.get("client_id"))
+            salesperson = user_map.get(req.get("assigned_salesperson_id"))
+
+            response.append(
+                TravelRequest(
+                    id=str(req["id"]),
+                    title=req["title"],
+                    people_count=req["people_count"],
+                    budget_min=req["budget_min"],
+                    budget_max=req["budget_max"],
+                    preferred_dates=req["preferred_dates"],
+                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
+                    status=req["status"],
+                    client_name=client["name"] if client else "Unknown Client",
+                    client_email=client["email"],
+                    client_phone=client["phone"],
+                    client_country_code=client["country_code"],
+
+                    assigned_salesperson_name=(
+                        salesperson["name"] if salesperson else "Not Assigned Yet"
+                    ),
+
+                    created_by=req["created_by"],
+                    created_at=req["created_at"],
+                    updated_at=req["updated_at"],
+                )
+            )
+
+        return response
+    else:
+        query = {}
+    requests = await db.requests.find(query).sort("created_at", -1).to_list(1000)
     return [TravelRequest(**req) for req in requests]
 
+@api_router.get("/requests/delegated")
+async def get_delegated_requests(current_user: Dict = Depends(get_current_user)):
+    # Find all active leaves where current user is backup
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    backup_leaves = await db.leaves.find({
+        "backup_user_id": current_user["sub"],
+        "status": "active",
+        "start_date": {"$lte": today},
+        "end_date": {"$gte": today}
+    }).to_list(1000)
+    
+    delegated_user_ids = []
+    for leave in backup_leaves:
+        delegated_user_ids.append(leave["user_id"])
+        chain_leaves = await db.leaves.find({
+            "backup_user_id": leave["user_id"],
+            "status": "active",
+            "start_date": {"$lte": today},
+            "end_date": {"$gte": today}
+        }).to_list(1000)
+        
+        for chain_leave in chain_leaves:
+            delegated_user_ids.append(chain_leave["user_id"])
+    
+    # Get requests from all delegated users
+    if not delegated_user_ids:
+        return []
+    
+    role = current_user.get("role")
+    
+    if role == UserRole.SALES:
+        global query
+        query = {
+            "assigned_salesperson_id": {"$in": delegated_user_ids},
+            "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
+        }
+    elif role == UserRole.OPERATIONS:
+        query = {
+            "assigned_operation_id": {"$in": delegated_user_ids},
+            "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
+        }
+
+    requests = await db.requests.find(query).sort("created_at", -1).to_list(1000)
+
+    user_ids = set()
+    for req in requests:
+        if req.get("client_id"):
+            user_ids.add(req["client_id"])
+        if req.get("assigned_salesperson_id"):
+            user_ids.add(req["assigned_salesperson_id"])
+
+    users = await db.users.find(
+        {"id": {"$in": list(user_ids)}}
+    ).to_list(1000)
+
+    user_map = {str(u["id"]): u for u in users}
+    
+    # Add delegation info to each request
+    result = []
+    for req in requests:
+        client = user_map.get(req.get("client_id"))
+        salesperson = user_map.get(req.get("assigned_salesperson_id"))
+        result.append(
+            TravelRequest(
+                id=str(req["id"]),
+                title=req["title"],
+                people_count=req["people_count"],
+                budget_min=req["budget_min"],
+                budget_max=req["budget_max"],
+                preferred_dates=req["preferred_dates"],
+                destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
+                status=req["status"],
+
+                client_name=client["name"] if client else "Unknown Client",
+                client_email=client["email"],
+                client_phone=client["phone"],
+                client_country_code=client["country_code"],
+
+                assigned_salesperson_name=(
+                    salesperson["name"] if salesperson else "Not Assigned Yet"
+                ),
+
+                created_by=req["created_by"],
+                created_at=req["created_at"],
+                updated_at=req["updated_at"],
+            )
+        )
+    
+    return result
+
 @api_router.get("/requests/{request_id}", response_model=TravelRequest)
-async def get_request(request_id: str):
+async def get_request(request_id: str, current_user: Dict = Depends(get_current_user)):
     request = await db.requests.find_one({"id": request_id})
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
+    
+    client = await db.users.find_one({"id": request.get("client_id")})
+    if client:
+        request["client_name"] = client["name"]
+        request["client_email"] = client["email"]
+        request["client_phone"] = client.get("phone", "")
+        request["client_country_code"] = client.get("country_code", "+91")
+
+    filterQuotations = []
+    if request["status"] == RequestStatus.ACCEPTED:
+        acceptedQuotation = await db.quotations.find_one({"request_id": request_id, "status": QuotationStatus.ACCEPTED})
+        if acceptedQuotation:
+            filterQuotations = [{
+                "status": acceptedQuotation["status"],
+                "expiry_date": acceptedQuotation.get("expiry_date"),
+                "quotation_id": acceptedQuotation["id"],
+                "advance_amount": acceptedQuotation.get("detailed_quotation_data", {}).get("pricing", {}).get("depositDue", 0.0),
+                "total_amount": acceptedQuotation.get("detailed_quotation_data", {}).get("pricing", {}).get("total", 0.0)
+            }]
+    else:
+        if(current_user.get("role") == UserRole.OPERATIONS and request.get("assigned_operation_id") == current_user.get("sub")):
+            global quotationsOptions
+            quotationsOptions = await db.quotations.find({"request_id": request_id}).to_list(1000)
+        elif(current_user.get("role") in [UserRole.SALES, UserRole.CUSTOMER] and (request.get("assigned_salesperson_id") == current_user.get("sub") or request.get("client_id") == current_user.get("sub"))):
+            quotationsOptions = await db.quotations.find({"request_id": request_id, "status": QuotationStatus.SENT}).to_list(1000)
+        else:
+            raise HTTPException(status_code=403, detail="Not authorized to view this request")
+        for quotation in quotationsOptions:
+            filterQuotations.append({
+                "status": quotation["status"],
+                "expiry_date": quotation.get("expiry_date"),
+                "quotation_id": quotation["id"],
+                "advance_amount": quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("depositDue", 0.0),
+                "total_amount": quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("total", 0.0)
+            })
+    request["quotations"] = filterQuotations
+       
     return TravelRequest(**request)
 
 @api_router.put("/requests/{request_id}", response_model=TravelRequest)
@@ -533,12 +939,43 @@ async def update_request(request_id: str, request: TravelRequest):
     await db.requests.update_one({"id": request_id}, {"$set": request.dict()})
     return request
 
+@api_router.post("/requests/{request_id}/validate")
+async def validate_request(request_id: str, current_user: Dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+    if role == UserRole.SALES:
+        request = await db.requests.find_one({"id": request_id, "assigned_salesperson_id": user_id})
+        if not request:
+            raise HTTPException(status_code=403, detail="Not authorized to validate this request")
+        else:
+            await db.requests.update_one(
+                {"id": request_id},
+                {"$set": {
+                    "is_salesperson_validated": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            # Create activity
+            activity = Activity(
+                request_id=request_id,
+                actor_id=current_user.get("sub", ""),
+                actor_name=current_user.get("name", ""),
+                actor_role=current_user.get("role", ""),
+                action="validated",
+                notes="Request validated by salesperson"
+            )
+            await db.activities.insert_one(activity.model_dump())
+            
+            return {"success": True}
+    
+    raise HTTPException(status_code=403, detail="Only salespersons can validate requests")
+
 @api_router.post("/requests/{request_id}/cancel")
-async def cancel_request(request_id: str, data: Dict[str, Any]):
+async def cancel_request(request_id: str, data: Dict[str, Any], current_user: Dict = Depends(get_current_user)):
     await db.requests.update_one(
         {"id": request_id},
         {"$set": {
-            "status": RequestStatus.REJECTED,
+            "status": RequestStatus.CUSTOMERCANCELLED,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
@@ -546,13 +983,13 @@ async def cancel_request(request_id: str, data: Dict[str, Any]):
     # Create activity
     activity = Activity(
         request_id=request_id,
-        actor_id=data.get("actor_id", ""),
-        actor_name=data.get("actor_name", ""),
-        actor_role=data.get("actor_role", ""),
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", ""),
+        actor_role=current_user.get("role", ""),
         action="cancelled",
-        notes=data.get("reason", "Request cancelled")
+        notes=data.get("reason", data.get("reason", "Request cancelled"))
     )
-    await db.activities.insert_one(activity.dict())
+    await db.activities.insert_one(activity.model_dump())
     
     return {"success": True}
 
@@ -583,100 +1020,102 @@ async def add_request_note(request_id: str, data: Dict[str, Any]):
 
 # New endpoint: Get open/unassigned requests
 @api_router.get("/requests/open/list", response_model=List[TravelRequest])
-async def get_open_requests():
-    """Get all requests that don't have an assigned salesperson"""
-    query = {
-        "$or": [
-            {"assigned_salesperson_id": None},
-            {"assigned_salesperson_id": ""},
-            {"assigned_salesperson_id": {"$exists": False}}
-        ],
-        "status": RequestStatus.PENDING
-    }
+async def get_open_requests(current_user: Dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+
+    if role == UserRole.SALES:
+        query = {
+            "$or": [
+                {"assigned_salesperson_id": None},
+                {"assigned_salesperson_id": ""},
+                {"assigned_salesperson_id": {"$exists": False}}
+            ],
+            "status": RequestStatus.PENDING
+        }
+    elif role == UserRole.OPERATIONS:
+        query = {
+            "$or": [
+                {"assigned_operation_id": None},
+                {"assigned_operation_id": ""},
+                {"assigned_operation_id": {"$exists": False}}
+            ],
+            "status": RequestStatus.PENDING,
+            "is_salesperson_validated": True
+        }
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     
     requests = await db.requests.find(query).sort("created_at", -1).to_list(100)
     return [TravelRequest(**req) for req in requests]
 
 # New endpoint: Assign request to salesperson
 @api_router.post("/requests/{request_id}/assign-to-me")
-async def assign_request_to_me(request_id: str, data: Dict[str, Any]):
+async def assign_request_to_me(request_id: str, current_user: Dict = Depends(get_current_user)):
     """Assign a request to the current salesperson with limit validation"""
-    salesperson_id = data.get("salesperson_id")
-    salesperson_name = data.get("salesperson_name")
-    
-    if not salesperson_id or not salesperson_name:
-        raise HTTPException(status_code=400, detail="Salesperson information required")
-    
-    # Check if salesperson already has 10 or more assigned requests
-    assigned_count = await db.requests.count_documents({
-        "assigned_salesperson_id": salesperson_id,
-        "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
-    })
-    
-    if assigned_count >= 10:
-        raise HTTPException(status_code=400, detail="You have reached the maximum limit of 10 open requests")
-    
-    # Check if request exists and is unassigned
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+
+    if role == UserRole.SALES:
+        global query
+        query = {"$set": {
+            "assigned_salesperson_id": user_id,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    elif role == UserRole.OPERATIONS:
+        query = {"$set": {
+            "assigned_operation_id": user_id,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     request = await db.requests.find_one({"id": request_id})
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
     
-    if request.get("assigned_salesperson_id"):
-        raise HTTPException(status_code=400, detail="Request is already assigned")
-    
+    if role == UserRole.SALES:
+        if request.get("assigned_salesperson_id"):
+            raise HTTPException(status_code=400, detail="Request is already assigned")
+    elif role == UserRole.OPERATIONS:
+        if request.get("assigned_operation_id"):
+            raise HTTPException(status_code=400, detail="Request is already assigned")
+
     # Assign the request
     await db.requests.update_one(
         {"id": request_id},
-        {"$set": {
-            "assigned_salesperson_id": salesperson_id,
-            "assigned_salesperson_name": salesperson_name,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
+        query
     )
     
     # Create activity
     activity = Activity(
         request_id=request_id,
-        actor_id=salesperson_id,
-        actor_name=salesperson_name,
-        actor_role="sales",
+        actor_id=user_id,
+        actor_name=current_user.get("name", ""),
+        actor_role=role,
         action="assigned",
-        notes=f"Request assigned to {salesperson_name}"
+        notes=f"Request assigned to {current_user.get('name', user_id)}"
     )
-    await db.activities.insert_one(activity.dict())
-    
+
+    await db.activities.insert_one(activity.model_dump())
+
     return {"success": True, "message": "Request assigned successfully"}
 
 # Quotation endpoints
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
-    # If detailed_quotation_data is provided, populate with AdminSettings defaults
-    if quotation.detailed_quotation_data:
-        admin_settings = await db.admin_settings.find_one({})
-        if admin_settings:
-            # Populate privacy_policy from AdminSettings
-            if not quotation.detailed_quotation_data.privacyPolicy:
-                quotation.detailed_quotation_data.privacyPolicy = admin_settings.get("privacy_policy", "")
-            
-            # Populate terms from AdminSettings (if detailedTerms is not set)
-            if not quotation.detailed_quotation_data.detailedTerms:
-                quotation.detailed_quotation_data.detailedTerms = admin_settings.get("terms_and_conditions", "")
-            
-            # Populate inclusions from AdminSettings (if not already set)
-            if not quotation.detailed_quotation_data.inclusions:
-                quotation.detailed_quotation_data.inclusions = admin_settings.get("default_inclusions", [])
-            
-            # Populate exclusions from AdminSettings (if not already set)
-            if not quotation.detailed_quotation_data.exclusions:
-                quotation.detailed_quotation_data.exclusions = admin_settings.get("default_exclusions", [])
-    
-    quotation_dict = quotation.dict()
+
+    quotation_dict = quotation.model_dump()
     await db.quotations.insert_one(quotation_dict)
-    
-    # Update request status
+
+    request_id = quotation.request_id
     await db.requests.update_one(
-        {"id": quotation.request_id},
-        {"$set": {"status": RequestStatus.QUOTED, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"id": request_id},
+        {"$set": {
+            "status": RequestStatus.QUOTED,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
     )
     
     return quotation
@@ -690,12 +1129,126 @@ async def get_quotations(request_id: Optional[str] = None):
     quotations = await db.quotations.find(query).to_list(1000)
     return [Quotation(**quot) for quot in quotations]
 
-@api_router.get("/quotations/{quotation_id}", response_model=Quotation)
-async def get_quotation(quotation_id: str):
+@api_router.get("/quotations/{quotation_id}/cost-breakup", response_model=List[CostBreakupItem])
+async def get_quotation(quotation_id: str, current_user: Dict = Depends(get_current_user)):
+    if (not current_user.get("can_see_cost_breakup", False) and current_user.get("role") == UserRole.SALES) or current_user.get("role") == UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="Not authorized to view cost breakup")
+    
     quotation = await db.quotations.find_one({"id": quotation_id})
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    return Quotation(**quotation)
+    return [CostBreakupItem(**item) for item in quotation.get("cost_breakup", [])]
+
+
+def get_day_suffix(day: int) -> str:
+    if 11 <= day <= 13:
+        return "th"
+    last_digit = day % 10
+    if last_digit == 1:
+        return "st"
+    elif last_digit == 2:
+        return "nd"
+    elif last_digit == 3:
+        return "rd"
+    else:
+        return "th"
+
+# date formatting helper - 18th Mar, 24 - 25th Mar, 24
+def formatDate(start_date_str: str, end_date_str: str) -> str:
+    start_date = datetime.fromisoformat(start_date_str)
+    end_date = datetime.fromisoformat(end_date_str)
+    formatted_start = start_date.strftime("%d").lstrip("0") + get_day_suffix(start_date.day) + " " + start_date.strftime("%b, %y")
+    formatted_end = end_date.strftime("%d").lstrip("0") + get_day_suffix(end_date.day) + " " + end_date.strftime("%b, %y")
+    return f"{formatted_start} - {formatted_end}"
+
+@api_router.get("/quotations/{quotation_id}/pdf")
+async def get_quotation_pdf(quotation_id: str):
+    quotation = await db.quotations.find_one({"id": quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    request_id = quotation.get("request_id")
+    request = await db.requests.find_one({"id": request_id})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    client_id = request.get("client_id")
+    salesPerson_id = request.get("assigned_salesperson_id")
+
+    client = await db.users.find_one({"id": client_id})
+    salesPerson = await db.users.find_one({"id": salesPerson_id})
+    
+    quotation_data = quotation.get("detailed_quotation_data", {})
+    quotation_data["customerName"] = client.get("name", "Valued Customer")
+    quotation_data["dates"] = formatDate(request.get("start_date"), request.get("end_date"))
+    quotation_data.pop("start_date")
+    quotation_data.pop("end_date")
+    salesPerson = {
+        "name": salesPerson.get("name", "Sales Executive"),
+        "email": salesPerson.get("email", ""),
+        "phone": salesPerson.get("country_code", "") + " " + salesPerson.get("phone", ""),
+        "photo": "https://cdn-icons-png.flaticon.com/512/847/847969.png"
+    }
+    quotation_data["salesperson"] = salesPerson
+
+    admin_settings = await db.admin_settings.find_one({})
+    if admin_settings:
+        quotation_data["detailedTerms"] = admin_settings.get("terms_and_conditions", "")
+        quotation_data["privacyPolicy"] = admin_settings.get("privacy_policy", "")
+
+    try:
+        # Read HTML template
+        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'pdf_template.html')
+        
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+        
+        # Render template with data
+        template = Template(template_content)
+        html_content = template.render(data=quotation_data)
+        
+        # Create temporary files
+        temp_dir = tempfile.mkdtemp()
+        html_file = os.path.join(temp_dir, 'quotation.html')
+        pdf_file = os.path.join(temp_dir, f'quotation-{quotation_data["bookingRef"]}.pdf')
+
+        # Write HTML to file
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        # Generate PDF using Playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(f'file://{html_file}', wait_until='networkidle')
+            await page.pdf(
+                path=pdf_file,
+                format='A4',
+                print_background=True,
+                margin={'top': '0', 'right': '0', 'bottom': '0', 'left': '0'}
+            )
+            await browser.close()
+        
+        # Check if PDF was created
+        if not os.path.exists(pdf_file):
+            raise Exception("PDF file was not created")
+        
+        # Return PDF file
+        response = FileResponse(
+            pdf_file,
+            media_type='application/pdf',
+            filename=f'quotation-{quotation_data["bookingRef"]}.pdf'
+        )
+        
+        # Clean up temp HTML file immediately
+        os.remove(html_file)
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
 @api_router.put("/quotations/{quotation_id}", response_model=Quotation)
 async def update_quotation(quotation_id: str, quotation: Quotation):
@@ -755,8 +1308,22 @@ async def publish_quotation(quotation_id: str, data: Dict[str, Any]):
     
     return {"success": True, "message": "Quotation published"}
 
+@api_router.post("/invoices/{invoice_id}/full-payment")
+async def full_payment(invoice_id: str, current_user: Dict = Depends(get_current_user)):
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    payment = Payment(
+        invoice_id=invoice.get("id"),
+        amount=invoice.get("total_amount") - invoice.get("advance_amount"),
+        method="Bank Transfer",
+        type="full-payment",
+    )
+    await db.payments.insert_one(payment.model_dump())
+
+    return {"success": True}
+    
+
 @api_router.post("/quotations/{quotation_id}/accept")
-async def accept_quotation(quotation_id: str, data: Dict[str, Any]):
+async def accept_quotation(quotation_id: str, current_user: Dict = Depends(get_current_user)):
     quotation = await db.quotations.find_one({"id": quotation_id})
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
@@ -766,6 +1333,7 @@ async def accept_quotation(quotation_id: str, data: Dict[str, Any]):
         {"id": quotation_id},
         {"$set": {"status": QuotationStatus.ACCEPTED, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
+
     
     # Update request status
     await db.requests.update_one(
@@ -773,19 +1341,25 @@ async def accept_quotation(quotation_id: str, data: Dict[str, Any]):
         {"$set": {"status": RequestStatus.ACCEPTED, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     
+
     # Create invoice
     request = await db.requests.find_one({"id": quotation["request_id"]})
+    client_id = request.get("client_id")
+    client = await db.users.find_one({"id": client_id})
+
     invoice = Invoice(
         invoice_number=f"INV-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}",
         quotation_id=quotation_id,
         request_id=quotation["request_id"],
-        client_name=request["client_name"],
-        client_email=request["client_email"],
-        total_amount=quotation["grand_total"],
-        advance_amount=quotation["advance_amount"],
+        client_name=client.get("name"),
+        client_email=client.get("email"),
+        client_country_code=client.get("country_code"),
+        client_phone=client.get("phone"),
+        total_amount=quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("total", 0.0),
+        advance_amount=quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("depositDue", 0.0),
         due_date=(datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
     )
-    await db.invoices.insert_one(invoice.dict())
+    await db.invoices.insert_one(invoice.model_dump())
     
     # Create payment record
     payment = Payment(
@@ -793,20 +1367,21 @@ async def accept_quotation(quotation_id: str, data: Dict[str, Any]):
         amount=invoice.advance_amount,
         method="pending"
     )
-    await db.payments.insert_one(payment.dict())
+    await db.payments.insert_one(payment.model_dump())
     
     # Create activity
     activity = Activity(
         request_id=quotation["request_id"],
-        actor_id=data.get("actor_id", "customer-001"),
-        actor_name=data.get("actor_name", "Customer"),
-        actor_role="customer",
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", "Customer"),
+        actor_role=current_user.get("role", "Unknown"),
         action="accepted",
-        notes="Quotation accepted by customer"
+        notes="Quotation accepted by " + current_user.get("name", "Customer")
     )
-    await db.activities.insert_one(activity.dict())
+    await db.activities.insert_one(activity.model_dump())
     
     return {"success": True, "invoice_id": invoice.id}
+
 
 # New endpoint: Download Proforma Invoice PDF
 @api_router.get("/quotations/{quotation_id}/download-proforma")
@@ -1008,242 +1583,16 @@ async def download_proforma_invoice(quotation_id: str):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-@api_router.post("/generate-pdf")
-async def generate_detailed_quotation_pdf(quotation_data: QuotationData):
-    """Generate comprehensive quotation PDF from detailed quotation data"""
-    
-    # Create PDF in memory
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
-    
-    # Container for the 'Flowable' objects
-    elements = []
-    
-    # Define styles
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=28,
-        textColor=colors.HexColor('#f97316'),
-        spaceAfter=20,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-    
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=16,
-        textColor=colors.HexColor('#ea580c'),
-        spaceAfter=10,
-        spaceBefore=15,
-        fontName='Helvetica-Bold'
-    )
-    
-    subheading_style = ParagraphStyle(
-        'SubHeading',
-        parent=styles['Heading3'],
-        fontSize=13,
-        textColor=colors.HexColor('#374151'),
-        spaceAfter=8,
-        spaceBefore=10,
-        fontName='Helvetica-Bold'
-    )
-    
-    normal_style = styles['Normal']
-    normal_style.fontSize = 10
-    
-    small_style = ParagraphStyle(
-        'Small',
-        parent=styles['Normal'],
-        fontSize=9,
-        textColor=colors.HexColor('#6B7280')
-    )
-    
-    # Title
-    elements.append(Paragraph(quotation_data.tripTitle.upper(), title_style))
-    elements.append(Spacer(1, 10))
-    
-    # Booking Reference and Dates
-    ref_data = [
-        [f"Booking Reference: {quotation_data.bookingRef}", f"Dates: {quotation_data.dates}"],
-    ]
-    ref_table = Table(ref_data, colWidths=[3.5*inch, 3.5*inch])
-    ref_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-    ]))
-    elements.append(ref_table)
-    elements.append(Spacer(1, 20))
-    
-    # Trip Summary Section
-    elements.append(Paragraph("TRIP SUMMARY", heading_style))
-    
-    summary_data = [
-        ["Duration:", quotation_data.summary.duration],
-        ["Number of Travelers:", str(quotation_data.summary.travelers)],
-        ["Destination:", quotation_data.city],
-        ["Rating:", f"{'⭐' * int(quotation_data.summary.rating)} ({quotation_data.summary.rating})"],
-    ]
-    
-    summary_table = Table(summary_data, colWidths=[2*inch, 5*inch])
-    summary_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    elements.append(summary_table)
-    elements.append(Spacer(1, 10))
-    
-    # Highlights
-    if quotation_data.summary.highlights:
-        elements.append(Paragraph("<b>Trip Highlights:</b>", subheading_style))
-        for highlight in quotation_data.summary.highlights:
-            elements.append(Paragraph(f"• {highlight}", normal_style))
-        elements.append(Spacer(1, 15))
-    
-    # Day-by-Day Itinerary
-    elements.append(Paragraph("DAY-BY-DAY ITINERARY", heading_style))
-    
-    for day in quotation_data.days:
-        # Day header
-        day_header = f"Day {day.dayNumber}: {day.location}"
-        if day.date:
-            day_header += f" - {day.date}"
-        
-        elements.append(Paragraph(day_header, subheading_style))
-        
-        # Meals
-        meals_text = f"<b>Meals:</b> Breakfast: {day.meals.breakfast}, Lunch: {day.meals.lunch}, Dinner: {day.meals.dinner}"
-        elements.append(Paragraph(meals_text, small_style))
-        elements.append(Spacer(1, 8))
-        
-        # Activities
-        if day.activities:
-            for activity in day.activities:
-                activity_text = f"<b>{activity.time}</b> - <b>{activity.title}</b>"
-                elements.append(Paragraph(activity_text, normal_style))
-                
-                if activity.description:
-                    elements.append(Paragraph(activity.description, small_style))
-                
-                if activity.meetingPoint:
-                    elements.append(Paragraph(f"<i>Meeting Point: {activity.meetingPoint}</i>", small_style))
-                
-                elements.append(Spacer(1, 5))
-        
-        elements.append(Spacer(1, 10))
-    
-    # Pricing Section
-    elements.append(Paragraph("PRICING DETAILS", heading_style))
-    
-    pricing_data = [
-        ["Subtotal:", f"₹{quotation_data.pricing.subtotal:,.2f}"],
-        ["Taxes (18% GST):", f"₹{quotation_data.pricing.taxes:,.2f}"],
-        ["Discount:", f"- ₹{quotation_data.pricing.discount:,.2f}"],
-        ["<b>Total Amount:</b>", f"<b>₹{quotation_data.pricing.total:,.2f}</b>"],
-        ["Per Person:", f"₹{quotation_data.pricing.perPerson:,.2f}"],
-        [f"<b>Deposit Due (30%):</b>", f"<b>₹{quotation_data.pricing.depositDue:,.2f}</b>"],
-    ]
-    
-    pricing_table = Table(pricing_data, colWidths=[5*inch, 2*inch])
-    pricing_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-        ('LINEABOVE', (0, 3), (-1, 3), 2, colors.HexColor('#f97316')),
-        ('LINEABOVE', (0, 5), (-1, 5), 1, colors.grey),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    elements.append(pricing_table)
-    elements.append(Spacer(1, 20))
-    
-    # Inclusions
-    if quotation_data.inclusions:
-        elements.append(Paragraph("INCLUSIONS", heading_style))
-        for inclusion in quotation_data.inclusions:
-            elements.append(Paragraph(f"✓ {inclusion}", normal_style))
-        elements.append(Spacer(1, 15))
-    
-    # Exclusions
-    if quotation_data.exclusions:
-        elements.append(Paragraph("EXCLUSIONS", heading_style))
-        for exclusion in quotation_data.exclusions:
-            elements.append(Paragraph(f"✗ {exclusion}", normal_style))
-        elements.append(Spacer(1, 15))
-    
-    # Terms and Conditions
-    if quotation_data.detailedTerms:
-        elements.append(Paragraph("TERMS & CONDITIONS", heading_style))
-        elements.append(Paragraph(quotation_data.detailedTerms, small_style))
-        elements.append(Spacer(1, 15))
-    
-    # Privacy Policy
-    if quotation_data.privacyPolicy:
-        elements.append(Paragraph("PRIVACY POLICY", heading_style))
-        elements.append(Paragraph(quotation_data.privacyPolicy, small_style))
-        elements.append(Spacer(1, 15))
-    
-    # Testimonials
-    if quotation_data.testimonials:
-        elements.append(Paragraph("WHAT OUR CUSTOMERS SAY", heading_style))
-        for testimonial in quotation_data.testimonials:
-            stars = "⭐" * testimonial.rating
-            testimonial_text = f"<b>{testimonial.name}</b> {stars}<br/><i>\"{testimonial.text}\"</i>"
-            elements.append(Paragraph(testimonial_text, normal_style))
-            elements.append(Spacer(1, 8))
-        elements.append(Spacer(1, 15))
-    
-    # Salesperson Contact
-    elements.append(Paragraph("YOUR TRAVEL CONSULTANT", heading_style))
-    salesperson_data = [
-        ["Name:", quotation_data.salesperson.name],
-        ["Phone:", quotation_data.salesperson.phone],
-        ["Email:", quotation_data.salesperson.email],
-    ]
-    
-    salesperson_table = Table(salesperson_data, colWidths=[1.5*inch, 5.5*inch])
-    salesperson_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    elements.append(salesperson_table)
-    
-    # Build PDF
-    doc.build(elements)
-    
-    # Get the value of the BytesIO buffer and return as response
-    buffer.seek(0)
-    
-    filename = f"quotation_{quotation_data.bookingRef}.pdf"
-    
-    return StreamingResponse(
-        buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
 # Invoice endpoints
-@api_router.get("/invoices", response_model=List[Invoice])
+@api_router.get("/invoice", response_model=Invoice)
 async def get_invoices(request_id: Optional[str] = None):
     query = {}
-    if request_id:
-        query["request_id"] = request_id
+    query["request_id"] = request_id
     
-    invoices = await db.invoices.find(query).to_list(1000)
-    return [Invoice(**inv) for inv in invoices]
+    invoice = await db.invoices.find_one(query)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return Invoice(**invoice)
 
 @api_router.get("/invoices/{invoice_id}", response_model=Invoice)
 async def get_invoice(invoice_id: str):
@@ -1256,19 +1605,12 @@ async def get_invoice(invoice_id: str):
 @api_router.get("/invoices/{invoice_id}/download")
 async def download_invoice(invoice_id: str):
     """Generate and download invoice as PDF after payment verification"""
-    invoice = await db.invoices.find_one({"id": invoice_id})
+    invoice = await db.invoices.find_one({"id": invoice_id}) 
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
-    # Get payment details to check verification status
-    payment = await db.payments.find_one({"invoice_id": invoice_id})
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    # Check if payment is verified by both accountant and operations
-    if payment.get("status") != PaymentStatus.VERIFIED_BY_OPS:
-        raise HTTPException(status_code=400, detail="Invoice can only be downloaded after payment verification by accountant and operations manager")
-    
+    status = invoice.get("status", "Verification Pending")
+
     # Get quotation and request details
     quotation = await db.quotations.find_one({"id": invoice["quotation_id"]})
     if not quotation:
@@ -1280,7 +1622,7 @@ async def download_invoice(invoice_id: str):
     
     # Create PDF in memory
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=40, bottomMargin=18)
     
     # Container for the 'Flowable' objects
     elements = []
@@ -1313,16 +1655,16 @@ async def download_invoice(invoice_id: str):
         'PaidBadge',
         parent=styles['Normal'],
         fontSize=16,
-        textColor=colors.HexColor('#10b981'),
+        textColor=colors.HexColor('#10b981' if status == "Paid" else '#f59e0b' if status == "Partially Paid" else '#ef4444'), # Verification Pending, Partially Paid, Paid
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    elements.append(Paragraph("✓ PAID", paid_style))
+    elements.append(Paragraph((status or "").upper(), paid_style))
     elements.append(Spacer(1, 12))
     
     # Company Details
     company_data = [
-        ["Travel Company Pvt Ltd", ""],
+        ["Traveego Company Pvt Ltd", ""],
         ["123 Business Street", f"Date: {datetime.now().strftime('%d %B %Y')}"],
         ["City, State - 123456", f"Invoice #: {invoice['invoice_number']}"],
         ["Phone: +91-1234567890", f"Due Date: {datetime.fromisoformat(invoice['due_date']).strftime('%d %B %Y')}"],
@@ -1344,7 +1686,7 @@ async def download_invoice(invoice_id: str):
     client_data = [
         ["Client Name:", invoice["client_name"]],
         ["Email:", invoice["client_email"]],
-        ["Phone:", f"{request.get('client_country_code', '+91')} {request['client_phone']}"],
+        ["Phone:", f"{invoice.get('client_country_code', '+91')} {invoice['client_phone']}"],
         ["Destination:", request.get("destination", "N/A")],
         ["Travel Dates:", request["preferred_dates"]],
         ["Number of People:", str(request["people_count"])],
@@ -1359,60 +1701,7 @@ async def download_invoice(invoice_id: str):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     elements.append(client_table)
-    elements.append(Spacer(1, 20))
-    
-    # Get current version of quotation
-    current_version = None
-    for version in quotation.get("versions", []):
-        if version.get("is_current", False):
-            current_version = version
-            break
-    
-    if not current_version and quotation.get("versions"):
-        current_version = quotation["versions"][-1]
-    
-    if current_version and current_version.get("options"):
-        # Process each option
-        for option in current_version["options"]:
-            elements.append(Paragraph(f"<b>{option['name']}</b>", heading_style))
-            
-            # Line items table
-            line_items_data = [["Item", "Supplier", "Qty", "Unit Price", "Tax %", "Total"]]
-            
-            for item in option.get("line_items", []):
-                line_items_data.append([
-                    f"{item['name']}\n({item['type']})",
-                    item.get('supplier', 'N/A'),
-                    str(item['quantity']),
-                    f"₹{item['unit_price']:,.2f}",
-                    f"{item['tax_percent']}%",
-                    f"₹{item['total']:,.2f}"
-                ])
-            
-            # Add subtotal, tax, and total rows
-            line_items_data.append(["", "", "", "", "Subtotal:", f"₹{option['subtotal']:,.2f}"])
-            line_items_data.append(["", "", "", "", "Tax:", f"₹{option['tax_amount']:,.2f}"])
-            line_items_data.append(["", "", "", "", "Total:", f"₹{option['total']:,.2f}"])
-            
-            items_table = Table(line_items_data, colWidths=[2*inch, 1.2*inch, 0.5*inch, 1*inch, 0.8*inch, 1*inch])
-            items_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -4), colors.white),
-                ('GRID', (0, 0), (-1, -4), 1, colors.grey),
-                ('LINEABOVE', (4, -3), (-1, -3), 2, colors.grey),
-                ('LINEABOVE', (4, -1), (-1, -1), 2, colors.HexColor('#10b981')),
-                ('FONTNAME', (4, -1), (-1, -1), 'Helvetica-Bold'),
-            ]))
-            elements.append(items_table)
-            elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 20))    
     
     # Payment Summary
     elements.append(Paragraph("PAYMENT SUMMARY:", heading_style))
@@ -1420,10 +1709,9 @@ async def download_invoice(invoice_id: str):
     total_amount = invoice.get("total_amount", 0)
     
     payment_summary_data = [
-        ["Advance Payment:", f"₹{advance_amount:,.2f}"],
-        ["Balance Payment:", f"₹{total_amount - advance_amount:,.2f}"],
-        ["Total Amount:", f"₹{total_amount:,.2f}"],
-        ["Payment Status:", "PAID ✓"],
+        ["Advance Payment:", f"Rs. {advance_amount:,.2f}"],
+        ["Balance Payment:", f"Rs. {total_amount - advance_amount:,.2f}"],
+        ["Total Amount:", f"Rs. {total_amount:,.2f}"],
     ]
     
     payment_table = Table(payment_summary_data, colWidths=[4*inch, 2*inch])
@@ -1432,50 +1720,55 @@ async def download_invoice(invoice_id: str):
         ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 11),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -2), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -2), 6),
+        ('BOTTOMPADDING', (0, -2), (-1, -2), 14),
+        ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#10b981')),
+        ('TOPPADDING', (0, -1), (-1, -1), 14),
         ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#10b981')),
         ('FONTSIZE', (0, -1), (-1, -1), 14),
-        ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#10b981')),
     ]))
     elements.append(payment_table)
     elements.append(Spacer(1, 20))
     
     # Payment Verification Details
     elements.append(Paragraph("PAYMENT VERIFICATION:", heading_style))
-    verification_text = f"""
-    <b>Payment Received:</b> {datetime.fromisoformat(payment['received_at']).strftime('%d %B %Y, %I:%M %p') if payment.get('received_at') else 'N/A'}<br/>
-    <b>Verified by Operations:</b> {datetime.fromisoformat(payment['verified_at']).strftime('%d %B %Y, %I:%M %p') if payment.get('verified_at') else 'N/A'}<br/>
-    <b>Payment Method:</b> {payment.get('method', 'N/A').replace('_', ' ').title()}<br/>
-    """
-    if payment.get('accountant_notes'):
-        verification_text += f"<b>Accountant Notes:</b> {payment['accountant_notes']}<br/>"
-    if payment.get('ops_notes'):
-        verification_text += f"<b>Operations Notes:</b> {payment['ops_notes']}<br/>"
+    if not (status == "Paid" or status == "Partially Paid"):
+        global verification_text
+        verification_text = "<b style='color:red;'>Payment not yet verified by Operations.</b>"
+    else:
+        verification_text = f"""
+        <b>Payment Received:</b> {datetime.fromisoformat(invoice['received_at']).strftime('%d %B %Y, %I:%M %p') if invoice.get('received_at') else 'N/A'}<br/>
+        <b>Verified by Operations:</b> {datetime.fromisoformat(invoice['verified_at']).strftime('%d %B %Y, %I:%M %p') if invoice.get('verified_at') else 'N/A'}<br/>
+        <b>Payment Method:</b> {invoice.get('method', 'N/A').replace('_', ' ').title()}<br/>
+        """
+        if invoice.get('accountant_notes'):
+            verification_text += f"<b>Accountant Notes:</b> {invoice['accountant_notes']}<br/>"
+        if invoice.get('ops_notes'):
+            verification_text += f"<b>Operations Notes:</b> {invoice['ops_notes']}<br/>"
     
     elements.append(Paragraph(verification_text, normal_style))
     elements.append(Spacer(1, 20))
     
-    # Bank Details
-    elements.append(Paragraph("BANK DETAILS:", heading_style))
-    bank_details = invoice.get('bank_details', {})
-    bank_details_text = f"""
-    <b>Account Name:</b> {bank_details.get('account_name', 'Travel Company Pvt Ltd')}<br/>
-    <b>Account Number:</b> {bank_details.get('account_number', '1234567890')}<br/>
-    <b>IFSC Code:</b> {bank_details.get('ifsc', 'BANK0001234')}<br/>
-    <b>Bank Name:</b> {bank_details.get('bank_name', 'Example Bank')}<br/>
-    <b>UPI ID:</b> {invoice.get('upi_id', 'travelcompany@upi')}
-    """
-    elements.append(Paragraph(bank_details_text, normal_style))
-    elements.append(Spacer(1, 20))
-    
     # Terms and Conditions
     elements.append(Paragraph("TERMS & CONDITIONS:", heading_style))
-    terms_text = """
-    1. This invoice confirms the payment received for the travel services booked.<br/>
-    2. All services are subject to availability and confirmation from suppliers.<br/>
-    3. Cancellation charges apply as per company policy.<br/>
-    4. Any disputes are subject to the jurisdiction of the company's registered office.<br/>
-    5. Thank you for choosing our services.
-    """
+    if status == "Paid" or status == "Partially Paid":
+        global terms_text
+        terms_text = """
+        1. This invoice confirms the payment received for the travel services booked.<br/>
+        2. All services are subject to availability and confirmation from suppliers.<br/>
+        3. Cancellation charges apply as per company policy.<br/>
+        4. Any disputes are subject to the jurisdiction of the company's registered office.<br/>
+        5. Thank you for choosing our services.
+        """
+    else:
+        terms_text = """
+        1. This invoice is issued pending payment verification.<br/>
+        2. Please ensure payment is verified to confirm your booking.<br/>
+        3. Cancellation charges apply as per company policy.<br/>
+        4. Any disputes are subject to the jurisdiction of the company's registered office.<br/>
+        5. Thank you for choosing our services.
+        """
     elements.append(Paragraph(terms_text, normal_style))
     elements.append(Spacer(1, 20))
     
@@ -1505,13 +1798,31 @@ async def download_invoice(invoice_id: str):
     )
 
 # Payment endpoints
-@api_router.get("/payments", response_model=List[Payment])
+@api_router.get("/payments")
 async def get_payments(status: Optional[str] = None):
     query = {}
     if status:
         query["status"] = status
     
     payments = await db.payments.find(query).to_list(1000)
+
+    invoice_ids = []
+    for payment in payments:
+        invoice_id = payment.get("invoice_id")
+        invoice_ids.append(invoice_id)
+    
+    # get invoice data
+    invoices = await db.invoices.find({"id": {"$in": invoice_ids}}).to_list(1000)
+    
+    for payment in payments:
+        invoice = next((inv for inv in invoices if inv.get("id") == payment.get("invoice_id")), None)
+        if invoice:
+            payment["client_name"] = invoice.get("client_name")
+            payment["client_phone"] = invoice.get("client_phone")
+            payment["client_email"] = invoice.get("client_email")
+            payment["client_country_code"] = invoice.get("client_country_code")
+
+
     return [Payment(**pay) for pay in payments]
 
 @api_router.get("/payments/{payment_id}", response_model=Payment)
@@ -1523,21 +1834,46 @@ async def get_payment(payment_id: str):
 
 @api_router.put("/payments/{payment_id}/mark-received")
 async def mark_payment_received(payment_id: str, data: Dict[str, Any]):
-    await db.payments.update_one(
-        {"id": payment_id},
-        {"$set": {
-            "status": PaymentStatus.RECEIVED_BY_ACCOUNTANT,
-            "received_at": datetime.now(timezone.utc).isoformat(),
-            "accountant_notes": data.get("notes", ""),
-            "proof_url": data.get("proof_url", "")
-        }}
-    )
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        return {"success": False, "error": "Payment not found"}
+    
+    if payment.get("type") == "full-payment":
+        await db.payments.update_one(
+            {"id": payment_id},
+            {"$set": {
+                "status": PaymentStatus.VERIFIED_BY_OPS,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "accountant_notes": data.get("notes", ""),
+                "ops_notes": "System Auto Approved",
+                "proof_url": data.get("proof_url", "")
+            }}
+        )
+        await db.invoices.update_one(
+            {"id": payment.get("invoice_id")},
+            {"$set": {"status": "PAID"}}
+        )
+    else:
+        await db.payments.update_one(
+            {"id": payment_id},
+            {"$set": {
+                "status": PaymentStatus.RECEIVED_BY_ACCOUNTANT,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "accountant_notes": data.get("notes", ""),
+                "proof_url": data.get("proof_url", "")
+            }}
+        )
+
     return {"success": True}
 
 @api_router.put("/payments/{payment_id}/verify")
 async def verify_payment(payment_id: str, data: Dict[str, Any]):
     status = PaymentStatus.VERIFIED_BY_OPS if data.get("verified", True) else PaymentStatus.REJECTED
     
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        return {"success": False, "error": "Payment not found"}
+
     await db.payments.update_one(
         {"id": payment_id},
         {"$set": {
@@ -1546,6 +1882,36 @@ async def verify_payment(payment_id: str, data: Dict[str, Any]):
             "ops_notes": data.get("notes", "")
         }}
     )
+
+    # Update invoice status
+    invoice_id = payment.get("invoice_id")
+
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        return {"success": False, "error": "Invoice not found"}
+
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {
+            "status": "Partial Paid" if status == PaymentStatus.VERIFIED_BY_OPS else "Refund Initiated",
+        }}
+    )
+
+    if status == PaymentStatus.REJECTED:
+        request_id = invoice.get("request_id")
+
+        # Update request status
+        request = await db.requests.find_one({"id": request_id})
+        if not request:
+            return {"success": False, "error": "Request not found"}
+
+        await db.requests.update_one(
+            {"id": request_id},
+            {"$set": {
+                "status": "Rejected",
+            }}
+        )
+
     return {"success": True}
 
 # Activity endpoints
@@ -1580,9 +1946,10 @@ async def create_catalog_item(item: CatalogItem):
     await db.catalog.insert_one(item.dict())
     return item
 
-# Notification endpoints
+# Notification endpoints with params unreadOnly and need to fetch user-specific notifications
 @api_router.get("/notifications", response_model=List[Notification])
-async def get_notifications(user_id: str, unread_only: bool = False):
+async def get_notifications(unread_only: Optional[bool] = False, current_user: Dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
     query = {"user_id": user_id}
     if unread_only:
         query["is_read"] = False
@@ -1602,6 +1969,120 @@ async def mark_notification_read(notification_id: str):
 async def create_notification(notification: Notification):
     await db.notifications.insert_one(notification.dict())
     return notification
+
+# Chat/Message Endpoints
+@api_router.post("/requests/{request_id}/messages", response_model=Message)
+async def send_message(request_id: str, message: Message, current_user: Dict = Depends(get_current_user)):
+    """Send a message in request chat and create notifications for all participants"""
+    user_id = current_user.get("sub")
+
+    # Get the request to check participants
+    request_data = await db.requests.find_one({"id": request_id})
+    if not request_data:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Check access control: only client, assigned salesperson, assigned operations, or admin
+    is_client = request_data.get("client_id") == user_id
+    is_assigned_sales = request_data.get("assigned_salesperson_id") == user_id
+    is_assigned_operations = request_data.get("assigned_operation_id") == user_id
+    is_admin = current_user.get("role") == "admin"
+    
+    if not (is_client or is_assigned_sales or is_assigned_operations or is_admin):
+        raise HTTPException(status_code=403, detail="You don't have access to this chat")
+    
+    # Ensure the message has the correct request_id and sender info
+    message.request_id = request_id
+    message.sender_id = user_id
+    message.sender_name = current_user.get("name")
+    message.sender_role = current_user.get("role")
+    
+    # Save the message
+    await db.messages.insert_one(message.model_dump())
+    
+    # Create notifications for all participants except the sender
+    participants = []
+    
+    # Add client (request creator)
+    if request_data.get("client_id") and request_data.get("client_id") != user_id:
+        # Get client info
+        client = await db.users.find_one({"id": request_data["client_id"]})
+        
+        if client:
+            participants.append({
+                "user_id": request_data["client_id"],
+                "name": client.get("name", "Client")
+            })
+    
+    # Add assigned salesperson
+    if request_data.get("assigned_salesperson_id") and request_data.get("assigned_salesperson_id") != user_id:
+
+        salesPerson = await db.users.find_one({"id": request_data["assigned_salesperson_id"]})
+
+        participants.append({
+            "user_id": request_data["assigned_salesperson_id"],
+            "name": salesPerson.get("name", "Salesperson")
+        })
+
+    # Add assigned operations
+    if request_data.get("assigned_operation_id") and request_data.get("assigned_operation_id") != user_id:
+        operationsPerson = await db.users.find_one({"id": request_data["assigned_operation_id"]})
+
+        participants.append({
+            "user_id": request_data["assigned_operation_id"],
+            "name": operationsPerson.get("name", "Operations")
+        })
+    
+    # Create notifications for all participants
+    for participant in participants:
+        notification = Notification(
+            user_id=participant["user_id"],
+            title=f"New message from {current_user['name']}",
+            message=f"{current_user['name']} sent a message in request: {request_data.get('title', 'Travel Request')}",
+            link=f"/requests/{request_id}"
+        )
+        await db.notifications.insert_one(notification.model_dump())
+    
+    return message
+
+@api_router.get("/requests/{request_id}/messages")
+async def get_messages(request_id: str, page: int = 1, limit: int = 10, authorization: str = Header(None), current_user: Dict = Depends(get_current_user)):
+    """Get messages for a request with pagination (10 messages per page, latest first)"""
+
+    user_id = current_user.get("sub")
+    
+    # Get the request to check access
+    request_data = await db.requests.find_one({"id": request_id})
+    if not request_data:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Check access control
+    is_client = request_data.get("client_id") == user_id
+    is_assigned_sales = request_data.get("assigned_salesperson_id") == user_id
+    is_assigned_operations = request_data.get("assigned_operation_id") == user_id
+    is_admin = current_user.get("role") == "admin"
+    
+    if not (is_client or is_assigned_sales or is_assigned_operations or is_admin):
+        raise HTTPException(status_code=403, detail="You don't have access to this chat")
+    
+    # Calculate skip for pagination
+    skip = (page - 1) * limit
+    
+    # Get messages sorted by created_at descending (latest first)
+    messages = await db.messages.find(
+        {"request_id": request_id}
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    # Get total count for pagination info
+    total_count = await db.messages.count_documents({"request_id": request_id})
+    
+    return {
+        "messages": [Message(**msg) for msg in messages],
+        "page": page,
+        "limit": limit,
+        "total": total_count,
+        "has_more": (skip + len(messages)) < total_count
+    }
+
 
 # Leave Management Endpoints
 @api_router.post("/leaves", response_model=Leave)
@@ -1675,17 +2156,17 @@ async def get_my_leaves(user_id: str):
     }
 
 @api_router.get("/leaves/available-backups")
-async def get_available_backups(role: str, start_date: str, end_date: str, exclude_user_id: Optional[str] = None):
-    """Get team members who can be backup (same role, not on leave during the dates)"""
-    # Get all users with the same role from MOCK_USERS
+async def get_available_backups(role: str, start_date: str, end_date: str, exclude_user_id: Optional[str] = None, current_user: Dict = Depends(get_current_user)):
     available_users = []
-    for email, user_data in MOCK_USERS.items():
-        if user_data["role"] == role and user_data["id"] != exclude_user_id:
+    availableUsersObject = await db.users.find({"role": current_user.get("role")}).to_list(1000)
+
+    for user in availableUsersObject:
+        if user["role"] == role and user["id"] != exclude_user_id:
             available_users.append({
-                "id": user_data["id"],
-                "name": user_data["name"],
-                "email": email,
-                "role": user_data["role"]
+                "id": user["id"],
+                "name": user["name"],
+                "email": user["email"],
+                "role": user["role"]
             })
     
     # Filter out users who are on leave during the requested dates
@@ -1737,64 +2218,6 @@ async def cancel_leave(leave_id: str):
     
     return {"success": True, "message": "Leave cancelled successfully"}
 
-@api_router.get("/requests/delegated")
-async def get_delegated_requests(user_id: str):
-    """Get requests delegated to current user (backup chain resolution)"""
-    # Find all active leaves where current user is backup
-    today = datetime.now(timezone.utc).date().isoformat()
-    
-    backup_leaves = await db.leaves.find({
-        "backup_user_id": user_id,
-        "status": "active",
-        "start_date": {"$lte": today},
-        "end_date": {"$gte": today}
-    }).to_list(1000)
-    
-    delegated_users = []
-    for leave in backup_leaves:
-        delegated_users.append({
-            "user_id": leave["user_id"],
-            "user_name": leave["user_name"]
-        })
-        
-        # Check if the delegated user is also a backup for someone else (chain resolution)
-        # Find leaves where the delegated user is a backup
-        chain_leaves = await db.leaves.find({
-            "backup_user_id": leave["user_id"],
-            "status": "active",
-            "start_date": {"$lte": today},
-            "end_date": {"$gte": today}
-        }).to_list(1000)
-        
-        for chain_leave in chain_leaves:
-            delegated_users.append({
-                "user_id": chain_leave["user_id"],
-                "user_name": chain_leave["user_name"]
-            })
-    
-    # Get requests from all delegated users
-    if not delegated_users:
-        return []
-    
-    delegated_user_ids = [u["user_id"] for u in delegated_users]
-    
-    requests = await db.requests.find({
-        "assigned_salesperson_id": {"$in": delegated_user_ids},
-        "status": {"$in": [RequestStatus.PENDING, RequestStatus.QUOTED]}
-    }).sort("created_at", -1).to_list(1000)
-    
-    # Add delegation info to each request
-    result = []
-    for req in requests:
-        request_data = TravelRequest(**req).dict()
-        # Find which delegated user this request belongs to
-        for du in delegated_users:
-            if du["user_id"] == req["assigned_salesperson_id"]:
-                request_data["delegated_from"] = du["user_name"]
-                break
-        result.append(request_data)
-    
-    return result
 
 # Admin endpoints
 @api_router.get("/admin/salespeople")
@@ -1856,7 +2279,7 @@ async def toggle_cost_breakup_permission(
     
     # Log the activity
     activity = Activity(
-        user_id=current_user["id"],
+        user_id=current_user["sub"],
         user_name=current_user["name"],
         action=f"{'Enabled' if can_see else 'Disabled'} cost breakup visibility for {user.get('name')}",
         entity_type="user_permission",
@@ -1920,6 +2343,203 @@ async def update_admin_settings(
         new_settings = AdminSettings(**update_data)
         await db.admin_settings.insert_one(new_settings.dict())
         return new_settings
+    
+# User Management Endpoints (Admin Only)
+@api_router.post("/admin/users")
+async def create_user(
+    user_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new user. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can create users")
+    
+    # Validate role
+    allowed_roles = ["sales", "operations", "accountant"]
+    if user_data.get("role") not in allowed_roles:
+        raise HTTPException(status_code=400, detail="Invalid role. Allowed roles: sales, operations, accountant")
+    
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": user_data["email"]})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
+    # Create new user
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "email": user_data["email"],
+        "name": user_data["name"],
+        "phone": user_data.get("phone", ""),
+        "country_code": user_data.get("country_code", "+91"),
+        "role": user_data["role"],
+        "password": hash_password("temp123"),  # Default temporary password
+        "can_see_cost_breakup": user_data.get("can_see_cost_breakup", False) if user_data["role"] == "sales" else False,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current_user.get("id")
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    return {"success": True, "message": "User created successfully"}
+
+@api_router.get("/admin/users")
+async def get_all_users(
+    current_user: dict = Depends(get_current_user),
+    role: Optional[str] = None
+):
+    """Get all users. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view users")
+    
+    # Build query
+    query = {"role": {"$in": ["sales", "operations", "accountant"]}}
+    if role:
+        query["role"] = role
+    
+    # Get users from database
+    users_cursor = db.users.find(query).sort("created_at", -1)
+    users = await users_cursor.to_list(length=None)
+    
+    # Remove passwords from response
+    for user in users:
+        user.pop("password", None)
+        user["_id"] = str(user.get("_id", ""))
+    
+    return {"users": users}
+
+@api_router.get("/admin/users/{user_id}")
+async def get_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a single user by ID. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view users")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Remove password from response
+    user.pop("password", None)
+    user["_id"] = str(user.get("_id", ""))
+    
+    return {"user": user}
+
+@api_router.put("/admin/users/{user_id}")
+async def update_user(
+    user_id: str,
+    user_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update a user. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can update users")
+    
+    # Check if user exists
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Validate role if provided
+    if "role" in user_data:
+        allowed_roles = ["sales", "operations", "accountant"]
+        if user_data["role"] not in allowed_roles:
+            raise HTTPException(status_code=400, detail="Invalid role")
+    
+    # Check if email is being changed and if it already exists
+    if "email" in user_data and user_data["email"] != user["email"]:
+        existing_user = await db.users.find_one({"email": user_data["email"]})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        if user_data["email"] in MOCK_USERS:
+            raise HTTPException(status_code=400, detail="Email already exists")
+    
+    # Prepare update data
+    update_data = {
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Update allowed fields
+    allowed_fields = ["name", "email", "phone", "country_code", "role", "can_see_cost_breakup", "is_active"]
+    for field in allowed_fields:
+        if field in user_data:
+            # can_see_cost_breakup only for sales
+            if field == "can_see_cost_breakup":
+                new_role = user_data.get("role", user.get("role"))
+                if new_role == "sales":
+                    update_data[field] = user_data[field]
+                else:
+                    update_data[field] = False
+            else:
+                update_data[field] = user_data[field]
+    
+    # Update user
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": update_data}
+    )
+    # Get updated user
+    updated_user = await db.users.find_one({"id": user_id})
+    updated_user.pop("password", None)
+    updated_user["_id"] = str(updated_user.get("_id", ""))
+    
+    return {"success": True, "message": "User updated successfully", "user": updated_user}
+
+@api_router.delete("/admin/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Deactivate a user. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can delete users")
+    
+    # Check if user exists
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Deactivate user instead of deleting
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "is_active": False,
+            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+            "deactivated_by": current_user.get("id")
+        }}
+    )
+    
+    
+    return {"success": True, "message": "User deactivated successfully"}
+
+@api_router.put("/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reset user password to temp123. Only accessible by admin role."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can reset passwords")
+    
+    # Check if user exists
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Reset password to temp123
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password": hash_password("temp123"),
+            "password_reset_at": datetime.now(timezone.utc).isoformat(),
+            "password_reset_by": current_user.get("id")
+        }}
+    )
+    
+    return {"success": True, "message": "Password reset to temp123 successfully"}
 
 # Quotation Detailed Data Helper Endpoints
 @api_router.get("/quotations/{quotation_id}/detailed-data")
@@ -2012,33 +2632,41 @@ async def upload_file(file: UploadFile = File(...)):
 
 # Dashboard stats
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats(role: str):
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    role = current_user.get("role")
+    user_id = current_user.get("sub")
     stats = {}
     
     if role == "operations":
         # Expiring quotes
         expiring_count = await db.quotations.count_documents({
             "status": QuotationStatus.SENT,
+            "assigned_operation_id": user_id,
             "expiry_date": {"$lte": (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()}
         })
         
         # Pending payments
         pending_payments = await db.payments.count_documents({
-            "status": {"$in": [PaymentStatus.PENDING, PaymentStatus.RECEIVED_BY_ACCOUNTANT]}
+            "status": {"$in": [PaymentStatus.PENDING, PaymentStatus.RECEIVED_BY_ACCOUNTANT]},
+            "assigned_operation_id": user_id
         })
         
         stats = {
             "expiring_quotes": expiring_count,
             "pending_payments": pending_payments,
-            "active_requests": await db.requests.count_documents({"status": RequestStatus.PENDING}),
-            "total_revenue": 0
+            "active_requests": await db.requests.count_documents({"status": RequestStatus.PENDING, "assigned_operation_id": user_id}),
+            "open_requests": await db.requests.count_documents({"status": RequestStatus.PENDING, "assigned_operation_id": {"$exists": False}}),
+            "total_revenue": await db.payments.aggregate([
+                {"$match": {"status": PaymentStatus.VERIFIED_BY_OPS, "assigned_operation_id": user_id}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]).to_list(1)
         }
     
     elif role == "sales":
         stats = {
-            "my_requests": await db.requests.count_documents({"assigned_salesperson_id": "sales-001"}),
-            "pending_quotes": await db.quotations.count_documents({"status": QuotationStatus.SENT}),
-            "accepted_quotes": await db.quotations.count_documents({"status": QuotationStatus.ACCEPTED})
+            "my_requests": await db.requests.count_documents({"assigned_salesperson_id": user_id}),
+            "pending_quotes": await db.quotations.count_documents({"status": QuotationStatus.SENT, "assigned_salesperson_id": user_id}),
+            "accepted_quotes": await db.quotations.count_documents({"status": QuotationStatus.ACCEPTED, "assigned_salesperson_id": user_id}),
         }
     
     elif role == "accountant":
@@ -2459,6 +3087,6 @@ logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8001))
+    port = int(os.getenv("PORT", 8002))
     host = os.getenv("HOST", "0.0.0.0")
     uvicorn.run(app, host=host, port=port)
