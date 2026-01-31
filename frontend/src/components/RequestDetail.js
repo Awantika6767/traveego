@@ -17,7 +17,15 @@ import {
   Edit,
   Timer,
   CheckCircle,
-  Wallet
+  Wallet,
+  Phone,
+  Globe,
+  Palmtree,
+  Presentation,
+  Hotel,
+  Bus,
+  Plane,
+  Navigation
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, getStatusColor, formatDate } from '../utils/formatters';
 import { toast } from 'sonner';
@@ -357,46 +365,182 @@ export const RequestDetail = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div className="flex items-start gap-3">
-                  <Users className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">Client</p>
-                    <p className="font-medium text-gray-900">{request.client_name}</p>
-                    <p className="text-sm text-gray-600">{request.client_email}</p>
+              {/* Client Information Section */}
+              <div className="mb-6 pb-6 border-b">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Client Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="flex items-start gap-3">
+                    <Users className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Client Name</p>
+                      <p className="font-medium text-gray-900">{request.client_name}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">Destination</p>
-                    <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
+                  <div className="flex items-start gap-3">
+                    <Globe className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium text-gray-900">{request.client_email}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">Travel Dates</p>
-                    <p className="font-medium text-gray-900">{request.preferred_dates}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Users className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">People</p>
-                    <p className="font-medium text-gray-900">{request.people_count}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <DollarSign className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">Budget Range</p>
-                    <p className="font-medium text-gray-900">
-                      {formatCurrency(request.budget_min)} - {formatCurrency(request.budget_max)}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Phone</p>
+                      <p className="font-medium text-gray-900">
+                        {request.client_country_code} {request.client_phone}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Service Requirements Section */}
+              <div className="mb-6 pb-6 border-b">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Service Requirements</h3>
+                <div className="flex flex-wrap gap-2">
+                  {request.is_holiday_package_required && (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1.5">
+                      <Palmtree className="w-4 h-4 mr-1.5 inline" />
+                      Holiday Package
+                    </Badge>
+                  )}
+                  {request.is_mice_required && (
+                    <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5">
+                      <Presentation className="w-4 h-4 mr-1.5 inline" />
+                      M.I.C.E.
+                    </Badge>
+                  )}
+                  {request.is_hotel_booking_required && (
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5">
+                      <Hotel className="w-4 h-4 mr-1.5 inline" />
+                      Hotel Booking
+                    </Badge>
+                  )}
+                  {request.is_sight_seeing_required && (
+                    <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5">
+                      <EyeIcon className="w-4 h-4 mr-1.5 inline" />
+                      Sightseeing
+                    </Badge>
+                  )}
+                  {request.is_visa_required && (
+                    <Badge className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5">
+                      <FileText className="w-4 h-4 mr-1.5 inline" />
+                      Visa
+                    </Badge>
+                  )}
+                  {request.is_transport_within_city_required && (
+                    <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5">
+                      <Bus className="w-4 h-4 mr-1.5 inline" />
+                      City Transport
+                    </Badge>
+                  )}
+                  {request.is_transfer_to_destination_required && (
+                    <Badge className="bg-cyan-100 text-cyan-700 hover:bg-cyan-200 px-3 py-1.5">
+                      <Plane className="w-4 h-4 mr-1.5 inline" />
+                      Destination Transport
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Trip Details Section */}
+              <div className="mb-6 pb-6 border-b">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Trip Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {request.source && (
+                    <div className="flex items-start gap-3">
+                      <Navigation className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-500">Source</p>
+                        <p className="font-medium text-gray-900">{request.source}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Destination</p>
+                      <p className="font-medium text-gray-900">{request.destination || 'TBD'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Travel Dates</p>
+                      <p className="font-medium text-gray-900">{request.preferred_dates}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Users className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Number of People</p>
+                      <p className="font-medium text-gray-900">{request.people_count}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <DollarSign className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">Budget Range</p>
+                      <p className="font-medium text-gray-900">
+                        {formatCurrency(request.budget_min)} - {formatCurrency(request.budget_max)}
+                      </p>
+                    </div>
+                  </div>
+                  {request.is_visa_required && request.visa_citizenship && (
+                    <div className="flex items-start gap-3">
+                      <Globe className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-500">Citizenship (for Visa)</p>
+                        <p className="font-medium text-gray-900">{request.visa_citizenship}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Transport Type Section */}
+              {request.type_of_travel && request.type_of_travel.length > 0 && (
+                <div className="mb-6 pb-6 border-b">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Transport Types</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {request.type_of_travel.map((type) => {
+                      const transportIcons = {
+                        flight: <Plane className="w-4 h-4 mr-1.5 inline" />,
+                        train: <FileText className="w-4 h-4 mr-1.5 inline" />,
+                        bus: <Bus className="w-4 h-4 mr-1.5 inline" />,
+                        cab: <Bus className="w-4 h-4 mr-1.5 inline" />,
+                        mini_bus: <Bus className="w-4 h-4 mr-1.5 inline" />,
+                        traveller: <Bus className="w-4 h-4 mr-1.5 inline" />
+                      };
+                      const transportNames = {
+                        flight: 'Flight',
+                        train: 'Train',
+                        bus: 'Bus',
+                        cab: 'Cab',
+                        mini_bus: 'Mini Bus',
+                        traveller: 'Traveller'
+                      };
+                      return (
+                        <Badge key={type} className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-3 py-1.5">
+                          {transportIcons[type]}
+                          {transportNames[type]}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Special Requirements Section */}
+              {request.special_requirements && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Special Requirements</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-gray-700 whitespace-pre-wrap">{request.special_requirements}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

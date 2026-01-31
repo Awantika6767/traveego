@@ -2275,3 +2275,160 @@ agent_communication:
       7. Save quotation and verify data persisted
       8. Generate PDF and verify inclusions/exclusions appear correctly
 
+
+backend:
+  - task: "Update get_request endpoint to format dates and return all fields"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced get_request endpoint to format start_date and end_date into preferred_dates field for better display. Ensures all request fields are properly returned including service types, transport types, visa citizenship, source, and special requirements."
+
+frontend:
+  - task: "Update RequestDetail component to show all captured information"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/RequestDetail.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Completely redesigned RequestDetail view page with comprehensive display of all captured information. Added new sections: Client Information (with country code and phone), Service Requirements (with icon badges), Trip Details (with source, destination, dates, people, budget, visa citizenship), Transport Types (with badges), and Special Requirements. Imported new icons: Phone, Globe, Palmtree, Presentation, Hotel, Bus, Plane, Navigation."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 8
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Update get_request endpoint to format dates and return all fields"
+    - "Update RequestDetail component to show all captured information"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      FEATURE ENHANCEMENT COMPLETED: Comprehensive Request Detail View
+      
+      **User Request:** Update request view page to show all captured information from create request and request list pages, with API endpoint updates.
+      
+      **IMPLEMENTATION SUMMARY:**
+      
+      **BACKEND CHANGES:**
+      
+      1. Enhanced GET /api/requests/{request_id} endpoint (/app/backend/server.py, lines 935-988):
+         - Added date formatting logic to convert start_date and end_date into user-friendly preferred_dates format
+         - Format: "DD Mon YYYY - DD Mon YYYY" (e.g., "15 Jan 2026 - 20 Jan 2026")
+         - Ensures all request fields are properly returned including:
+           * Service type flags (is_holiday_package_required, is_mice_required, etc.)
+           * Transport types array (type_of_travel)
+           * Visa citizenship field
+           * Source location
+           * Special requirements
+           * All client information with country code
+      
+      **FRONTEND CHANGES:**
+      
+      1. RequestDetail Component Enhancement (/app/frontend/src/components/RequestDetail.js):
+         
+         A. Added New Icons:
+            - Phone, Globe, Palmtree, Presentation, Hotel, Bus, Plane, Navigation
+            - Improves visual clarity and user experience
+         
+         B. Redesigned Request Details Card with Organized Sections:
+            
+            **Section 1: Client Information**
+            - Client Name (with Users icon)
+            - Email (with Globe icon)
+            - Phone with Country Code (with Phone icon)
+            - Displays: "[+91] 9876543210" format
+            
+            **Section 2: Service Requirements**
+            - Visual badge display for all selected services
+            - Color-coded badges matching RequestList design:
+              * Holiday Package (green with Palmtree icon)
+              * M.I.C.E. (purple with Presentation icon)
+              * Hotel Booking (blue with Hotel icon)
+              * Sightseeing (yellow with Eye icon)
+              * Visa (red with FileText icon)
+              * City Transport (indigo with Bus icon)
+              * Destination Transport (cyan with Plane icon)
+            - Only shows badges for services that were requested
+            
+            **Section 3: Trip Details**
+            - Source location (if provided, with Navigation icon)
+            - Destination (with MapPin icon)
+            - Travel dates (formatted, with Calendar icon)
+            - Number of people (with Users icon)
+            - Budget range (with DollarSign icon)
+            - Visa citizenship (conditional, only if visa is required, with Globe icon)
+            
+            **Section 4: Transport Types** (conditional section)
+            - Only appears if transport types were selected
+            - Shows badges for each selected transport type:
+              * Flight, Train, Bus (for destination transport)
+              * Cab, Mini Bus, Traveller (for city transport)
+            - Each badge has appropriate icon (Plane, Bus, etc.)
+            
+            **Section 5: Special Requirements** (conditional section)
+            - Only appears if special requirements were provided
+            - Displays in formatted gray box with pre-wrap
+            - Preserves line breaks and formatting from text input
+      
+      **KEY IMPROVEMENTS:**
+      
+      ✅ **Comprehensive Information Display:**
+         - All fields captured in CreateRequest are now visible in RequestDetail
+         - No information is hidden or missing
+         - Organized in logical sections for easy scanning
+      
+      ✅ **Visual Consistency:**
+         - Matches the design language of RequestList component
+         - Uses same badge colors and icon styles
+         - Maintains professional appearance
+      
+      ✅ **Conditional Rendering:**
+         - Sections only appear if relevant data exists
+         - Prevents empty sections from cluttering the UI
+         - Improves user experience
+      
+      ✅ **Responsive Layout:**
+         - Grid layout adapts to screen size
+         - Mobile-friendly with proper stacking
+         - Information remains readable on all devices
+      
+      ✅ **Enhanced Readability:**
+         - Clear section headers with visual separation
+         - Proper spacing and typography
+         - Icon-based visual indicators for quick scanning
+      
+      **DATA FLOW:**
+      1. CreateRequest captures all information → stored in database
+      2. Backend API formats and returns complete request data
+      3. RequestDetail displays all information in organized sections
+      4. All stakeholders (customer, sales, operations) see complete picture
+      
+      **FILES MODIFIED:**
+      - Backend: /app/backend/server.py (get_request endpoint)
+      - Frontend: /app/frontend/src/components/RequestDetail.js (complete redesign of detail view)
+      
+      **TESTING NEEDED:**
+      - Verify all fields display correctly for different service combinations
+      - Test with and without optional fields (source, visa citizenship, special requirements)
+      - Confirm transport type badges display correctly
+      - Validate date formatting across different date ranges
+      - Test responsive behavior on mobile devices
+      
+      Both backend and frontend are running. All changes are live and ready for testing.
+

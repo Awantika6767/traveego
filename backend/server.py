@@ -944,6 +944,17 @@ async def get_request(request_id: str, current_user: Dict = Depends(get_current_
         request["client_phone"] = client.get("phone", "")
         request["client_country_code"] = client.get("country_code", "+91")
 
+    # Format dates for display
+    if request.get("start_date") and request.get("end_date"):
+        try:
+            start = datetime.fromisoformat(request["start_date"].replace('Z', '+00:00'))
+            end = datetime.fromisoformat(request["end_date"].replace('Z', '+00:00'))
+            request["preferred_dates"] = f"{start.strftime('%d %b %Y')} - {end.strftime('%d %b %Y')}"
+        except:
+            request["preferred_dates"] = f"{request.get('start_date', 'TBD')} - {request.get('end_date', 'TBD')}"
+    else:
+        request["preferred_dates"] = "TBD"
+
     filterQuotations = []
     if request["status"] == RequestStatus.ACCEPTED:
         acceptedQuotation = await db.quotations.find_one({"request_id": request_id, "status": QuotationStatus.ACCEPTED})
