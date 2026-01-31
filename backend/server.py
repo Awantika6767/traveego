@@ -199,11 +199,11 @@ class TravelRequest(BaseModel):
     is_sight_seeing_required: bool = False
     is_visa_required: bool = False
     is_transport_within_city_required: bool = False
-    is_transport_to_destination_required: bool = False
+    is_transfer_to_destination_required: bool = False
     destination: str
     source: Optional[str] = None
     visa_citizenship: Optional[str] = None
-    type_of_travel: Optional[str] = None
+    type_of_travel: Optional[List[str]] = None
     special_requirements: Optional[str] = None
     status: RequestStatus = RequestStatus.PENDING
     assigned_salesperson_id: Optional[str] = None
@@ -211,8 +211,6 @@ class TravelRequest(BaseModel):
     created_by: str
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    next_follow_up: Optional[str] = None
-    sla_timer: Optional[str] = None
     is_salesperson_validated: bool = False
 
 class LineItem(BaseModel):
@@ -614,17 +612,26 @@ async def create_request(request: Dict[str, Any], current_user: Dict = Depends(g
     role = current_user.get("role")
 
     newRequest = TravelRequest(
+        client_id=user_id if role == UserRole.CUSTOMER else request.get("client_id"),
         title=request["title"],
         people_count=request["people_count"],
         budget_min=request["budget_min"],
         budget_max=request["budget_max"],
-        preferred_dates=request["preferred_dates"],
+        start_date=request["start_date"],
+        end_date=request["end_date"],
+        is_holiday_package_required=request.get("is_holiday_package_required", False),
+        is_mice_required=request.get("is_mice_required", False),
+        is_hotel_booking_required=request.get("is_hotel_booking_required", False),
+        is_visa_required=request.get("is_visa_required", False),
+        is_transport_within_city_required=request.get("is_transport_within_city_required", False),
+        is_sight_seeing_required=request.get("is_sight_seeing_required", False),
+        is_transfer_to_destination_required=request.get("is_transfer_to_destination_required", False),
         destination=request.get("destination"),
+        source=request.get("source"),
+        visa_citizenship=request.get("visa_citizenship"),
+        type_of_travel=request.get("type_of_travel"),
         special_requirements=request.get("special_requirements"),
         created_by=user_id,
-        start_date=request.get("start_date"),
-        end_date=request.get("end_date"),
-        client_id=user_id if role == UserRole.CUSTOMER else request.get("client_id"),
         assigned_salesperson_id= user_id if role == UserRole.SALES else None
     )
 
@@ -645,7 +652,7 @@ async def create_request(request: Dict[str, Any], current_user: Dict = Depends(g
 
     return newRequest
 
-@api_router.get("/requests", response_model=List[TravelRequest])
+@api_router.get("/requests", response_model=List[Any])
 async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] = None, current_user: Dict = Depends(get_current_user)):
     role = current_user.get("role")
     user_id = current_user.get("sub")
@@ -669,28 +676,35 @@ async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] 
         for req in requests:
             salesperson = user_map.get(req.get("assigned_salesperson_id"))
             response.append(
-                TravelRequest(
-                    id=str(req["id"]),
-                    title=req["title"],
-                    people_count=req["people_count"],
-                    budget_min=req["budget_min"],
-                    budget_max=req["budget_max"],
-                    preferred_dates=req["preferred_dates"],
-                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
-                    status=req["status"],
+                {
+                    "id": str(req["id"]),
+                    "title": req["title"],
+                    "people_count": req["people_count"],
+                    "budget_min": req["budget_min"],
+                    "budget_max": req["budget_max"],
+                    "start_date": req["start_date"],
+                    "end_date": req["end_date"],
+                    "source": req.get("source"),
+                    "destination": req.get("destination"),
+                    
+                    "status": req["status"],
+                    
+                    # Service type fields
+                    "is_holiday_package_required": req.get("is_holiday_package_required", False),
+                    "is_mice_required": req.get("is_mice_required", False),
+                    "is_hotel_booking_required": req.get("is_hotel_booking_required", False),
+                    "is_sight_seeing_required": req.get("is_sight_seeing_required", False),
+                    "is_visa_required": req.get("is_visa_required", False),
+                    "is_transport_within_city_required": req.get("is_transport_within_city_required", False),
+                    "is_transfer_to_destination_required": req.get("is_transfer_to_destination_required", False),
 
-                    # client_email=client["email"],
-                    # client_phone=client["phone"],
-                    # client_country_code=client["country_code"],
-
-                    assigned_salesperson_name=(
+                    "assigned_salesperson_name": (
                         salesperson["name"] if salesperson else "Not Assigned Yet"
                     ),
 
-                    created_by=req["created_by"],
-                    created_at=req["created_at"],
-                    updated_at=req["updated_at"],
-                )
+                    "created_by": req["created_by"],
+                    "created_at": req["created_at"],
+                }
             )
 
         return response
@@ -720,28 +734,38 @@ async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] 
             salesperson = user_map.get(req.get("assigned_salesperson_id"))
 
             response.append(
-                TravelRequest(
-                    id=str(req["id"]),
-                    title=req["title"],
-                    people_count=req["people_count"],
-                    budget_min=req["budget_min"],
-                    budget_max=req["budget_max"],
-                    preferred_dates=req["preferred_dates"],
-                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
-                    status=req["status"],
-                    client_name=client["name"] if client else "Unknown Client",
-                    client_email=client["email"],
-                    client_phone=client["phone"],
-                    client_country_code=client["country_code"],
-
-                    assigned_salesperson_name=(
+                {
+                    "id": str(req["id"]),
+                    "title": req["title"],
+                    "people_count": req["people_count"],
+                    "budget_min": req["budget_min"],
+                    "budget_max": req["budget_max"],
+                    "start_date": req["start_date"],
+                    "end_date": req["end_date"],
+                    "destination": req.get("destination"),
+                    "status": req["status"],
+                    "client_name": client["name"] if client else "Unknown Client",
+                    "client_email": client["email"],
+                    "client_phone": client["phone"],
+                    "client_country_code": client["country_code"],
+                    "assigned_salesperson_name": (
                         salesperson["name"] if salesperson else "Not Assigned Yet"
                     ),
-
-                    created_by=req["created_by"],
-                    created_at=req["created_at"],
-                    updated_at=req["updated_at"],
-                )
+                    "created_by": req["created_by"],
+                    "created_at": req["created_at"],
+                    "is_salesperson_validated": req.get("is_salesperson_validated", False),
+                    "is_holiday_package_required": req.get("is_holiday_package_required", False),
+                    "is_mice_required": req.get("is_mice_required", False),
+                    "is_hotel_booking_required": req.get("is_hotel_booking_required", False),
+                    "is_sight_seeing_required": req.get("is_sight_seeing_required", False),
+                    "is_visa_required": req.get("is_visa_required", False),
+                    "is_transport_within_city_required": req.get("is_transport_within_city_required", False),
+                    "is_transfer_to_destination_required": req.get("is_transfer_to_destination_required", False),
+                    "source": req.get("source"),
+                    "visa_citizenship": req.get("visa_citizenship"),
+                    "type_of_travel": req.get("type_of_travel"),
+                    "special_requirements": req.get("special_requirements")
+                }    
             )
 
         return response
@@ -781,6 +805,15 @@ async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] 
                     client_email=client["email"],
                     client_phone=client["phone"],
                     client_country_code=client["country_code"],
+                    
+                    # Service type fields
+                    is_holiday_package_required=req.get("is_holiday_package_required", False),
+                    is_mice_required=req.get("is_mice_required", False),
+                    is_hotel_booking_required=req.get("is_hotel_booking_required", False),
+                    is_sight_seeing_required=req.get("is_sight_seeing_required", False),
+                    is_visa_required=req.get("is_visa_required", False),
+                    is_transport_within_city_required=req.get("is_transport_within_city_required", False),
+                    is_transfer_to_destination_required=req.get("is_transfer_to_destination_required", False),
 
                     assigned_salesperson_name=(
                         salesperson["name"] if salesperson else "Not Assigned Yet"
@@ -876,6 +909,15 @@ async def get_delegated_requests(current_user: Dict = Depends(get_current_user))
                 client_email=client["email"],
                 client_phone=client["phone"],
                 client_country_code=client["country_code"],
+                
+                # Service type fields
+                is_holiday_package_required=req.get("is_holiday_package_required", False),
+                is_mice_required=req.get("is_mice_required", False),
+                is_hotel_booking_required=req.get("is_hotel_booking_required", False),
+                is_sight_seeing_required=req.get("is_sight_seeing_required", False),
+                is_visa_required=req.get("is_visa_required", False),
+                is_transport_within_city_required=req.get("is_transport_within_city_required", False),
+                is_transfer_to_destination_required=req.get("is_transfer_to_destination_required", False),
 
                 assigned_salesperson_name=(
                     salesperson["name"] if salesperson else "Not Assigned Yet"
