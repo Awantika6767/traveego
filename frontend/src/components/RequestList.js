@@ -9,7 +9,7 @@ import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Search, Plus, Eye, Filter, X, Loader2, Ban } from 'lucide-react';
+import { Search, Plus, Eye, Filter, X, Loader2, Ban, Palmtree, Presentation, Hotel, EyeIcon, FileText, Bus, Plane, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/formatters';
 import { toast } from 'sonner';
 
@@ -21,10 +21,26 @@ export const RequestList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('');
   const [groupByCustomer, setGroupByCustomer] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Service type categories
+  const serviceTypes = [
+    { id: 'is_holiday_package_required', name: 'Holiday', icon: Palmtree, color: 'bg-green-100 text-green-700' },
+    { id: 'is_mice_required', name: 'M.I.C.E.', icon: Presentation, color: 'bg-purple-100 text-purple-700' },
+    { id: 'is_hotel_booking_required', name: 'Hotel', icon: Hotel, color: 'bg-blue-100 text-blue-700' },
+    { id: 'is_sight_seeing_required', name: 'Sightseeing', icon: EyeIcon, color: 'bg-yellow-100 text-yellow-700' },
+    { id: 'is_visa_required', name: 'Visa', icon: FileText, color: 'bg-red-100 text-red-700' },
+    { id: 'is_transport_within_city_required', name: 'City Transport', icon: Bus, color: 'bg-indigo-100 text-indigo-700' },
+    { id: 'is_transfer_to_destination_required', name: 'Destination Transport', icon: Plane, color: 'bg-cyan-100 text-cyan-700' }
+  ];
 
   useEffect(() => {
     loadRequests();
@@ -78,13 +94,19 @@ export const RequestList = () => {
     }
   };
 
+  // Helper function to get active service types for a request
+  const getRequestServiceTypes = (request) => {
+    return serviceTypes.filter(serviceType => request[serviceType.id]);
+  };
+
   const filteredRequests = requests.filter(req => {
     const matchesSearch = 
       (req.client_name||"").toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.destination?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || req.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesServiceType = !serviceTypeFilter || req[serviceTypeFilter];
+    return matchesSearch && matchesStatus && matchesServiceType;
   });
 
   const groupedRequests = groupByCustomer
@@ -96,6 +118,27 @@ export const RequestList = () => {
         return acc;
       }, {})
     : { 'All Requests': filteredRequests };
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, serviceTypeFilter, itemsPerPage]);
+
+  const paginatedGroupedRequests = groupByCustomer
+    ? paginatedRequests.reduce((acc, req) => {
+        if (!acc[req.client_name]) {
+          acc[req.client_name] = [];
+        }
+        acc[req.client_name].push(req);
+        return acc;
+      }, {})
+    : { 'All Requests': paginatedRequests };
 
   if (loading) {
     return (
@@ -145,6 +188,7 @@ export const RequestList = () => {
               />
             </div>
 
+            {/* Status Filter */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-gray-500" />
@@ -182,6 +226,40 @@ export const RequestList = () => {
                 </Button>
               )}
             </div>
+
+            {/* Service Type Filter */}
+            <div className="border-t pt-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">Filter by Service Type:</span>
+                </div>
+                <Button
+                  variant={serviceTypeFilter === '' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setServiceTypeFilter('')}
+                  data-testid="filter-service-all"
+                >
+                  All Services
+                </Button>
+                {serviceTypes.map(serviceType => {
+                  const Icon = serviceType.icon;
+                  return (
+                    <Button
+                      key={serviceType.id}
+                      variant={serviceTypeFilter === serviceType.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setServiceTypeFilter(serviceTypeFilter === serviceType.id ? '' : serviceType.id)}
+                      data-testid={`filter-service-${serviceType.id}`}
+                      className="gap-1"
+                    >
+                      <Icon className="w-3 h-3" />
+                      {serviceType.name}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -213,6 +291,22 @@ export const RequestList = () => {
                         <Badge className={getStatusColor(request.status)}>
                           {request.status}
                         </Badge>
+                      </div>
+                      
+                      {/* Service Type Badges */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {getRequestServiceTypes(request).map(serviceType => {
+                          const Icon = serviceType.icon;
+                          return (
+                            <Badge 
+                              key={serviceType.id} 
+                              className={`${serviceType.color} flex items-center gap-1 text-xs`}
+                            >
+                              <Icon className="w-3 h-3" />
+                              {serviceType.name}
+                            </Badge>
+                          );
+                        })}
                       </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
@@ -272,17 +366,22 @@ export const RequestList = () => {
 
       {/* My Requests Section */}
       {requests.length > 0 && (
-        <h2 className="text-xl font-bold text-gray-900 mb-4">My Requests</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">My Requests</h2>
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} of {filteredRequests.length} requests
+          </div>
+        </div>
       )}
 
-      {Object.keys(groupedRequests).map(groupName => (
+      {Object.keys(paginatedGroupedRequests).map(groupName => (
         <div key={groupName} className="mb-8">
           {groupByCustomer && (
             <h2 className="text-xl font-bold text-gray-900 mb-4">{groupName}</h2>
           )}
           
           <div className="grid gap-4">
-            {groupedRequests[groupName].map((request) => (
+            {paginatedGroupedRequests[groupName].map((request) => (
               <Card
                 key={request.id}
                 className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -297,6 +396,22 @@ export const RequestList = () => {
                         <Badge className={getStatusColor(request.status)}>
                           {request.status}
                         </Badge>
+                      </div>
+                      
+                      {/* Service Type Badges */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {getRequestServiceTypes(request).map(serviceType => {
+                          const Icon = serviceType.icon;
+                          return (
+                            <Badge 
+                              key={serviceType.id} 
+                              className={`${serviceType.color} flex items-center gap-1 text-xs`}
+                            >
+                              <Icon className="w-3 h-3" />
+                              {serviceType.name}
+                            </Badge>
+                          );
+                        })}
                       </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
@@ -375,7 +490,7 @@ export const RequestList = () => {
               </Card>
             ))}
 
-            {groupedRequests[groupName].length === 0 && (
+            {paginatedGroupedRequests[groupName].length === 0 && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <p className="text-gray-500">No requests found in this group</p>
@@ -390,6 +505,88 @@ export const RequestList = () => {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-gray-500">No requests found</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredRequests.length > 0 && (
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Items per page selector */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-gray-600">Items per page:</Label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              {/* Page info and navigation */}
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="prev-page-button"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="min-w-[2.5rem]"
+                          data-testid={`page-${pageNum}-button`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="next-page-button"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
