@@ -128,6 +128,84 @@ class QuotationData(BaseModel):
     inclusions: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
 
+
+# New Quotation Type Models
+
+class QuotationType(str, Enum):
+    SIMPLE_TRANSPORT = "SIMPLE_TRANSPORT"
+    VISA = "VISA"
+    DETAILED = "DETAILED"
+
+class TransportType(str, Enum):
+    FLIGHT = "flight"
+    TRAIN = "train"
+    BUS = "bus"
+    CAB = "cab"
+    MINI_BUS = "mini_bus"
+    TRAVELLER = "traveller"
+
+class FlightDetails(BaseModel):
+    flight_iata: Optional[str] = None  # e.g., "SG160"
+    flight_icao: Optional[str] = None
+    airline_name: Optional[str] = None
+    airline_iata: Optional[str] = None
+    departure_airport: Optional[str] = None
+    departure_iata: Optional[str] = None
+    arrival_airport: Optional[str] = None
+    arrival_iata: Optional[str] = None
+    departure_time: Optional[str] = None
+    arrival_time: Optional[str] = None
+    flight_date: Optional[str] = None
+    flight_status: Optional[str] = None
+
+class TransportDetails(BaseModel):
+    transport_type: TransportType
+    service_name: Optional[str] = None  # Flight number, Train name, Bus service
+    service_number: Optional[str] = None  # SG160, 12345, etc.
+    from_location: str
+    to_location: str
+    departure_time: Optional[str] = None
+    arrival_time: Optional[str] = None
+    duration: Optional[str] = None
+    travel_date: str
+    pickup_time: Optional[str] = None  # For cab/traveller/mini_bus
+    drop_time: Optional[str] = None  # For cab/traveller/mini_bus
+    flight_details: Optional[FlightDetails] = None  # For flights from API
+    additional_notes: Optional[str] = None
+
+class TransportQuotationData(BaseModel):
+    transport_details: TransportDetails
+    cost_price: float  # What we pay
+    selling_price: float  # What customer pays
+    markup_amount: float  # selling_price - cost_price
+    markup_percentage: float  # (markup_amount / cost_price) * 100
+    tax_percentage: float = 18.0
+    tax_amount: float
+    total_amount: float  # selling_price + tax_amount
+    service_description: Optional[str] = None
+    terms_and_conditions: Optional[str] = None
+
+class VisaDocumentRequirement(BaseModel):
+    category: str  # "Traveller Details", "Financial Details", "Travel Details", "Occupation Details"
+    title: str  # "Photograph", "Bank Statement", etc.
+    specifications: str  # Detailed requirements
+
+class VisaQuotationData(BaseModel):
+    visa_country: str
+    visa_type: Optional[str] = "Tourist Visa"
+    document_requirements: List[VisaDocumentRequirement] = []
+    processing_time: Optional[str] = "7-10 working days"
+    cost_price: float
+    selling_price: float
+    markup_amount: float
+    markup_percentage: float
+    tax_percentage: float = 18.0
+    tax_amount: float
+    total_amount: float
+    additional_notes: Optional[str] = None
+    terms_and_conditions: Optional[str] = None
+
+
 class UserRole(str, Enum):
     OPERATIONS = "operations"
     SALES = "sales"
@@ -218,10 +296,12 @@ class LineItem(BaseModel):
     type: str  # "hotel", "transport", "activity", "meal"
     name: str
     supplier: Optional[str] = None
-    unit_price: float
+    cost_price: Optional[float] = 0.0  # What we pay to supplier
+    unit_price: float  # Selling price to customer
     quantity: int = 1
     tax_percent: float = 18.0
     markup_percent: float = 0.0
+    markup_amount: Optional[float] = 0.0  # (unit_price - cost_price) * quantity
     total: float = 0.0
     is_manual_rate: bool = False
 
@@ -248,7 +328,10 @@ class Quotation(BaseModel):
     status: QuotationStatus = QuotationStatus.DRAFT
     expiry_date: Optional[str] = None
     published_at: Optional[str] = None
-    detailed_quotation_data: QuotationData
+    quotation_type: QuotationType = QuotationType.DETAILED  # Default to detailed for backward compatibility
+    detailed_quotation_data: Optional[QuotationData] = None
+    transport_quotation_data: Optional[TransportQuotationData] = None
+    visa_quotation_data: Optional[VisaQuotationData] = None
     cost_breakup: List[CostBreakupItem] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -1156,6 +1239,54 @@ async def assign_request_to_me(request_id: str, current_user: Dict = Depends(get
     return {"success": True, "message": "Request assigned successfully"}
 
 # Quotation endpoints
+
+# Flight API Integration
+@api_router.get("/flights/{flight_iata}")
+async def get_flight_details(flight_iata: str):
+    """
+    Fetch flight details from aviationstack.com API
+    Example: GET /api/flights/SG160
+    """
+    import httpx
+    
+    # Note: In production, store API key in environment variable
+    # For now, this is a placeholder - user will need to provide their API key
+    api_key = os.environ.get('AVIATIONSTACK_API_KEY', '')
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="Aviationstack API key not configured. Please add AVIATIONSTACK_API_KEY to environment variables."
+        )
+    
+    try:
+        url = f"https://api.aviationstack.com/v1/flights"
+        params = {
+            "flight_iata": flight_iata,
+            "access_key": api_key
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get('data'):
+                raise HTTPException(status_code=404, detail=f"No flight data found for {flight_iata}")
+            
+            # Return the flight data
+            return {
+                "success": True,
+                "data": data['data'],
+                "pagination": data.get('pagination', {})
+            }
+            
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching flight data: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
 @api_router.post("/quotations", response_model=Quotation)
 async def create_quotation(quotation: Quotation):
 

@@ -2432,3 +2432,259 @@ agent_communication:
       
       Both backend and frontend are running. All changes are live and ready for testing.
 
+
+backend:
+  - task: "Add new quotation type models (TransportQuotationData, VisaQuotationData, FlightDetails)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created QuotationType enum, TransportDetails, FlightDetails, TransportQuotationData, VisaQuotationData models to support different quotation types"
+
+  - task: "Update Quotation model to support multiple quotation types"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added quotation_type field and optional fields for transport_quotation_data and visa_quotation_data. Made detailed_quotation_data optional."
+
+  - task: "Add cost_price and markup tracking to LineItem model"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added cost_price and markup_amount fields to LineItem model to track supplier costs and markup"
+
+  - task: "Create flight details API endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/flights/{flight_iata} endpoint to fetch flight details from aviationstack.com API. Requires AVIATIONSTACK_API_KEY environment variable."
+
+  - task: "Install httpx library for HTTP requests"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/requirements.txt"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added httpx>=0.27.0 to requirements.txt for making API calls to aviationstack.com"
+
+frontend:
+  - task: "Create TransportQuotationBuilder component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/TransportQuotationBuilder.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created comprehensive transport quotation builder with support for all transport types (flight, train, bus, cab, traveller, mini_bus). Includes flight search integration with aviationstack.com API, cost/selling price tracking with markup calculation, and tax computation."
+
+  - task: "Create VisaQuotationBuilder component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/VisaQuotationBuilder.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created VISA quotation builder with pre-filled document requirements list (editable by operations team). Includes categories: Traveller Details, Financial Details, Travel Details, Occupation Details. Features cost/selling price with markup tracking."
+
+  - task: "Create QuotationTypeSelector component"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/QuotationTypeSelector.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created wrapper component for quotation type selection (Simple Transport, VISA, Detailed Package). Provides manual selection UI and conditionally renders appropriate builder based on selection."
+
+  - task: "Update App.js with new quotation routes"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added /quotation-builder route with QuotationTypeSelector. Renamed existing detailed builder to /quotation-builder-detailed route. Imported new components."
+
+agent_communication:
+  - agent: "main"
+    message: |
+      PHASE 1 COMPLETED: Multi-Type Quotation System with Cost/Markup Tracking
+      
+      **REQUIREMENT SUMMARY:**
+      User requested modification to quotation system to handle new service categories:
+      1. Simple Transport (flight, train, bus, cab, traveller, mini bus) - One-page quotation with timing and cost details
+      2. VISA - Simple text-based quotation with document requirements
+      3. Detailed Packages (Holiday/MICE/Sightseeing/Combinations) - Existing detailed flow with flight integration
+      4. Always track cost price, selling price, and markup for all quotations
+      5. Manual quotation type selection by operations team
+      6. Single quotation for all services (no multiple quotations)
+      
+      **BACKEND IMPLEMENTATION COMPLETE:**
+      
+      1. **New Models Created (lines 133-213):**
+         - QuotationType enum: SIMPLE_TRANSPORT, VISA, DETAILED
+         - TransportType enum: flight, train, bus, cab, mini_bus, traveller
+         - FlightDetails model: For aviationstack.com API data
+         - TransportDetails model: Complete transport information with timing, route, pickup/drop
+         - TransportQuotationData model: Includes cost_price, selling_price, markup tracking
+         - VisaDocumentRequirement model: Category-based document list
+         - VisaQuotationData model: With document requirements and markup tracking
+      
+      2. **Updated Quotation Model:**
+         - Added quotation_type field (default: DETAILED for backward compatibility)
+         - Made detailed_quotation_data optional
+         - Added transport_quotation_data and visa_quotation_data optional fields
+         - Maintains existing quotation structure for backward compatibility
+      
+      3. **Enhanced LineItem Model:**
+         - Added cost_price field (supplier cost)
+         - Added markup_amount field (selling_price - cost_price)
+         - Existing unit_price now represents selling price to customer
+         - Supports markup tracking at line item level
+      
+      4. **Flight Integration API (lines 1243-1287):**
+         - Created GET /api/flights/{flight_iata} endpoint
+         - Integrates with aviationstack.com API
+         - Requires AVIATIONSTACK_API_KEY environment variable
+         - Returns flight details (airline, airports, times, status)
+         - Error handling for missing API key and failed requests
+      
+      5. **Dependencies:**
+         - Added httpx>=0.27.0 to requirements.txt
+         - Backend restarted successfully
+      
+      **FRONTEND IMPLEMENTATION COMPLETE:**
+      
+      1. **TransportQuotationBuilder Component (NEW):**
+         - Support for all 6 transport types with appropriate UI
+         - Flight search integration button (calls aviationstack API)
+         - Auto-fills flight details from API response
+         - Conditional fields based on transport type:
+           * Flight/Train/Bus: Departure/Arrival times, Duration
+           * Cab/Traveller/Mini Bus: Pickup/Drop times
+         - Real-time markup calculator showing:
+           * Markup Amount (₹)
+           * Markup Percentage (%)
+         - Tax calculation with adjustable percentage
+         - Total amount display with visual indicators
+         - Service description and terms fields
+      
+      2. **VisaQuotationBuilder Component (NEW):**
+         - Pre-filled document requirements list (7 categories)
+         - Fully editable requirements:
+           * 🧳 Traveller Details (Photograph, Passport)
+           * 💰 Financial Details (Bank Statement, ITR)
+           * ✈️ Travel Details (Air tickets, Hotel)
+           * 💼 Occupation Details (Employment/Self-employment proof)
+         - Add/Remove document functionality
+         - Cost price and selling price with markup tracking
+         - Tax calculation
+         - Total amount display
+         - Additional notes and terms fields
+      
+      3. **QuotationTypeSelector Component (NEW):**
+         - Beautiful type selection UI with 3 cards:
+           * Simple Transport (Blue theme)
+           * VISA Service (Purple theme)
+           * Detailed Package (Green theme)
+         - Request summary display at top
+         - Manual type selection by operations team
+         - Change type option after selection
+         - Conditional rendering of appropriate builder
+         - For detailed packages: Redirects to existing detailed builder
+      
+      4. **Updated Routing:**
+         - /quotation-builder: New type selector entry point
+         - /quotation-builder-detailed: Existing detailed builder (preserved)
+         - Imports added for all new components
+      
+      **KEY FEATURES IMPLEMENTED:**
+      
+      ✅ Three distinct quotation types with appropriate UIs
+      ✅ Manual selection by operations team
+      ✅ Cost price + Selling price tracking
+      ✅ Real-time markup calculation (amount & percentage)
+      ✅ Flight search integration with aviationstack.com
+      ✅ Pre-filled editable VISA document requirements
+      ✅ Transport type-specific fields (timing, pickup/drop)
+      ✅ Tax calculation with adjustable percentage
+      ✅ Visual pricing summary with color-coded displays
+      ✅ Backward compatibility with existing quotations
+      ✅ Single quotation per request (no multiple quotations)
+      
+      **DATA FLOW:**
+      1. Operations team navigates to Create Quotation from request detail
+      2. System shows type selector with 3 options
+      3. Operations manually selects appropriate type
+      4. System renders specialized builder for that type
+      5. Operations fills in details, cost/selling prices
+      6. System auto-calculates markup and totals
+      7. For flights: Operations can search and auto-fill from API
+      8. On save: Quotation created with appropriate quotation_type
+      
+      **TECHNICAL NOTES:**
+      - Backend and frontend both compiled successfully
+      - No breaking changes to existing functionality
+      - All new models have proper validation
+      - Error handling implemented for API calls
+      - Environment variable required: AVIATIONSTACK_API_KEY
+      
+      **FILES CREATED/MODIFIED:**
+      Backend:
+      - /app/backend/server.py (added models, flight API endpoint)
+      - /app/backend/requirements.txt (added httpx)
+      - /app/backend/.env (added JWT_SECRET)
+      
+      Frontend:
+      - /app/frontend/src/components/TransportQuotationBuilder.js (NEW)
+      - /app/frontend/src/components/VisaQuotationBuilder.js (NEW)
+      - /app/frontend/src/components/QuotationTypeSelector.js (NEW)
+      - /app/frontend/src/App.js (updated routes)
+      
+      **NEXT STEPS:**
+      1. Add AVIATIONSTACK_API_KEY to backend .env file (user needs API key)
+      2. Test all three quotation types
+      3. Test flight search functionality
+      4. Verify markup calculations
+      5. Test quotation creation and storage
+      6. Consider enhancing detailed builder with flight integration (future phase)
+      
+      Both services running successfully. Ready for testing.
