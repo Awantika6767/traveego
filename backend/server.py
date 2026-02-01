@@ -28,6 +28,15 @@ from jinja2 import Template
 import tempfile
 import jwt
 from jwt import InvalidTokenError, ExpiredSignatureError
+from bson import ObjectId
+
+def serialize_mongo(doc):
+    if not doc:
+        return doc
+    for k, v in doc.items():
+        if isinstance(v, ObjectId):
+            doc[k] = str(v)
+    return doc
 
 
 ROOT_DIR = Path(__file__).parent
@@ -792,37 +801,26 @@ async def get_requests(status: Optional[str] = None, assigned_to: Optional[str] 
             salesperson = user_map.get(req.get("assigned_salesperson_id"))
 
             response.append(
-                TravelRequest(
-                    id=str(req["id"]),
-                    title=req["title"],
-                    people_count=req["people_count"],
-                    budget_min=req["budget_min"],
-                    budget_max=req["budget_max"],
-                    preferred_dates=req["preferred_dates"],
-                    destination=req.get("destination") if req.get("destination") else req.get("travel_vibe"),
-                    status=req["status"],
-                    client_name=client["name"] if client else "Unknown Client",
-                    client_email=client["email"],
-                    client_phone=client["phone"],
-                    client_country_code=client["country_code"],
-                    
-                    # Service type fields
-                    is_holiday_package_required=req.get("is_holiday_package_required", False),
-                    is_mice_required=req.get("is_mice_required", False),
-                    is_hotel_booking_required=req.get("is_hotel_booking_required", False),
-                    is_sight_seeing_required=req.get("is_sight_seeing_required", False),
-                    is_visa_required=req.get("is_visa_required", False),
-                    is_transport_within_city_required=req.get("is_transport_within_city_required", False),
-                    is_transfer_to_destination_required=req.get("is_transfer_to_destination_required", False),
-
-                    assigned_salesperson_name=(
+                {
+                    "id": str(req["id"]),
+                    "title": req["title"],
+                    "people_count": req["people_count"],
+                    "budget_min": req["budget_min"],
+                    "budget_max": req["budget_max"],
+                    "start_date": req["start_date"],
+                    "end_date": req["end_date"],
+                    "destination": req.get("destination"),
+                    "status": req["status"],
+                    "client_name": client["name"] if client else "Unknown Client",
+                    "client_email": client["email"],
+                    "client_phone": client["phone"],
+                    "client_country_code": client["country_code"],
+                    "assigned_salesperson_name": (
                         salesperson["name"] if salesperson else "Not Assigned Yet"
                     ),
-
-                    created_by=req["created_by"],
-                    created_at=req["created_at"],
-                    updated_at=req["updated_at"],
-                )
+                    "created_by": req["created_by"],
+                    "created_at": req["created_at"],
+                    "is_salesperson_validated": req.get("is_salesperson_validated", False),}
             )
 
         return response
@@ -931,7 +929,7 @@ async def get_delegated_requests(current_user: Dict = Depends(get_current_user))
     
     return result
 
-@api_router.get("/requests/{request_id}", response_model=TravelRequest)
+@api_router.get("/requests/{request_id}")
 async def get_request(request_id: str, current_user: Dict = Depends(get_current_user)):
     request = await db.requests.find_one({"id": request_id})
     if not request:
@@ -967,7 +965,7 @@ async def get_request(request_id: str, current_user: Dict = Depends(get_current_
                 "total_amount": acceptedQuotation.get("detailed_quotation_data", {}).get("pricing", {}).get("total", 0.0)
             }]
     else:
-        if(current_user.get("role") == UserRole.OPERATIONS and request.get("assigned_operation_id") == current_user.get("sub")):
+        if(current_user.get("role") == UserRole.OPERATIONS):
             global quotationsOptions
             quotationsOptions = await db.quotations.find({"request_id": request_id}).to_list(1000)
         elif(current_user.get("role") in [UserRole.SALES, UserRole.CUSTOMER] and (request.get("assigned_salesperson_id") == current_user.get("sub") or request.get("client_id") == current_user.get("sub"))):
@@ -984,7 +982,7 @@ async def get_request(request_id: str, current_user: Dict = Depends(get_current_
             })
     request["quotations"] = filterQuotations
        
-    return TravelRequest(**request)
+    return serialize_mongo(request)
 
 @api_router.put("/requests/{request_id}", response_model=TravelRequest)
 async def update_request(request_id: str, request: TravelRequest):
