@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import uuid
 
 # Configuration
-BASE_URL = "https://quote-manager-30.preview.emergentagent.com/api"
+BASE_URL = "https://trip-visa-catalog.preview.emergentagent.com/api"
 
 class EnhancedLeaveManagementTester:
     def __init__(self):

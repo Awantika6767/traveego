@@ -28,9 +28,11 @@ const QuotationBuilder = () => {
   const [catalog, setCatalog] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [visas, setVisas] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
+  const [showVisaModal, setShowVisaModal] = useState(false);
   const [showTnc, setShowTnc] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTestimonials, setShowTestimonials] = useState(false);
@@ -42,6 +44,7 @@ const QuotationBuilder = () => {
   const [expiry_date, setExpiryDate] = useState('');
 
   const [costBreakup, setCostBreakup] = useState([])
+  const [visaItems, setVisaItems] = useState([]);  // For visa services
 
   const [formData, setFormData] = useState({
     tripTitle: '',
@@ -66,6 +69,7 @@ const QuotationBuilder = () => {
       currency: 'INR'
     },
     days: [],
+    visas: [],  // Visa items array
     inclusions: [],
     exclusions: []
   });
@@ -93,8 +97,9 @@ const QuotationBuilder = () => {
       // Load catalog for activities
       const catalogResponse = await api.getCatalog();
       setCatalog(catalogResponse.data);
-      setActivities(catalogResponse.data.filter(item => item.type !== 'hotel'));
+      setActivities(catalogResponse.data.filter(item => item.type !== 'hotel' && item.type !== 'visa'));
       setHotels(catalogResponse.data.filter(item => item.type === 'hotel'));
+      setVisas(catalogResponse.data.filter(item => item.type === 'visa'));
 
       // Pre-fill form data
       const initialData = { ...formData };
@@ -299,11 +304,20 @@ const QuotationBuilder = () => {
       description: catalogItem.description || '',
       image: catalogItem.image_url,
       meetingPoint: catalogItem.destination || '',
-      type: 'Included'
+      type: 'Included',
+      // Add transport-specific fields
+      catalogType: catalogItem.type,
+      flight_number: catalogItem.flight_number || '',
+      airline_name: catalogItem.airline_name || '',
+      train_number: catalogItem.train_number || '',
+      train_name: catalogItem.train_name || '',
+      from_location: catalogItem.from_location || '',
+      to_location: catalogItem.to_location || '',
+      departure_datetime: catalogItem.departure_datetime || ''
     };
     const activityCostBreakup = {
       id,
-      name: catalogItem.name + " - " + catalogItem.supplier,
+      name: catalogItem.name + " - " + (catalogItem.supplier || ''),
       date: formData.days[dayIndex].date,
       quantity: 1,
       unit_cost: catalogItem.default_price || 0
@@ -335,6 +349,82 @@ const QuotationBuilder = () => {
       days: prev.days.map((day, i) =>
         i === dayIndex ? { ...day, hotel } : day
       )
+    }));
+  };
+
+  // Visa functions
+  const addVisaFromCatalog = (catalogItem) => {
+    const id = uuid();
+    const visaItem = {
+      id,
+      name: catalogItem.name,
+      visa_type: catalogItem.visa_type || '',
+      destination_country: catalogItem.destination_country || '',
+      processing_time_days: catalogItem.processing_time_days || 7,
+      cost_per_person: catalogItem.default_price || 0,
+      number_of_people: formData.summary.travelers || 1,
+      total_cost: (catalogItem.default_price || 0) * (formData.summary.travelers || 1),
+      description: catalogItem.description || ''
+    };
+    
+    const visaCostBreakup = {
+      id,
+      name: `${catalogItem.name} - Visa Service`,
+      date: formData.start_date || new Date().toISOString().split('T')[0],
+      quantity: formData.summary.travelers || 1,
+      unit_cost: catalogItem.default_price || 0
+    };
+    
+    setCostBreakup(prev => [...prev, visaCostBreakup]);
+    setVisaItems(prev => [...prev, visaItem]);
+    setFormData(prev => ({
+      ...prev,
+      visas: [...(prev.visas || []), visaItem]
+    }));
+  };
+
+  const removeVisaItem = (index) => {
+    const visaToRemove = visaItems[index];
+    setCostBreakup(prev => prev.filter(item => item.id !== visaToRemove.id));
+    setVisaItems(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      visas: prev.visas.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateVisaItem = (index, field, value) => {
+    setVisaItems(prev => prev.map((visa, i) => {
+      if (i === index) {
+        const updated = { ...visa, [field]: value };
+        // Recalculate total cost if number_of_people or cost_per_person changes
+        if (field === 'number_of_people' || field === 'cost_per_person') {
+          updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          
+          // Update cost breakup
+          setCostBreakup(prevCost => prevCost.map(cost => 
+            cost.id === visa.id 
+              ? { ...cost, quantity: updated.number_of_people, unit_cost: updated.cost_per_person }
+              : cost
+          ));
+        }
+        return updated;
+      }
+      return visa;
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      visas: prev.visas.map((visa, i) => {
+        if (i === index) {
+          const updated = { ...visa, [field]: value };
+          if (field === 'number_of_people' || field === 'cost_per_person') {
+            updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          }
+          return updated;
+        }
+        return visa;
+      })
     }));
   };
 
@@ -950,6 +1040,91 @@ const QuotationBuilder = () => {
                                     placeholder="location / meeting point"
                                   />
                                 </div>
+                                
+                                {/* Flight specific fields */}
+                                {activity.catalogType === 'flight' && (
+                                  <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <Input
+                                      value={activity.flight_number || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].flight_number = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Flight Number"
+                                    />
+                                    <Input
+                                      value={activity.airline_name || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].airline_name = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Airline Name"
+                                    />
+                                    <Input
+                                      value={activity.from_location || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].from_location = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="From Airport"
+                                    />
+                                    <Input
+                                      value={activity.to_location || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].to_location = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="To Airport"
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Train specific fields */}
+                                {activity.catalogType === 'train' && (
+                                  <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <Input
+                                      value={activity.train_number || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].train_number = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Train Number"
+                                    />
+                                    <Input
+                                      value={activity.train_name || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].train_name = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Train Name"
+                                    />
+                                    <Input
+                                      value={activity.from_location || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].from_location = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="From Station"
+                                    />
+                                    <Input
+                                      value={activity.to_location || ''}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].to_location = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="To Station"
+                                    />
+                                  </div>
+                                )}
+                                
                                 <Textarea
                                   value={activity.description}
                                   onChange={(e) => {
@@ -1101,6 +1276,103 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
+
+
+        {/* Visa Services Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Visa Services
+              </div>
+              <Button
+                onClick={() => setShowVisaModal(true)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Visa
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {visaItems.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                No visa services added. Click "Add Visa" to include visa processing.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {visaItems.map((visa, index) => (
+                  <div key={visa.id} className="border rounded-lg p-4 bg-blue-50">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">{visa.name}</h3>
+                        <Badge className="mt-1">{visa.visa_type}</Badge>
+                      </div>
+                      <Button
+                        onClick={() => removeVisaItem(index)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm">Destination Country</Label>
+                        <Input
+                          value={visa.destination_country}
+                          onChange={(e) => updateVisaItem(index, 'destination_country', e.target.value)}
+                          placeholder="Country name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Processing Time (Days)</Label>
+                        <Input
+                          type="number"
+                          value={visa.processing_time_days}
+                          onChange={(e) => updateVisaItem(index, 'processing_time_days', parseInt(e.target.value))}
+                          min="1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Cost Per Person (₹)</Label>
+                        <Input
+                          type="number"
+                          value={visa.cost_per_person}
+                          onChange={(e) => updateVisaItem(index, 'cost_per_person', parseFloat(e.target.value))}
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Number of People</Label>
+                        <Input
+                          type="number"
+                          value={visa.number_of_people}
+                          onChange={(e) => updateVisaItem(index, 'number_of_people', parseInt(e.target.value))}
+                          min="1"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Total Visa Cost:</span>
+                        <span className="text-xl font-bold text-blue-600">
+                          ₹{visa.total_cost?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Inclusions (Editable for current quotation) */}
         <Card>
@@ -1447,7 +1719,57 @@ const QuotationBuilder = () => {
 
             {hotels.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                No activities in catalog. Add activities to catalog first.
+                No hotels in catalog. Add hotels to catalog first.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Visa Catalog Modal */}
+      {showVisaModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Select Visa Service from Catalog</h2>
+              <Button
+                onClick={() => setShowVisaModal(false)}
+                variant="outline"
+                size="sm"
+              >
+                Close
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {visas.map((item, index) => (
+                <div
+                  key={index}
+                  className="border rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors"
+                  onClick={() => {
+                    addVisaFromCatalog(item);
+                    setShowVisaModal(false);
+                  }}
+                >
+                  {item.image_url && (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-32 object-cover rounded mb-2"
+                    />
+                  )}
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <Badge className="mt-2">{item.visa_type}</Badge>
+                  <p className="text-sm text-gray-600 mt-2">{item.destination_country}</p>
+                  <p className="text-sm text-gray-500 mt-1">Processing: {item.processing_time_days} days</p>
+                  <p className="text-sm font-semibold text-blue-600 mt-2">₹{item.default_price?.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+
+            {visas.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No visa services in catalog. Add visa services to catalog first.
               </div>
             )}
           </div>

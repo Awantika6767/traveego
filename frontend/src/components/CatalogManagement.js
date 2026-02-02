@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Plus, Hotel, Car, Activity, Utensils, Search, Star } from 'lucide-react';
+import { Plus, Hotel, Car, Activity, Utensils, Search, Star, Plane, Train, FileText } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { toast } from 'sonner';
 import { Textarea } from './ui/textarea';
@@ -25,7 +25,21 @@ export const CatalogManagement = () => {
     default_price: 0,
     description: '',
     image_url: '',
-    rating: 3
+    rating: 3,
+    // Flight fields
+    flight_number: '',
+    airline_name: '',
+    // Train fields
+    train_number: '',
+    train_name: '',
+    // Flight/Train common fields
+    from_location: '',
+    to_location: '',
+    departure_datetime: '',
+    // Visa fields
+    visa_type: '',
+    processing_time_days: 7,
+    destination_country: ''
   });
 
   useEffect(() => {
@@ -55,6 +69,32 @@ export const CatalogManagement = () => {
         delete itemData.rating;
       }
       
+      // Only include flight fields if it's a flight
+      if (itemData.type !== 'flight') {
+        delete itemData.flight_number;
+        delete itemData.airline_name;
+      }
+      
+      // Only include train fields if it's a train
+      if (itemData.type !== 'train') {
+        delete itemData.train_number;
+        delete itemData.train_name;
+      }
+      
+      // Only include transport fields if it's flight or train
+      if (itemData.type !== 'flight' && itemData.type !== 'train') {
+        delete itemData.from_location;
+        delete itemData.to_location;
+        delete itemData.departure_datetime;
+      }
+      
+      // Only include visa fields if it's a visa
+      if (itemData.type !== 'visa') {
+        delete itemData.visa_type;
+        delete itemData.processing_time_days;
+        delete itemData.destination_country;
+      }
+      
       await api.createCatalogItem(itemData);
       toast.success('Catalog item added successfully');
       setShowModal(false);
@@ -66,7 +106,17 @@ export const CatalogManagement = () => {
         default_price: 0,
         description: '',
         image_url: '',
-        rating: 3
+        rating: 3,
+        flight_number: '',
+        airline_name: '',
+        train_number: '',
+        train_name: '',
+        from_location: '',
+        to_location: '',
+        departure_datetime: '',
+        visa_type: '',
+        processing_time_days: 7,
+        destination_country: ''
       });
       loadCatalog();
     } catch (error) {
@@ -81,10 +131,16 @@ export const CatalogManagement = () => {
         return <Hotel className="w-5 h-5" />;
       case 'transport':
         return <Car className="w-5 h-5" />;
+      case 'flight':
+        return <Plane className="w-5 h-5" />;
+      case 'train':
+        return <Train className="w-5 h-5" />;
       case 'activity':
         return <Activity className="w-5 h-5" />;
       case 'meal':
         return <Utensils className="w-5 h-5" />;
+      case 'visa':
+        return <FileText className="w-5 h-5" />;
       default:
         return null;
     }
@@ -98,7 +154,7 @@ export const CatalogManagement = () => {
     return matchesSearch && matchesType;
   });
 
-  const types = ['hotel', 'transport', 'activity', 'meal'];
+  const types = ['hotel', 'transport', 'flight', 'train', 'activity', 'meal', 'visa'];
 
   if (loading) {
     return <div className="text-center py-12">Loading catalog...</div>;
@@ -266,8 +322,11 @@ export const CatalogManagement = () => {
                 >
                   <option value="hotel">Hotel</option>
                   <option value="transport">Transport</option>
+                  <option value="flight">Flight</option>
+                  <option value="train">Train</option>
                   <option value="activity">Activity</option>
                   <option value="meal">Meal</option>
+                  <option value="visa">Visa</option>
                 </select>
               </div>
 
@@ -351,6 +410,160 @@ export const CatalogManagement = () => {
                 </select>
               </div>
             )}
+
+            {/* Flight specific fields */}
+            {newItem.type === 'flight' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="flight_number">Flight Number *</Label>
+                    <Input
+                      id="flight_number"
+                      value={newItem.flight_number}
+                      onChange={(e) => setNewItem({ ...newItem, flight_number: e.target.value })}
+                      placeholder="e.g., AI101"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="airline_name">Airline Name *</Label>
+                    <Input
+                      id="airline_name"
+                      value={newItem.airline_name}
+                      onChange={(e) => setNewItem({ ...newItem, airline_name: e.target.value })}
+                      placeholder="e.g., Air India"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="from_location">From Location *</Label>
+                    <Input
+                      id="from_location"
+                      value={newItem.from_location}
+                      onChange={(e) => setNewItem({ ...newItem, from_location: e.target.value })}
+                      placeholder="e.g., Delhi (DEL)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="to_location">To Location *</Label>
+                    <Input
+                      id="to_location"
+                      value={newItem.to_location}
+                      onChange={(e) => setNewItem({ ...newItem, to_location: e.target.value })}
+                      placeholder="e.g., Mumbai (BOM)"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="departure_datetime">Departure Date & Time *</Label>
+                  <Input
+                    id="departure_datetime"
+                    type="datetime-local"
+                    value={newItem.departure_datetime}
+                    onChange={(e) => setNewItem({ ...newItem, departure_datetime: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Train specific fields */}
+            {newItem.type === 'train' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="train_number">Train Number *</Label>
+                    <Input
+                      id="train_number"
+                      value={newItem.train_number}
+                      onChange={(e) => setNewItem({ ...newItem, train_number: e.target.value })}
+                      placeholder="e.g., 12345"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="train_name">Train Name *</Label>
+                    <Input
+                      id="train_name"
+                      value={newItem.train_name}
+                      onChange={(e) => setNewItem({ ...newItem, train_name: e.target.value })}
+                      placeholder="e.g., Rajdhani Express"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="from_location">From Station *</Label>
+                    <Input
+                      id="from_location"
+                      value={newItem.from_location}
+                      onChange={(e) => setNewItem({ ...newItem, from_location: e.target.value })}
+                      placeholder="e.g., New Delhi"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="to_location">To Station *</Label>
+                    <Input
+                      id="to_location"
+                      value={newItem.to_location}
+                      onChange={(e) => setNewItem({ ...newItem, to_location: e.target.value })}
+                      placeholder="e.g., Mumbai Central"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="departure_datetime">Departure Date & Time *</Label>
+                  <Input
+                    id="departure_datetime"
+                    type="datetime-local"
+                    value={newItem.departure_datetime}
+                    onChange={(e) => setNewItem({ ...newItem, departure_datetime: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Visa specific fields */}
+            {newItem.type === 'visa' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="visa_type">Visa Type *</Label>
+                    <select
+                      id="visa_type"
+                      value={newItem.visa_type}
+                      onChange={(e) => setNewItem({ ...newItem, visa_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Tourist">Tourist Visa</option>
+                      <option value="Business">Business Visa</option>
+                      <option value="Student">Student Visa</option>
+                      <option value="Transit">Transit Visa</option>
+                      <option value="Work">Work Visa</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="destination_country">Destination Country *</Label>
+                    <Input
+                      id="destination_country"
+                      value={newItem.destination_country}
+                      onChange={(e) => setNewItem({ ...newItem, destination_country: e.target.value })}
+                      placeholder="e.g., Thailand"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="processing_time_days">Processing Time (Days) *</Label>
+                  <Input
+                    id="processing_time_days"
+                    type="number"
+                    min="1"
+                    value={newItem.processing_time_days}
+                    onChange={(e) => setNewItem({ ...newItem, processing_time_days: parseInt(e.target.value) })}
+                    placeholder="e.g., 7"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>
@@ -369,7 +582,10 @@ export const CatalogManagement = () => {
                 !newItem.destination || 
                 !newItem.default_price || 
                 !newItem.image_url ||
-                (newItem.type === 'hotel' && !newItem.rating)
+                (newItem.type === 'hotel' && !newItem.rating) ||
+                (newItem.type === 'flight' && (!newItem.flight_number || !newItem.airline_name || !newItem.from_location || !newItem.to_location || !newItem.departure_datetime)) ||
+                (newItem.type === 'train' && (!newItem.train_number || !newItem.train_name || !newItem.from_location || !newItem.to_location || !newItem.departure_datetime)) ||
+                (newItem.type === 'visa' && (!newItem.visa_type || !newItem.destination_country || !newItem.processing_time_days))
               }
               data-testid="modal-submit-button"
             >

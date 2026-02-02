@@ -123,6 +123,17 @@ class Testimonial(BaseModel):
     rating: int
     text: str
 
+class VisaItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    visa_type: str  # Tourist, Business, Student, etc.
+    destination_country: str
+    processing_time_days: int  # ETA in days
+    cost_per_person: float
+    number_of_people: int
+    total_cost: float
+    description: Optional[str] = None
+
 class QuotationData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tripTitle: str
@@ -134,6 +145,7 @@ class QuotationData(BaseModel):
     summary: Summary
     pricing: Pricing
     days: List[Day]
+    visas: Optional[List[VisaItem]] = []  # Visa services
     inclusions: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
 
@@ -327,13 +339,32 @@ class Activity(BaseModel):
 class CatalogItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    type: str  # "hotel", "transport", "activity", "meal"
+    type: str  # "hotel", "transport", "activity", "meal", "flight", "train", "visa"
     destination: str
     supplier: Optional[str] = None
     default_price: float
     description: Optional[str] = None
     image_url: Optional[str] = None
     rating: Optional[int] = None  # For hotels: 1-5 stars
+    
+    # Flight specific fields
+    flight_number: Optional[str] = None
+    airline_name: Optional[str] = None
+    
+    # Train specific fields
+    train_number: Optional[str] = None
+    train_name: Optional[str] = None
+    
+    # Flight/Train common fields
+    from_location: Optional[str] = None
+    to_location: Optional[str] = None
+    departure_datetime: Optional[str] = None  # ISO format datetime string
+    
+    # Visa specific fields
+    visa_type: Optional[str] = None  # Tourist, Business, Student, etc.
+    processing_time_days: Optional[int] = None  # ETA in days
+    destination_country: Optional[str] = None
+    
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class Notification(BaseModel):
