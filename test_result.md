@@ -2316,7 +2316,364 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+backend:
+  - task: "Add TransportLeg, HotelBooking, VisaService, SightseeingService models"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added new models to support multi-service quotations: TransportLeg (for multi-leg journeys with time/date/vehicle details), HotelBooking (with room types, check-in/out dates, amenities), VisaService (with processing days, documents required), SightseeingService. Updated QuotationData model to include service type flags (is_holiday_package, is_mice, is_hotel_booking, is_sightseeing, is_visa, is_transport_service) and corresponding data arrays (transport_legs, hotel_bookings, visa_services, sightseeing_services, days for holiday packages)."
+
+  - task: "Update PDF generation endpoint to support all service types"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced GET /api/quotations/{quotation_id}/pdf endpoint to auto-detect service types from request if not explicitly set in quotation_data. Endpoint now properly handles all service types and passes them to PDF template. Template switched to comprehensive_quotation_pdf.html."
+
+  - task: "Create comprehensive PDF template for all quotation types"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/templates/comprehensive_quotation_pdf.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created new comprehensive PDF template that supports all service types. Template includes: Cover page, Transport Service section (multi-leg timeline view with from/to locations, times, dates, vehicle details, costs), Hotel Bookings section (with images, star ratings, check-in/out dates, amenities), Visa Services section (with processing days, documents required), Day-by-Day Itinerary (for holiday packages), Pricing Summary, Inclusions/Exclusions, Terms & Conditions, and Contact Information. Each section conditionally renders based on service types."
+
+frontend:
+  - task: "Create QuotationBuilderNew component for multi-service quotations"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/QuotationBuilderNew.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created comprehensive new quotation builder component that supports all service types. Features: Auto-detects service types from request, Transport Journey Builder (add multiple legs with type, from/to locations, departure/arrival date/time, vehicle details, pickup/drop points, costs, notes), Hotel Booking Builder (hotel name, location, check-in/out dates, room type, number of rooms, star rating, cost per night, total cost auto-calculation), Visa Service Builder (country, visa type, processing days, cost, documents required, notes), Catalog Integration (choose transport/hotels from catalog), Pricing Calculator (auto-calculates subtotal from all services, adds 18% GST, discount support, per person calculation, 30% deposit calculation), Inclusions/Exclusions (fully editable, pre-filled from admin settings). Component handles complex multi-leg journeys like 'Cab to Airport → Flight to City → Cab to Station → Train to Destination'."
+
+  - task: "Update App.js to use QuotationBuilderNew"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated /quotation-builder route to use QuotationBuilderNew component instead of old QuotationBuilder. Old component still available but not used."
+
 agent_communication:
+  - agent: "main"
+    message: |
+      NEW FEATURE COMPLETED: Comprehensive Multi-Service Quotation Builder with PDF Generation
+      
+      **User Requirement:** Build quotation system that supports ALL service types (not just Holiday Package) with complex transport combinations (e.g., Cab → Flight → Train), and generate comprehensive PDFs for each case.
+      
+      **IMPLEMENTATION SUMMARY:**
+      
+      **BACKEND CHANGES:**
+      
+      1. New Data Models (server.py):
+         
+         A. TransportLeg Model:
+            - leg_number: Sequential leg numbering
+            - transport_type: cab, flight, train, bus, mini_bus, traveller
+            - from_location, to_location: Journey segments
+            - departure_date, departure_time: When transport starts
+            - arrival_date, arrival_time: When transport ends (optional)
+            - vehicle_details: Flight number, Train name, etc.
+            - pickup_point, drop_point: Exact locations
+            - cost: Per leg pricing
+            - notes: Additional information
+            - catalog_item_id: Link to catalog (optional)
+         
+         B. HotelBooking Model:
+            - hotel_name, location, check_in_date, check_out_date
+            - room_type, number_of_rooms, stars
+            - amenities: List of facilities
+            - cost_per_night, total_nights, total_cost
+            - image: Hotel image URL
+            - catalog_item_id: Link to catalog (optional)
+         
+         C. VisaService Model:
+            - country, visa_type, processing_days, cost
+            - documents_required: List of documents
+            - notes: Additional information
+         
+         D. SightseeingService Model:
+            - location, date, activities list, cost, notes
+         
+         E. Enhanced QuotationData Model:
+            - Service type flags: is_holiday_package, is_mice, is_hotel_booking, is_sightseeing, is_visa, is_transport_service
+            - Data arrays: transport_legs[], hotel_bookings[], visa_services[], sightseeing_services[], days[] (for holiday packages)
+            - summary: Optional (for holiday packages)
+            - pricing: Common pricing structure
+            - inclusions, exclusions: Lists
+      
+      2. Enhanced PDF Generation Endpoint (GET /api/quotations/{quotation_id}/pdf):
+         - Auto-detects service types from request if not set in quotation
+         - Passes service flags to PDF template
+         - Uses comprehensive_quotation_pdf.html template
+         - Properly formats all data for PDF generation
+      
+      3. New PDF Template (comprehensive_quotation_pdf.html):
+         - Cover page with trip title, destination, dates, pricing
+         - Transport Service Section:
+           * Timeline-style layout with visual journey flow
+           * Each leg shows: transport type badge, from/to locations with arrows
+           * Departure/arrival times and dates
+           * Pickup/drop points, vehicle details, costs
+           * Notes for special instructions
+         - Hotel Bookings Section:
+           * Hotel image, name, location, star rating
+           * Check-in/check-out dates
+           * Room type and number of rooms
+           * Amenities display
+           * Cost breakdown (per night × total nights)
+         - Visa Services Section:
+           * Country, visa type, processing time
+           * Documents required list
+           * Cost
+         - Day-by-Day Itinerary (Holiday Packages):
+           * Day-wise breakdown with date
+           * Hotel accommodation per day
+           * Meals included
+           * Activities with time, description, meeting point
+         - Pricing Summary:
+           * Subtotal calculation from all services
+           * 18% GST taxes
+           * Discount (if any)
+           * Total amount
+           * Per person cost
+           * 30% deposit due
+         - Inclusions & Exclusions:
+           * Green checkmarks for inclusions
+           * Red crosses for exclusions
+         - Terms & Conditions and Contact Info
+      
+      **FRONTEND CHANGES:**
+      
+      1. QuotationBuilderNew Component (/app/frontend/src/components/QuotationBuilderNew.js):
+         
+         A. Service Type Detection:
+            - Auto-detects from request: is_holiday_package_required, is_mice_required, is_hotel_booking_required, is_sight_seeing_required, is_visa_required, is_transport_within_city_required, is_transfer_to_destination_required
+            - Displays active service badges at top
+            - Shows only relevant sections based on service types
+         
+         B. Transport Journey Builder:
+            - Add/remove transport legs dynamically
+            - Each leg has:
+              * Transport type dropdown (cab, flight, train, bus, mini_bus, traveller)
+              * From/To locations
+              * Departure & Arrival date/time inputs
+              * Vehicle details (flight number, train name, etc.)
+              * Pickup/Drop points
+              * Cost input
+              * Notes textarea
+            - Choose from Catalog button (filters catalog by transport types)
+            - Visual leg numbering (1, 2, 3...)
+            - Timeline-style display
+         
+         C. Hotel Booking Builder:
+            - Add/remove hotels dynamically
+            - Each hotel has:
+              * Hotel name, location
+              * Check-in/Check-out dates
+              * Room type, number of rooms
+              * Star rating (1-5 stars)
+              * Cost per night, total nights
+              * Auto-calculated total cost
+              * Image URL
+            - Choose from Catalog button (filters catalog for hotels)
+         
+         D. Visa Service Builder:
+            - Add/remove visa services
+            - Country, visa type
+            - Processing days
+            - Cost
+            - Notes
+         
+         E. Catalog Integration:
+            - Modal popup with catalog items
+            - Filters by type (transport/hotel)
+            - Click to add item data to form
+            - Shows item image, name, destination, price, rating
+         
+         F. Pricing Calculator:
+            - Auto-calculates subtotal from:
+              * All transport leg costs
+              * All hotel total costs
+              * All visa service costs
+            - Adds 18% GST taxes
+            - Applies discount
+            - Calculates total, per person, 30% deposit
+            - Manual "Calculate Pricing" button
+         
+         G. Inclusions/Exclusions Editor:
+            - Pre-filled from admin settings
+            - Add new items with input + button
+            - Remove items with trash icon
+            - Green theme for inclusions, red for exclusions
+         
+         H. Save & Validation:
+            - Validates required fields (trip title, city)
+            - For transport service: requires at least one transport leg
+            - Calculates pricing before save
+            - Creates or updates quotation with detailed_quotation_data
+            - Navigates back to request detail after save
+      
+      2. Routing Update (App.js):
+         - Changed /quotation-builder route to use QuotationBuilderNew component
+         - Old QuotationBuilder still exists but not used
+      
+      **KEY FEATURES:**
+      
+      ✅ Multi-Service Support:
+         - Holiday Package: Day-by-day itinerary with activities
+         - Transport Service: Multi-leg journeys with complex combinations
+         - Hotel Booking: Multiple hotel accommodations
+         - Visa Service: Visa processing for multiple countries
+         - M.I.C.E: Meeting/conference services
+         - Sightseeing: Tour activities
+         - Any combination of above services
+      
+      ✅ Transport Journey Examples:
+         - Simple: Bengaluru to Katihar by Flight
+         - Complex: Cab to BLR Airport → Flight 6E-123 to IXB Airport → Cab to Railway Station → Train 12345 to KIR Station
+         - Multi-day: Different transport for each leg of journey
+         - Mixed modes: Any combination of Cab, Flight, Train, Bus, Mini Bus, Traveller
+      
+      ✅ Catalog Integration:
+         - Operations can choose transport options from catalog
+         - Operations can choose hotels from catalog
+         - Pre-fills form with catalog data (name, price, rating, image)
+         - Maintains link to catalog item
+      
+      ✅ Comprehensive PDF Generation:
+         - Professional cover page with branding
+         - Service-specific sections (only shows relevant sections)
+         - Timeline view for transport journeys
+         - Visual hierarchy and color coding
+         - Complete pricing breakdown
+         - Terms, conditions, and contact information
+      
+      ✅ User Experience:
+         - Intuitive form with clear sections
+         - Add/remove items easily
+         - Visual feedback (badges, colors, icons)
+         - Auto-calculation reduces errors
+         - Pre-filled data from admin settings
+         - Validation before save
+      
+      **USER FLOW:**
+      
+      1. Customer creates request with service types (e.g., Transport Service)
+      2. Salesperson/Operations opens request detail
+      3. Clicks "Create Detailed Quotation" button
+      4. QuotationBuilder opens with service types auto-detected
+      5. For Transport Service:
+         a. Click "Add Transport Leg"
+         b. Select transport type (Cab)
+         c. Enter from/to locations (Bengaluru → BLR Airport)
+         d. Enter departure time (08:00) and date
+         e. Enter cost (₹500)
+         f. Click "Add Transport Leg" again
+         g. Select transport type (Flight)
+         h. Or click "Choose from Catalog" and select flight
+         i. Enter flight details (6E-123, BLR → IXB)
+         j. Enter timings and cost
+         k. Repeat for additional legs
+      6. Add inclusions/exclusions
+      7. Click "Calculate Pricing" to auto-calculate total
+      8. Click "Save Quotation"
+      9. System creates quotation with detailed_quotation_data
+      10. Publish quotation
+      11. Click "Download" to generate PDF
+      12. PDF shows complete journey timeline with all details
+      
+      **TECHNICAL NOTES:**
+      
+      1. Backward Compatibility:
+         - Old quotations with days[] array still work
+         - New quotations use service-specific arrays
+         - PDF template handles both formats
+      
+      2. Data Structure:
+         - detailed_quotation_data field stores complete quotation
+         - Service flags determine which sections to show
+         - Arrays store service-specific data
+         - Pricing structure is common across all service types
+      
+      3. PDF Generation:
+         - Uses Playwright for HTML to PDF conversion
+         - Tailwind CSS for styling
+         - Jinja2 template engine
+         - Conditional rendering based on service flags
+         - Timeline CSS for transport journey visualization
+      
+      4. Dependencies Updated:
+         - Upgraded pydantic to 2.12.5
+         - Upgraded starlette to 0.50.0
+         - Upgraded fastapi to 0.128.0
+         - Resolved version conflicts
+      
+      **FILES CREATED/MODIFIED:**
+      
+      **Backend:**
+      - /app/backend/server.py
+        * Added: TransportLeg, HotelBooking, VisaService, SightseeingService models
+        * Modified: QuotationData model (added service flags and arrays)
+        * Modified: get_quotation_pdf endpoint (service type detection)
+      - /app/backend/templates/comprehensive_quotation_pdf.html (NEW)
+        * Complete PDF template for all service types
+      
+      **Frontend:**
+      - /app/frontend/src/components/QuotationBuilderNew.js (NEW)
+        * Complete quotation builder for all service types
+      - /app/frontend/src/App.js
+        * Updated: /quotation-builder route to use QuotationBuilderNew
+      
+      **STATUS:**
+      ✅ Backend models updated
+      ✅ PDF generation enhanced
+      ✅ Comprehensive PDF template created
+      ✅ QuotationBuilderNew component created
+      ✅ Routing updated
+      ✅ Dependencies fixed
+      ✅ Backend running successfully
+      ✅ Ready for testing
+      
+      **TESTING RECOMMENDATIONS:**
+      1. Create request with Transport Service
+      2. Open quotation builder
+      3. Add multiple transport legs (Cab → Flight → Train)
+      4. Add dates, times, vehicle details for each leg
+      5. Calculate pricing
+      6. Save quotation
+      7. Publish quotation
+      8. Download PDF and verify multi-leg journey display
+      9. Test with Hotel Booking service
+      10. Test with Visa Service
+      11. Test with combination of services
+      12. Verify catalog integration works
+      13. Verify pricing auto-calculation
+
   - agent: "main"
     message: |
       FEATURE ENHANCEMENT COMPLETED: Comprehensive Request Detail View

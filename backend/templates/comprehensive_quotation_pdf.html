@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Quotation - {{ data.bookingRef }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .playfair {
+            font-family: 'Playfair Display', serif;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+        .transport-timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        .transport-timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ea580c;
+        }
+        .transport-leg {
+            position: relative;
+            margin-bottom: 24px;
+        }
+        .transport-leg::before {
+            content: '';
+            position: absolute;
+            left: -27px;
+            top: 8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ea580c;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #ea580c;
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 840px; margin: 0 auto;">
+        
+        <!-- Cover Page -->
+        <div style="position: relative; height: 1188px; background-image: linear-gradient(rgba(12, 12, 12, 0.45), rgba(12, 12, 12, 0.15)), url('{{ data.coverImage }}'); background-size: cover; background-position: center; display: flex; flex-direction: column; justify-content: space-between; padding: 48px;">
+            <div style="color: white;">
+                <div style="width: 128px; height: 48px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 24px; font-weight: bold; color: #ea580c;">Traveego</span>
+                </div>
+            </div>
+
+            <div style="color: white;">
+                <h1 class="playfair" style="font-size: 60px; font-weight: bold; margin-bottom: 16px;">
+                    {{ data.customerName }} — {{ data.tripTitle }}
+                </h1>
+                <p style="font-size: 24px; margin-bottom: 8px;">{{ data.dates }}</p>
+                <p style="font-size: 20px; color: #fb923c;">{{ data.city }}</p>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div style="color: white; font-size: 14px;">
+                    <p style="margin-bottom: 4px;">📞 {{ data.salesperson.phone }}</p>
+                    <p style="margin-bottom: 4px;">✉️ {{ data.salesperson.email }}</p>
+                    <p style="font-size: 12px; margin-top: 8px;">Booking Ref: {{ data.bookingRef }}</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <div style="margin-top: 16px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 24px;">
+                        <p style="font-size: 30px; font-weight: bold; color: black;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.total|int) }}</p>
+                        <p style="font-size: 14px; color: #4b5563;">Total Amount</p>
+                        <div style="margin-top: 8px; background: #ea580c; color: white; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600;">
+                            Book Now
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SERVICE TYPE SECTIONS -->
+        
+        {% if data.is_transport_service and data.transport_legs %}
+        <!-- Transport Service Section -->
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Journey Details</h2>
+            
+            <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div class="transport-timeline">
+                    {% for leg in data.transport_legs %}
+                    <div class="transport-leg">
+                        <div style="background: #fef3c7; border-left: 4px solid #ea580c; padding: 20px; border-radius: 8px; margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                <div>
+                                    <span style="background: #ea580c; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                                        {{ leg.transport_type }}
+                                    </span>
+                                    {% if leg.vehicle_details %}
+                                    <span style="color: #6b7280; font-size: 14px; margin-left: 8px;">{{ leg.vehicle_details }}</span>
+                                    {% endif %}
+                                </div>
+                                <div style="text-align: right;">
+                                    <p style="font-weight: 600; color: #1f2937; margin: 0;">₹{{ "{:,}".format(leg.cost|int) }}</p>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;">
+                                <div>
+                                    <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">FROM</p>
+                                    <p style="font-weight: 600; color: #1f2937; margin: 0;">{{ leg.from_location }}</p>
+                                    {% if leg.pickup_point %}
+                                    <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">📍 {{ leg.pickup_point }}</p>
+                                    {% endif %}
+                                    <p style="font-size: 14px; color: #374151; margin-top: 4px;">
+                                        🕐 {{ leg.departure_time }} | 📅 {{ leg.departure_date }}
+                                    </p>
+                                </div>
+                                
+                                <div style="text-align: center;">
+                                    <span style="font-size: 24px;">→</span>
+                                </div>
+                                
+                                <div>
+                                    <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">TO</p>
+                                    <p style="font-weight: 600; color: #1f2937; margin: 0;">{{ leg.to_location }}</p>
+                                    {% if leg.drop_point %}
+                                    <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">📍 {{ leg.drop_point }}</p>
+                                    {% endif %}
+                                    {% if leg.arrival_time %}
+                                    <p style="font-size: 14px; color: #374151; margin-top: 4px;">
+                                        🕐 {{ leg.arrival_time }} | 📅 {{ leg.arrival_date }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if leg.notes %}
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                                <p style="font-size: 13px; color: #6b7280; margin: 0;">
+                                    <strong>Notes:</strong> {{ leg.notes }}
+                                </p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if data.hotel_bookings %}
+        <!-- Hotel Booking Section -->
+        <div style="padding: 48px; background: white;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Hotel Accommodations</h2>
+            
+            {% for hotel in data.hotel_bookings %}
+            <div style="background: #f9fafb; padding: 24px; border-radius: 12px; margin-bottom: 24px; border-left: 4px solid #ea580c;">
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 24px;">
+                    {% if hotel.image %}
+                    <div>
+                        <img src="{{ hotel.image }}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+                    </div>
+                    {% endif %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 4px; color: #1f2937;">{{ hotel.hotel_name }}</h3>
+                                <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">📍 {{ hotel.location }}</p>
+                                {% if hotel.stars %}
+                                <p style="font-size: 14px; color: #ea580c;">{{ '⭐' * hotel.stars }}</p>
+                                {% endif %}
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="font-size: 24px; font-weight: 600; color: #ea580c; margin: 0;">₹{{ "{:,}".format(hotel.total_cost|int) }}</p>
+                                <p style="font-size: 12px; color: #6b7280;">for {{ hotel.total_nights }} nights</p>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                            <div>
+                                <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">CHECK-IN</p>
+                                <p style="font-weight: 600; color: #1f2937;">{{ hotel.check_in_date }}</p>
+                            </div>
+                            <div>
+                                <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">CHECK-OUT</p>
+                                <p style="font-weight: 600; color: #1f2937;">{{ hotel.check_out_date }}</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 12px;">
+                            <p style="font-size: 14px; color: #374151;">
+                                <strong>Room Type:</strong> {{ hotel.room_type }} ({{ hotel.number_of_rooms }} room{% if hotel.number_of_rooms > 1 %}s{% endif %})
+                            </p>
+                        </div>
+                        
+                        {% if hotel.amenities %}
+                        <div style="margin-top: 12px;">
+                            <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">AMENITIES</p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                {% for amenity in hotel.amenities %}
+                                <span style="background: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; color: #374151; border: 1px solid #e5e7eb;">{{ amenity }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if data.visa_services %}
+        <!-- Visa Services Section -->
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Visa Services</h2>
+            
+            {% for visa in data.visa_services %}
+            <div style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px; border-left: 4px solid #ea580c;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">{{ visa.country }} Visa</h3>
+                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Type: {{ visa.visa_type }}</p>
+                        <p style="font-size: 14px; color: #6b7280;">Processing Time: {{ visa.processing_days }} days</p>
+                        
+                        {% if visa.documents_required %}
+                        <div style="margin-top: 16px;">
+                            <p style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 8px;">Documents Required:</p>
+                            <ul style="margin: 0; padding-left: 20px;">
+                                {% for doc in visa.documents_required %}
+                                <li style="font-size: 13px; color: #374151; margin-bottom: 4px;">{{ doc }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        {% if visa.notes %}
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 12px; font-style: italic;">{{ visa.notes }}</p>
+                        {% endif %}
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-size: 24px; font-weight: 600; color: #ea580c;">₹{{ "{:,}".format(visa.cost|int) }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if data.days and data.days|length > 0 %}
+        <!-- Day-by-Day Itinerary (Holiday Package) -->
+        <div style="padding: 48px; background: white;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Day-by-Day Itinerary</h2>
+            
+            {% for day in data.days %}
+            <div style="margin-bottom: 40px;">
+                <div style="background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%); color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+                    <h3 style="font-size: 20px; font-weight: 600; margin: 0;">Day {{ day.dayNumber }}: {{ day.location }}</h3>
+                    <p style="font-size: 14px; margin: 4px 0 0 0; opacity: 0.9;">{{ day.date }}</p>
+                </div>
+                
+                <div style="background: #f9fafb; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+                    {% if day.hotel %}
+                    <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 3px solid #ea580c;">
+                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">🏨 ACCOMMODATION</p>
+                        <p style="font-weight: 600; color: #1f2937; margin: 0;">{{ day.hotel.name }}</p>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 4px;">{{ '⭐' * day.hotel.stars }} | {{ day.hotel.address }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if day.meals %}
+                    <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">🍽️ MEALS INCLUDED</p>
+                        <div style="display: flex; gap: 16px;">
+                            <span style="font-size: 13px; color: #374151;">Breakfast: {{ day.meals.breakfast }}</span>
+                            <span style="font-size: 13px; color: #374151;">Lunch: {{ day.meals.lunch }}</span>
+                            <span style="font-size: 13px; color: #374151;">Dinner: {{ day.meals.dinner }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div style="margin-top: 16px;">
+                        <p style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 12px;">📍 ACTIVITIES</p>
+                        {% for activity in day.activities %}
+                        <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <p style="font-size: 12px; color: #ea580c; margin-bottom: 4px;">{{ activity.time }}</p>
+                                    <p style="font-weight: 600; color: #1f2937; margin-bottom: 8px;">{{ activity.title }}</p>
+                                    <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">{{ activity.description }}</p>
+                                    <p style="font-size: 12px; color: #6b7280;">📍 {{ activity.meetingPoint }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Pricing Details -->
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">Investment Summary</h2>
+            
+            <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="border-bottom: 2px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #6b7280;">Subtotal</span>
+                        <span style="font-weight: 600; color: #1f2937;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.subtotal|int) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #6b7280;">Taxes (18% GST)</span>
+                        <span style="font-weight: 600; color: #1f2937;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.taxes|int) }}</span>
+                    </div>
+                    {% if data.pricing.discount > 0 %}
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #10b981;">Discount</span>
+                        <span style="font-weight: 600; color: #10b981;">- {{ data.pricing.currency }} {{ "{:,}".format(data.pricing.discount|int) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
+                    <span style="font-size: 20px; font-weight: 600; color: #1f2937;">Total Amount</span>
+                    <span style="font-size: 24px; font-weight: 700; color: #ea580c;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.total|int) }}</span>
+                </div>
+                
+                <div style="background: #fef3c7; padding: 16px; border-radius: 8px; border-left: 4px solid #ea580c;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p style="font-size: 14px; color: #92400e; margin-bottom: 4px;">Deposit Due (30%)</p>
+                            <p style="font-size: 20px; font-weight: 700; color: #ea580c; margin: 0;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.depositDue|int) }}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-size: 12px; color: #92400e;">Per Person</p>
+                            <p style="font-size: 16px; font-weight: 600; color: #1f2937;">{{ data.pricing.currency }} {{ "{:,}".format(data.pricing.perPerson|int) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inclusions & Exclusions -->
+        {% if data.inclusions or data.exclusions %}
+        <div style="padding: 48px; background: white;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 32px; color: black;">What's Included</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+                {% if data.inclusions %}
+                <div>
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #10b981;">✓ Inclusions</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for item in data.inclusions %}
+                        <li style="display: flex; gap: 8px; margin-bottom: 12px; color: #374151; padding: 8px; background: #f0fdf4; border-radius: 4px;">
+                            <span style="color: #10b981; font-weight: bold;">✓</span>
+                            <span>{{ item }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if data.exclusions %}
+                <div>
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ef4444;">✗ Exclusions</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        {% for item in data.exclusions %}
+                        <li style="display: flex; gap: 8px; margin-bottom: 12px; color: #374151; padding: 8px; background: #fef2f2; border-radius: 4px;">
+                            <span style="color: #ef4444; font-weight: bold;">✗</span>
+                            <span>{{ item }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Terms & Conditions -->
+        {% if data.detailedTerms %}
+        <div style="padding: 48px; background: #f9fafb;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 24px; color: black;">Terms & Conditions</h2>
+            <div style="background: white; padding: 32px; border-radius: 12px; font-size: 13px; color: #374151; line-height: 1.6; white-space: pre-wrap;">{{ data.detailedTerms }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Contact Information -->
+        <div style="padding: 48px; background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%); color: white; text-align: center;">
+            <h2 class="playfair" style="font-size: 30px; font-weight: bold; margin-bottom: 16px;">Ready to Book Your Journey?</h2>
+            <p style="font-size: 16px; margin-bottom: 24px;">Contact your dedicated travel consultant</p>
+            
+            <div style="background: rgba(255,255,255,0.1); padding: 24px; border-radius: 12px; max-width: 500px; margin: 0 auto;">
+                <p style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">{{ data.salesperson.name }}</p>
+                <p style="font-size: 14px; margin-bottom: 4px;">📞 {{ data.salesperson.phone }}</p>
+                <p style="font-size: 14px; margin-bottom: 16px;">✉️ {{ data.salesperson.email }}</p>
+                <div style="background: white; color: #ea580c; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; margin-top: 16px;">
+                    Book Now
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

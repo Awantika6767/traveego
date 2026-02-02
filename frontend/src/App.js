@@ -16,6 +16,7 @@ import AdminPanel from "./components/AdminPanel";
 import AdminSettings from "./components/AdminSettings";
 import UserManagement from "./components/UserManagement";
 import QuotationBuilder from "./components/QuotationBuilder";
+import QuotationBuilderNew from "./components/QuotationBuilderNew";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
@@ -146,7 +147,7 @@ const AppRoutes = () => {
         path="/quotation-builder"
         element={
           <ProtectedRoute>
-            <QuotationBuilder />
+            <QuotationBuilderNew />
           </ProtectedRoute>
         }
       />

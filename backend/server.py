@@ -123,6 +123,56 @@ class Testimonial(BaseModel):
     rating: int
     text: str
 
+class TransportLeg(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    leg_number: int
+    transport_type: str  # flight, train, bus, cab, mini_bus, traveller
+    from_location: str
+    to_location: str
+    departure_date: str
+    departure_time: str
+    arrival_date: Optional[str] = None
+    arrival_time: Optional[str] = None
+    vehicle_details: Optional[str] = None  # Flight number, Train number, Bus operator, etc.
+    pickup_point: Optional[str] = None
+    drop_point: Optional[str] = None
+    cost: float = 0
+    notes: Optional[str] = None
+    catalog_item_id: Optional[str] = None
+
+class HotelBooking(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    hotel_name: str
+    location: str
+    check_in_date: str
+    check_out_date: str
+    room_type: str
+    number_of_rooms: int
+    stars: Optional[int] = None
+    amenities: Optional[List[str]] = None
+    cost_per_night: float = 0
+    total_nights: int = 0
+    total_cost: float = 0
+    image: Optional[str] = None
+    catalog_item_id: Optional[str] = None
+
+class VisaService(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    country: str
+    visa_type: str
+    processing_days: int
+    cost: float
+    documents_required: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+class SightseeingService(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    location: str
+    date: str
+    activities: List[str]
+    cost: float
+    notes: Optional[str] = None
+
 class QuotationData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tripTitle: str
@@ -131,9 +181,24 @@ class QuotationData(BaseModel):
     start_date: str
     end_date: str
     coverImage: str
-    summary: Summary
+    
+    # Service type flags (to determine what sections to show)
+    is_holiday_package: bool = False
+    is_mice: bool = False
+    is_hotel_booking: bool = False
+    is_sightseeing: bool = False
+    is_visa: bool = False
+    is_transport_service: bool = False
+    
+    # Data for different service types
+    summary: Optional[Summary] = None
     pricing: Pricing
-    days: List[Day]
+    days: Optional[List[Day]] = []  # For holiday packages
+    transport_legs: Optional[List[TransportLeg]] = []  # For transport services
+    hotel_bookings: Optional[List[HotelBooking]] = []  # For hotel bookings
+    visa_services: Optional[List[VisaService]] = []  # For visa services
+    sightseeing_services: Optional[List[SightseeingService]] = []  # For sightseeing
+    
     inclusions: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
 
@@ -1230,10 +1295,23 @@ async def get_quotation_pdf(quotation_id: str):
     salesPerson = await db.users.find_one({"id": salesPerson_id})
     
     quotation_data = quotation.get("detailed_quotation_data", {})
+    
+    # Detect service types from request if not explicitly set in quotation_data
+    if not quotation_data.get("is_holiday_package") and not quotation_data.get("is_transport_service"):
+        quotation_data["is_holiday_package"] = request.get("is_holiday_package_required", False)
+        quotation_data["is_mice"] = request.get("is_mice_required", False)
+        quotation_data["is_hotel_booking"] = request.get("is_hotel_booking_required", False)
+        quotation_data["is_sightseeing"] = request.get("is_sight_seeing_required", False)
+        quotation_data["is_visa"] = request.get("is_visa_required", False)
+        quotation_data["is_transport_service"] = request.get("is_transport_within_city_required", False) or request.get("is_transfer_to_destination_required", False)
+    
     quotation_data["customerName"] = client.get("name", "Valued Customer")
     quotation_data["dates"] = formatDate(request.get("start_date"), request.get("end_date"))
-    quotation_data.pop("start_date")
-    quotation_data.pop("end_date")
+    if "start_date" in quotation_data:
+        quotation_data.pop("start_date")
+    if "end_date" in quotation_data:
+        quotation_data.pop("end_date")
+    
     salesPerson = {
         "name": salesPerson.get("name", "Sales Executive"),
         "email": salesPerson.get("email", ""),
@@ -1248,8 +1326,8 @@ async def get_quotation_pdf(quotation_id: str):
         quotation_data["privacyPolicy"] = admin_settings.get("privacy_policy", "")
 
     try:
-        # Read HTML template
-        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'pdf_template.html')
+        # Use comprehensive template
+        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'comprehensive_quotation_pdf.html')
         
         with open(template_path, 'r', encoding='utf-8') as f:
             template_content = f.read()
