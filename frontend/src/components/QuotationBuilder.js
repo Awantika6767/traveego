@@ -74,7 +74,8 @@ const QuotationBuilder = () => {
       total: 0,
       perPerson: 0,
       depositDue: 0,
-      currency: 'INR'
+      currency: 'INR',
+      tcs_percentage: 2
     },
     days: [],
     inclusions: [],
@@ -201,6 +202,7 @@ const QuotationBuilder = () => {
       journey_type: 'Round-trip',
       total_cost: 0,
       cost_per_person: 0,
+      gst_percentage: 0,
       segments: [],
       notes: ''
     };
@@ -289,6 +291,7 @@ const QuotationBuilder = () => {
       cost_per_person: 0,
       number_of_people: formData.summary.travelers,
       total_cost: 0,
+      gst_percentage: 0,
       description: ''
     };
     setFormData(prev => ({
@@ -336,6 +339,7 @@ const QuotationBuilder = () => {
       total_cost: 0,
       cost_per_vehicle: 0,
       number_of_vehicles: 1,
+      gst_percentage: 10,
       driver_details: '',
       notes: ''
     };
@@ -386,7 +390,8 @@ const QuotationBuilder = () => {
       catering_included: false,
       catering_details: '',
       total_cost: 0,
-      cost_per_person: 0
+      cost_per_person: 0,
+      gst_percentage: 0
     };
     setFormData(prev => ({
       ...prev,
@@ -438,6 +443,7 @@ const QuotationBuilder = () => {
       amenities: [],
       total_cost: 0,
       cost_per_room_per_night: 0,
+      gst_percentage: 18,
       notes: ''
     };
     setFormData(prev => ({
@@ -497,6 +503,7 @@ const QuotationBuilder = () => {
       total_cost: 0,
       cost_per_person: 0,
       number_of_people: formData.summary.travelers,
+      gst_percentage: 5,
       notes: ''
     };
     setFormData(prev => ({
@@ -509,6 +516,7 @@ const QuotationBuilder = () => {
     const newPlace = {
       name: '',
       description: '',
+      image: '',
       duration: '',
       entry_fee_included: true
     };
@@ -517,6 +525,38 @@ const QuotationBuilder = () => {
       sightseeing_packages: prev.sightseeing_packages.map((pkg, idx) =>
         idx === packageIndex
           ? { ...pkg, places: [...pkg.places, newPlace] }
+          : pkg
+      )
+    }));
+  };
+
+  const updatePlaceInPackage = (packageIndex, placeIndex, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: prev.sightseeing_packages.map((pkg, pIdx) =>
+        pIdx === packageIndex
+          ? {
+              ...pkg,
+              places: pkg.places.map((place, plIdx) =>
+                plIdx === placeIndex
+                  ? { ...place, [field]: value }
+                  : place
+              )
+            }
+          : pkg
+      )
+    }));
+  };
+
+  const removePlaceFromPackage = (packageIndex, placeIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: prev.sightseeing_packages.map((pkg, pIdx) =>
+        pIdx === packageIndex
+          ? {
+              ...pkg,
+              places: pkg.places.filter((_, plIdx) => plIdx !== placeIndex)
+            }
           : pkg
       )
     }));
@@ -554,6 +594,7 @@ const QuotationBuilder = () => {
       total_passengers: formData.summary.travelers,
       total_cost: 0,
       cost_per_person: 0,
+      gst_percentage: 0,
       segments: [],
       notes: ''
     };
@@ -602,6 +643,7 @@ const QuotationBuilder = () => {
       id: uuid(),
       total_passengers: formData.summary.travelers,
       total_cost: 0,
+      gst_percentage: 0,
       segments: [],
       notes: ''
     };
@@ -1293,17 +1335,32 @@ const QuotationBuilder = () => {
                         ))}
                       </div>
 
-                      <div>
-                        <Label>Notes</Label>
-                        <Textarea
-                          value={flight.notes}
-                          onChange={(e) => {
-                            const updated = [...formData.flights];
-                            updated[flightIdx].notes = e.target.value;
-                            setFormData(prev => ({ ...prev, flights: updated }));
-                          }}
-                          rows="2"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={flight.gst_percentage || 0}
+                            onChange={(e) => {
+                              const updated = [...formData.flights];
+                              updated[flightIdx].gst_percentage = parseFloat(e.target.value);
+                              setFormData(prev => ({ ...prev, flights: updated }));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Notes</Label>
+                          <Textarea
+                            value={flight.notes}
+                            onChange={(e) => {
+                              const updated = [...formData.flights];
+                              updated[flightIdx].notes = e.target.value;
+                              setFormData(prev => ({ ...prev, flights: updated }));
+                            }}
+                            rows="2"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1401,6 +1458,15 @@ const QuotationBuilder = () => {
                             type="number"
                             value={visa.number_of_people}
                             onChange={(e) => updateVisa(visaIdx, 'number_of_people', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={visa.gst_percentage || 0}
+                            onChange={(e) => updateVisa(visaIdx, 'gst_percentage', parseFloat(e.target.value))}
                           />
                         </div>
                         <div className="col-span-3">
@@ -1539,6 +1605,15 @@ const QuotationBuilder = () => {
                             type="number"
                             value={transport.number_of_vehicles}
                             onChange={(e) => updateTransport(transportIdx, 'number_of_vehicles', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={transport.gst_percentage || 10}
+                            onChange={(e) => updateTransport(transportIdx, 'gst_percentage', parseFloat(e.target.value))}
                           />
                         </div>
                         <div className="col-span-2">
@@ -1684,6 +1759,15 @@ const QuotationBuilder = () => {
                             onChange={(e) => updateMiceEvent(eventIdx, 'cost_per_person', parseFloat(e.target.value))}
                           />
                         </div>
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={event.gst_percentage || 0}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'gst_percentage', parseFloat(e.target.value))}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1823,6 +1907,15 @@ const QuotationBuilder = () => {
                           />
                         </div>
                         <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={hotel.gst_percentage || 18}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'gst_percentage', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div>
                           <Label>Total Cost (Auto-calculated)</Label>
                           <Input
                             type="number"
@@ -1860,79 +1953,297 @@ const QuotationBuilder = () => {
                   No sightseeing packages added. Click "Add Package" to begin.
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {formData.sightseeing_packages.map((pkg, pkgIdx) => (
-                    <div key={pkg.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Package {pkgIdx + 1}</h3>
+                    <div key={pkg.id} className="border-2 border-orange-200 rounded-lg p-6 bg-orange-50/30">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-orange-700">Package {pkgIdx + 1}</h3>
                         <Button
                           onClick={() => removeSightseeingPackage(pkgIdx)}
                           variant="outline"
                           size="sm"
-                          className="text-red-500"
+                          className="text-red-500 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-2">
-                          <Label>Package Name</Label>
-                          <Input
-                            value={pkg.package_name}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'package_name', e.target.value)}
-                          />
+                      {/* Basic Package Information */}
+                      <div className="bg-white rounded-lg p-4 mb-4">
+                        <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          Basic Information
+                        </h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="col-span-2">
+                            <Label>Package Name</Label>
+                            <Input
+                              value={pkg.package_name}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'package_name', e.target.value)}
+                              placeholder="e.g., Complete Delhi Heritage Tour"
+                            />
+                          </div>
+                          <div>
+                            <Label>City</Label>
+                            <Input
+                              value={pkg.city}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'city', e.target.value)}
+                              placeholder="e.g., New Delhi"
+                            />
+                          </div>
+                          <div>
+                            <Label>Date</Label>
+                            <Input
+                              type="date"
+                              value={pkg.date}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'date', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Start Time</Label>
+                            <Input
+                              type="time"
+                              value={pkg.start_time}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'start_time', e.target.value)}
+                              placeholder="e.g., 08:00 AM"
+                            />
+                          </div>
+                          <div>
+                            <Label>End Time</Label>
+                            <Input
+                              type="time"
+                              value={pkg.end_time}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'end_time', e.target.value)}
+                              placeholder="e.g., 06:00 PM"
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Label>Duration (text)</Label>
+                            <Input
+                              value={pkg.duration}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'duration', e.target.value)}
+                              placeholder="e.g., 10 hours or Full Day"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label>City</Label>
-                          <Input
-                            value={pkg.city}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'city', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Date</Label>
-                          <Input
-                            type="date"
-                            value={pkg.date}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'date', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Duration</Label>
-                          <select
-                            value={pkg.duration}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'duration', e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg"
+                      </div>
+
+                      {/* Places to Visit */}
+                      <div className="bg-white rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                            <ActivityIcon className="w-4 h-4" />
+                            Places to Visit
+                          </h4>
+                          <Button
+                            onClick={() => addPlaceToPackage(pkgIdx)}
+                            variant="outline"
+                            size="sm"
+                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
                           >
-                            <option>Half Day</option>
-                            <option>Full Day</option>
-                            <option>Multi-Day</option>
-                          </select>
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Place
+                          </Button>
                         </div>
-                        <div>
-                          <Label>Number of People</Label>
-                          <Input
-                            type="number"
-                            value={pkg.number_of_people}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'number_of_people', parseInt(e.target.value))}
-                          />
+
+                        {pkg.places && pkg.places.length === 0 ? (
+                          <div className="text-center py-6 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                            No places added. Click "Add Place" to add sightseeing destinations.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {pkg.places && pkg.places.map((place, placeIdx) => (
+                              <div key={placeIdx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="font-medium text-sm text-gray-700">Place {placeIdx + 1}</span>
+                                  <Button
+                                    onClick={() => removePlaceFromPackage(pkgIdx, placeIdx)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:bg-red-50 h-8"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label className="text-xs">Place Name</Label>
+                                    <Input
+                                      value={place.name}
+                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'name', e.target.value)}
+                                      placeholder="e.g., Red Fort (Lal Qila)"
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Duration</Label>
+                                    <Input
+                                      value={place.duration}
+                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'duration', e.target.value)}
+                                      placeholder="e.g., 1.5 hours"
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <Label className="text-xs">Image URL</Label>
+                                    <Input
+                                      value={place.image}
+                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'image', e.target.value)}
+                                      placeholder="https://example.com/image.jpg"
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <Label className="text-xs">Description</Label>
+                                    <Textarea
+                                      value={place.description}
+                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'description', e.target.value)}
+                                      placeholder="Brief description of the place..."
+                                      rows="2"
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={place.entry_fee_included}
+                                        onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'entry_fee_included', e.target.checked)}
+                                        className="w-4 h-4 text-orange-600 rounded"
+                                      />
+                                      <span className="text-sm text-gray-700">Entry fee included</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inclusions & Services */}
+                      <div className="bg-white rounded-lg p-4 mb-4">
+                        <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <Car className="w-4 h-4" />
+                          Inclusions & Services
+                        </h4>
+                        <div className="space-y-4">
+                          {/* Transport */}
+                          <div className="border-b pb-3">
+                            <label className="flex items-center gap-2 cursor-pointer mb-2">
+                              <input
+                                type="checkbox"
+                                checked={pkg.transport_included}
+                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'transport_included', e.target.checked)}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="font-medium text-sm text-gray-700">Transport Included</span>
+                            </label>
+                            {pkg.transport_included && (
+                              <div>
+                                <Label className="text-xs">Transport Details</Label>
+                                <Input
+                                  value={pkg.transport_details}
+                                  onChange={(e) => updateSightseeingPackage(pkgIdx, 'transport_details', e.target.value)}
+                                  placeholder="e.g., Air-conditioned sedan (Toyota Etios / Similar) with experienced driver"
+                                  className="h-9"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Guide */}
+                          <div className="border-b pb-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={pkg.guide_included}
+                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'guide_included', e.target.checked)}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="font-medium text-sm text-gray-700">Guide Included</span>
+                            </label>
+                          </div>
+
+                          {/* Meals */}
+                          <div>
+                            <label className="flex items-center gap-2 cursor-pointer mb-2">
+                              <input
+                                type="checkbox"
+                                checked={pkg.meal_included}
+                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'meal_included', e.target.checked)}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="font-medium text-sm text-gray-700">Meal Included</span>
+                            </label>
+                            {pkg.meal_included && (
+                              <div>
+                                <Label className="text-xs">Meal Details</Label>
+                                <Input
+                                  value={pkg.meal_details}
+                                  onChange={(e) => updateSightseeingPackage(pkgIdx, 'meal_details', e.target.value)}
+                                  placeholder="e.g., Lunch at a popular local restaurant (Vegetarian and Non-vegetarian options)"
+                                  className="h-9"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <Label>Cost Per Person</Label>
-                          <Input
-                            type="number"
-                            value={pkg.cost_per_person}
-                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'cost_per_person', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label>Total Cost (Auto-calculated)</Label>
-                          <Input
-                            type="number"
-                            value={pkg.total_cost}
-                            disabled
-                          />
+                      </div>
+
+                      {/* Pricing & Notes */}
+                      <div className="bg-white rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          Pricing & Notes
+                        </h4>
+                        <div className="grid grid-cols-4 gap-4">
+                          <div>
+                            <Label>Number of People</Label>
+                            <Input
+                              type="number"
+                              value={pkg.number_of_people}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'number_of_people', parseInt(e.target.value))}
+                              className="h-9"
+                            />
+                          </div>
+                          <div>
+                            <Label>Cost Per Person</Label>
+                            <Input
+                              type="number"
+                              value={pkg.cost_per_person}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'cost_per_person', parseFloat(e.target.value))}
+                              className="h-9"
+                            />
+                          </div>
+                          <div>
+                            <Label>GST %</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={pkg.gst_percentage || 5}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'gst_percentage', parseFloat(e.target.value))}
+                              className="h-9"
+                            />
+                          </div>
+                          <div>
+                            <Label>Total Cost (Auto-calculated)</Label>
+                            <Input
+                              type="number"
+                              value={pkg.total_cost}
+                              disabled
+                              className="h-9 bg-gray-100"
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            <Label>Notes</Label>
+                            <Textarea
+                              value={pkg.notes}
+                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'notes', e.target.value)}
+                              placeholder="e.g., Comfortable walking shoes recommended. Friday is closed for Jama Masjid."
+                              rows="2"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1999,6 +2310,19 @@ const QuotationBuilder = () => {
                             onChange={(e) => {
                               const updated = [...formData.trains];
                               updated[trainIdx].total_passengers = parseInt(e.target.value);
+                              setFormData(prev => ({ ...prev, trains: updated }));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={train.gst_percentage || 0}
+                            onChange={(e) => {
+                              const updated = [...formData.trains];
+                              updated[trainIdx].gst_percentage = parseFloat(e.target.value);
                               setFormData(prev => ({ ...prev, trains: updated }));
                             }}
                           />
@@ -2152,6 +2476,19 @@ const QuotationBuilder = () => {
                             onChange={(e) => {
                               const updated = [...formData.buses];
                               updated[busIdx].total_passengers = parseInt(e.target.value);
+                              setFormData(prev => ({ ...prev, buses: updated }));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={bus.gst_percentage || 0}
+                            onChange={(e) => {
+                              const updated = [...formData.buses];
+                              updated[busIdx].gst_percentage = parseFloat(e.target.value);
                               setFormData(prev => ({ ...prev, buses: updated }));
                             }}
                           />
@@ -2528,6 +2865,16 @@ const QuotationBuilder = () => {
                   type="number"
                   value={formData.pricing.discount}
                   onChange={(e) => handleInputChange('pricing', 'discount', parseFloat(e.target.value))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tcs_percentage">TCS %</Label>
+                <Input
+                  id="tcs_percentage"
+                  type="number"
+                  step="0.01"
+                  value={formData.pricing.tcs_percentage || 2}
+                  onChange={(e) => handleInputChange('pricing', 'tcs_percentage', parseFloat(e.target.value))}
                 />
               </div>
               <div>
