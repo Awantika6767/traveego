@@ -10,7 +10,8 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import {
   ArrowLeft, Plus, Trash2, Save, Upload, Star, Calendar,
-  Users, DollarSign, MapPin, Clock, Hotel, Plane, Activity as ActivityIcon, FileText
+  Users, DollarSign, MapPin, Clock, Hotel, Plane, Activity as ActivityIcon, FileText,
+  Bus, Train, Car, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuid } from 'uuid';
@@ -23,7 +24,6 @@ const QuotationBuilder = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [adminSettings, setAdminSettings] = useState(null);
   const [catalog, setCatalog] = useState([]);
   const [hotels, setHotels] = useState([]);
@@ -31,17 +31,28 @@ const QuotationBuilder = () => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
-  const [showTnc, setShowTnc] = useState(false);
-  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const [showTestimonials, setShowTestimonials] = useState(false);
 
   const [detailedTerms, setDetailedTerms] = useState('');
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [testimonials, setTestimonials] = useState([]);
 
   const [expiry_date, setExpiryDate] = useState('');
+  const [costBreakup, setCostBreakup] = useState([]);
 
-  const [costBreakup, setCostBreakup] = useState([])
+  // Category selection state - pre-populated from request
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  
+  const availableCategories = [
+    { value: 'Holiday', label: 'Holiday Package', icon: Calendar, requestKey: 'is_holiday_package_required' },
+    { value: 'Visa', label: 'Visa', icon: FileText, requestKey: 'is_visa_required' },
+    { value: 'Hotel', label: 'Hotel', icon: Hotel, requestKey: 'is_hotel_booking_required' },
+    { value: 'MICE', label: 'MICE Events', icon: Building2, requestKey: 'is_mice_required' },
+    { value: 'Sightseeing', label: 'Sightseeing', icon: ActivityIcon, requestKey: 'is_sight_seeing_required' },
+    { value: 'Transport', label: 'Transport within City', icon: Car, requestKey: 'is_transport_within_city_required' },
+    { value: 'Flight', label: 'Flight', icon: Plane, requestKey: 'is_transfer_to_destination_required', subType: 'flight' },
+    { value: 'Train', label: 'Train', icon: Train, requestKey: 'is_transfer_to_destination_required', subType: 'train' },
+    { value: 'Bus', label: 'Bus', icon: Bus, requestKey: 'is_transfer_to_destination_required', subType: 'bus' }
+  ];
 
   const [formData, setFormData] = useState({
     tripTitle: '',
@@ -67,7 +78,16 @@ const QuotationBuilder = () => {
     },
     days: [],
     inclusions: [],
-    exclusions: []
+    exclusions: [],
+    // Category-specific fields
+    flights: [],
+    visas: [],
+    transports_within_city: [],
+    mice_events: [],
+    standalone_hotels: [],
+    sightseeing_packages: [],
+    trains: [],
+    buses: []
   });
 
   const [newHighlight, setNewHighlight] = useState('');
@@ -83,7 +103,6 @@ const QuotationBuilder = () => {
       if (!request) {
         navigate('/dashboard');
       }
-      console.log('Loading quotation builder for request:', request);
       setLoading(true);
 
       // Load admin settings
@@ -111,11 +130,29 @@ const QuotationBuilder = () => {
       // From request data
       if (request) {
         initialData.city = request.destination || '';
-        initialData.summary.travelers = request.num_travelers || 1;
+        initialData.summary.travelers = request.people_count || 1;
         initialData.bookingRef = `REF-${request.id?.substring(0, 8).toUpperCase()}`;
         initialData.tripTitle = request.title || '';
         initialData.start_date = request.start_date || '';
         initialData.end_date = request.end_date || '';
+
+        // Pre-populate selected categories from request
+        const preSelectedCategories = [];
+        
+        if (request.is_visa_required) preSelectedCategories.push('Visa');
+        if (request.is_hotel_booking_required) preSelectedCategories.push('Hotel');
+        if (request.is_mice_required) preSelectedCategories.push('MICE');
+        if (request.is_sight_seeing_required) preSelectedCategories.push('Sightseeing');
+        if (request.is_transport_within_city_required) preSelectedCategories.push('Transport');
+        
+        // For transport to destination, check type_of_travel array
+        if (request.is_transfer_to_destination_required && request.type_of_travel) {
+          if (request.type_of_travel.includes('flight')) preSelectedCategories.push('Flight');
+          if (request.type_of_travel.includes('train')) preSelectedCategories.push('Train');
+          if (request.type_of_travel.includes('bus')) preSelectedCategories.push('Bus');
+        }
+        
+        setSelectedCategories(preSelectedCategories);
       }
 
       setFormData(initialData);
@@ -130,24 +167,13 @@ const QuotationBuilder = () => {
 
   const handleInputChange = (section, field, value) => {
     if (section) {
-      if(section === 'pricing' && field === 'subtotal') {
-        setFormData(prev => ({
-          ...prev,
-          [section]: {
-            ...prev[section],
-            [field]: value,
-            taxes: value * 0.18,
-          }
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          [section]: {
-            ...prev[section],
-            [field]: value
-          }
-        }));
-      }
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -156,6 +182,465 @@ const QuotationBuilder = () => {
     }
   };
 
+  const toggleCategory = (category) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(category)) {
+        return prev.filter(c => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  };
+
+  // Flight management
+  const addFlight = () => {
+    const newFlight = {
+      id: uuid(),
+      booking_reference: '',
+      total_passengers: formData.summary.travelers,
+      journey_type: 'Round-trip',
+      total_cost: 0,
+      cost_per_person: 0,
+      segments: [],
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      flights: [...prev.flights, newFlight]
+    }));
+  };
+
+  const addFlightSegment = (flightIndex) => {
+    const newSegment = {
+      id: uuid(),
+      flight_number: '',
+      airline: '',
+      airline_logo: '',
+      departure_airport: '',
+      departure_city: '',
+      departure_time: '',
+      departure_date: '',
+      arrival_airport: '',
+      arrival_city: '',
+      arrival_time: '',
+      arrival_date: '',
+      duration: '',
+      cabin_class: 'Economy',
+      baggage_checkin: '15 KG',
+      baggage_cabin: '7 KG'
+    };
+    setFormData(prev => ({
+      ...prev,
+      flights: prev.flights.map((flight, idx) =>
+        idx === flightIndex
+          ? { ...flight, segments: [...flight.segments, newSegment] }
+          : flight
+      )
+    }));
+  };
+
+  const updateFlightSegment = (flightIndex, segmentIndex, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      flights: prev.flights.map((flight, fIdx) =>
+        fIdx === flightIndex
+          ? {
+              ...flight,
+              segments: flight.segments.map((segment, sIdx) =>
+                sIdx === segmentIndex
+                  ? { ...segment, [field]: value }
+                  : segment
+              )
+            }
+          : flight
+      )
+    }));
+  };
+
+  const removeFlightSegment = (flightIndex, segmentIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      flights: prev.flights.map((flight, fIdx) =>
+        fIdx === flightIndex
+          ? {
+              ...flight,
+              segments: flight.segments.filter((_, sIdx) => sIdx !== segmentIndex)
+            }
+          : flight
+      )
+    }));
+  };
+
+  const removeFlight = (flightIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      flights: prev.flights.filter((_, idx) => idx !== flightIndex)
+    }));
+  };
+
+  // Visa management
+  const addVisa = () => {
+    const newVisa = {
+      id: uuid(),
+      name: '',
+      visa_type: 'Tourist',
+      destination_country: '',
+      processing_time_days: 5,
+      cost_per_person: 0,
+      number_of_people: formData.summary.travelers,
+      total_cost: 0,
+      description: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      visas: [...prev.visas, newVisa]
+    }));
+  };
+
+  const updateVisa = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      visas: prev.visas.map((visa, idx) => {
+        if (idx === index) {
+          const updated = { ...visa, [field]: value };
+          // Auto-calculate total_cost
+          if (field === 'cost_per_person' || field === 'number_of_people') {
+            updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          }
+          return updated;
+        }
+        return visa;
+      })
+    }));
+  };
+
+  const removeVisa = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      visas: prev.visas.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  // Transport management
+  const addTransport = () => {
+    const newTransport = {
+      id: uuid(),
+      vehicle_type: 'Sedan',
+      vehicle_name: '',
+      capacity: 4,
+      pickup_location: '',
+      drop_location: '',
+      pickup_date: '',
+      pickup_time: '',
+      duration: '',
+      total_cost: 0,
+      cost_per_vehicle: 0,
+      number_of_vehicles: 1,
+      driver_details: '',
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      transports_within_city: [...prev.transports_within_city, newTransport]
+    }));
+  };
+
+  const updateTransport = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      transports_within_city: prev.transports_within_city.map((transport, idx) => {
+        if (idx === index) {
+          const updated = { ...transport, [field]: value };
+          // Auto-calculate total_cost
+          if (field === 'cost_per_vehicle' || field === 'number_of_vehicles') {
+            updated.total_cost = updated.cost_per_vehicle * updated.number_of_vehicles;
+          }
+          return updated;
+        }
+        return transport;
+      })
+    }));
+  };
+
+  const removeTransport = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      transports_within_city: prev.transports_within_city.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  // MICE Events management
+  const addMiceEvent = () => {
+    const newEvent = {
+      id: uuid(),
+      event_type: 'Meeting',
+      event_name: '',
+      venue_name: '',
+      venue_address: '',
+      capacity: 0,
+      number_of_attendees: formData.summary.travelers,
+      event_date: '',
+      event_time: '',
+      duration: '',
+      equipment_provided: [],
+      catering_included: false,
+      catering_details: '',
+      total_cost: 0,
+      cost_per_person: 0
+    };
+    setFormData(prev => ({
+      ...prev,
+      mice_events: [...prev.mice_events, newEvent]
+    }));
+  };
+
+  const updateMiceEvent = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      mice_events: prev.mice_events.map((event, idx) => {
+        if (idx === index) {
+          const updated = { ...event, [field]: value };
+          // Auto-calculate total_cost
+          if (field === 'cost_per_person' || field === 'number_of_attendees') {
+            updated.total_cost = updated.cost_per_person * updated.number_of_attendees;
+          }
+          return updated;
+        }
+        return event;
+      })
+    }));
+  };
+
+  const removeMiceEvent = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      mice_events: prev.mice_events.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  // Standalone Hotels management
+  const addStandaloneHotel = () => {
+    const newHotel = {
+      id: uuid(),
+      name: '',
+      stars: 3,
+      image: '',
+      address: '',
+      city: formData.city,
+      check_in_date: '',
+      check_out_date: '',
+      number_of_nights: 1,
+      room_type: 'Standard',
+      number_of_rooms: 1,
+      guests_per_room: 2,
+      meal_plan: 'EP (Room Only)',
+      url: '',
+      amenities: [],
+      total_cost: 0,
+      cost_per_room_per_night: 0,
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      standalone_hotels: [...prev.standalone_hotels, newHotel]
+    }));
+  };
+
+  const updateStandaloneHotel = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      standalone_hotels: prev.standalone_hotels.map((hotel, idx) => {
+        if (idx === index) {
+          const updated = { ...hotel, [field]: value };
+          // Auto-calculate total_cost
+          if (field === 'cost_per_room_per_night' || field === 'number_of_rooms' || field === 'number_of_nights') {
+            updated.total_cost = updated.cost_per_room_per_night * updated.number_of_rooms * updated.number_of_nights;
+          }
+          // Auto-calculate nights if dates change
+          if (field === 'check_in_date' || field === 'check_out_date') {
+            if (updated.check_in_date && updated.check_out_date) {
+              const checkIn = new Date(updated.check_in_date);
+              const checkOut = new Date(updated.check_out_date);
+              updated.number_of_nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+            }
+          }
+          return updated;
+        }
+        return hotel;
+      })
+    }));
+  };
+
+  const removeStandaloneHotel = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      standalone_hotels: prev.standalone_hotels.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  // Sightseeing Packages management
+  const addSightseeingPackage = () => {
+    const newPackage = {
+      id: uuid(),
+      package_name: '',
+      city: formData.city,
+      date: '',
+      start_time: '',
+      end_time: '',
+      duration: 'Full Day',
+      places: [],
+      transport_included: true,
+      transport_details: '',
+      guide_included: true,
+      meal_included: false,
+      meal_details: '',
+      total_cost: 0,
+      cost_per_person: 0,
+      number_of_people: formData.summary.travelers,
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: [...prev.sightseeing_packages, newPackage]
+    }));
+  };
+
+  const addPlaceToPackage = (packageIndex) => {
+    const newPlace = {
+      name: '',
+      description: '',
+      duration: '',
+      entry_fee_included: true
+    };
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: prev.sightseeing_packages.map((pkg, idx) =>
+        idx === packageIndex
+          ? { ...pkg, places: [...pkg.places, newPlace] }
+          : pkg
+      )
+    }));
+  };
+
+  const updateSightseeingPackage = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: prev.sightseeing_packages.map((pkg, idx) => {
+        if (idx === index) {
+          const updated = { ...pkg, [field]: value };
+          // Auto-calculate total_cost
+          if (field === 'cost_per_person' || field === 'number_of_people') {
+            updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          }
+          return updated;
+        }
+        return pkg;
+      })
+    }));
+  };
+
+  const removeSightseeingPackage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      sightseeing_packages: prev.sightseeing_packages.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  // Train management
+  const addTrain = () => {
+    const newTrain = {
+      id: uuid(),
+      pnr: '',
+      total_passengers: formData.summary.travelers,
+      total_cost: 0,
+      cost_per_person: 0,
+      segments: [],
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      trains: [...prev.trains, newTrain]
+    }));
+  };
+
+  const addTrainSegment = (trainIndex) => {
+    const newSegment = {
+      train_number: '',
+      train_name: '',
+      departure_station: '',
+      departure_city: '',
+      departure_time: '',
+      departure_date: '',
+      arrival_station: '',
+      arrival_city: '',
+      arrival_time: '',
+      arrival_date: '',
+      duration: '',
+      class_type: 'AC 3 Tier',
+      seat_numbers: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      trains: prev.trains.map((train, idx) =>
+        idx === trainIndex
+          ? { ...train, segments: [...train.segments, newSegment] }
+          : train
+      )
+    }));
+  };
+
+  const removeTrain = (trainIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      trains: prev.trains.filter((_, idx) => idx !== trainIndex)
+    }));
+  };
+
+  // Bus management
+  const addBus = () => {
+    const newBus = {
+      id: uuid(),
+      total_passengers: formData.summary.travelers,
+      total_cost: 0,
+      segments: [],
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      buses: [...prev.buses, newBus]
+    }));
+  };
+
+  const addBusSegment = (busIndex) => {
+    const newSegment = {
+      bus_operator: '',
+      bus_type: 'AC Sleeper',
+      departure_location: '',
+      departure_time: '',
+      departure_date: '',
+      duration: '',
+      arrival_location: '',
+      arrival_time: '',
+      arrival_date: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      buses: prev.buses.map((bus, idx) =>
+        idx === busIndex
+          ? { ...bus, segments: [...bus.segments, newSegment] }
+          : bus
+      )
+    }));
+  };
+
+  const removeBus = (busIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      buses: prev.buses.filter((_, idx) => idx !== busIndex)
+    }));
+  };
+
+  // Highlights
   const addHighlight = () => {
     if (newHighlight.trim()) {
       setFormData(prev => ({
@@ -179,6 +664,7 @@ const QuotationBuilder = () => {
     }));
   };
 
+  // Inclusions/Exclusions
   const addInclusion = () => {
     if (newInclusion.trim()) {
       setFormData(prev => ({
@@ -213,6 +699,7 @@ const QuotationBuilder = () => {
     }));
   };
 
+  // Days management
   const generateDays = (dayCount) => {
     const days = Array.from({ length: dayCount }, (_, idx) => ({
       dayNumber: idx + 1,
@@ -242,29 +729,14 @@ const QuotationBuilder = () => {
 
   const updateDay = (index, field, value) => {
     if (field === 'hotel') {
-
-      setCostBreakup(prev => prev.filter(item => item.id !== formData.days[index].hotel.id));
-
-      setFormData(prev => ({
-        ...prev,
-        days: prev.days.map((day, i) =>
-          i === index ? {
-            ...day, meals: {
-              breakfast: day.meals.breakfast === "At Hotel" ? "" : day.meals.breakfast,
-              lunch: day.meals.lunch === "At Hotel" ? "" : day.meals.lunch,
-              dinner: day.meals.dinner === "At Hotel" ? "" : day.meals.dinner
-            }, [field]: value
-          } : day
-        ),
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        days: prev.days.map((day, i) =>
-          i === index ? { ...day, [field]: value } : day
-        ),
-      }));
+      setCostBreakup(prev => prev.filter(item => item.id !== formData.days[index].hotel?.id));
     }
+    setFormData(prev => ({
+      ...prev,
+      days: prev.days.map((day, i) =>
+        i === index ? { ...day, [field]: value } : day
+      )
+    }));
   };
 
   const addActivityToDay = (dayIndex, activity) => {
@@ -307,7 +779,7 @@ const QuotationBuilder = () => {
       date: formData.days[dayIndex].date,
       quantity: 1,
       unit_cost: catalogItem.default_price || 0
-    }
+    };
     setCostBreakup(prev => [...prev, activityCostBreakup]);
     addActivityToDay(dayIndex, activity);
   };
@@ -338,168 +810,64 @@ const QuotationBuilder = () => {
     }));
   };
 
-  const calculatePricing = () => {
-    // Auto-calculate pricing based on days and activities
-    // This is a simple calculation - can be enhanced
-    const subtotal = formData.days.reduce((sum, day) => {
-      return sum + (day.activities.length * 1000); // Simple calculation
-    }, 0);
-
-    const taxes = subtotal * 0.18; // 18% GST
-    const total = subtotal + taxes - formData.pricing.discount;
-    const perPerson = formData.summary.travelers > 0 ? total / formData.summary.travelers : total;
-    const depositDue = total * 0.3; // 30% advance
-
-    setFormData(prev => ({
-      ...prev,
-      pricing: {
-        ...prev.pricing,
-        subtotal,
-        taxes,
-        total,
-        perPerson,
-        depositDue
-      }
-    }));
-  };
-
   const validateQuotation = () => {
-  // --- Basic Trip Info ---
-  if (!formData.tripTitle?.trim()) {
-    toast.error('Trip title is required');
-    return false;
-  }
-
-  if (!formData.city?.trim()) {
-    toast.error('Destination is required');
-    return false;
-  }
-
-  if (!formData.start_date || !formData.end_date) {
-    toast.error('Start and end dates are required');
-    return false;
-  }
-
-  if (new Date(formData.start_date) > new Date(formData.end_date)) {
-    toast.error('End date cannot be before start date');
-    return false;
-  }
-
-  if (formData.summary.travelers < 1) {
-    toast.error('At least 1 traveler is required');
-    return false;
-  }
-
-  // --- Days Validation ---
-  if (!formData.days.length) {
-    toast.error('Please add at least one day to the itinerary');
-    return false;
-  }
-
-  for (let i = 0; i < formData.days.length; i++) {
-    const day = formData.days[i];
-
-    if (!day.location?.trim()) {
-      toast.error(`Location is required for Day ${day.dayNumber}`);
+    if (!formData.tripTitle?.trim()) {
+      toast.error('Trip title is required');
       return false;
     }
 
-    // Meals validation
-    ['breakfast', 'lunch', 'dinner'].forEach(meal => {
-      if (day.meals[meal] === 'At Hotel' && !day.hotel) {
-        toast.error(`Hotel required for "${meal}" on Day ${day.dayNumber}`);
-        throw new Error('Validation failed');
-      }
-    });
-
-    // Activities
-    for (let j = 0; j < day.activities.length; j++) {
-      const act = day.activities[j];
-
-      if (!act.time || !act.title?.trim() || !act.meetingPoint?.trim()) {
-        toast.error(
-          `Incomplete activity details on Day ${day.dayNumber}`
-        );
-        return false;
-      }
-    }
-  }
-
-  // --- Cost Breakup Validation ---
-  for (const item of costBreakup) {
-    if (!item.name || !item.date) {
-      toast.error('Invalid cost breakup item detected');
+    if (!formData.city?.trim()) {
+      toast.error('Destination is required');
       return false;
     }
 
-    if (item.quantity <= 0) {
-      toast.error(`Quantity must be > 0 for ${item.name}`);
+    if (!formData.start_date || !formData.end_date) {
+      toast.error('Start and end dates are required');
       return false;
     }
 
-    if (item.unit_cost < 0) {
-      toast.error(`Unit cost cannot be negative for ${item.name}`);
+    if (new Date(formData.start_date) > new Date(formData.end_date)) {
+      toast.error('End date cannot be before start date');
       return false;
     }
-  }
 
-  // --- Pricing Validation ---
-  const { subtotal, taxes, discount, total, perPerson } = formData.pricing;
+    if (formData.summary.travelers < 1) {
+      toast.error('At least 1 traveler is required');
+      return false;
+    }
 
-  if (subtotal < 0 || taxes < 0 || discount < 0) {
-    toast.error('Pricing values cannot be negative');
-    return false;
-  }
+    if (selectedCategories.length === 0) {
+      toast.error('Please select at least one category');
+      return false;
+    }
 
-  if (discount > subtotal + taxes) {
-    toast.error('Discount cannot exceed total amount');
-    return false;
-  }
-
-  if (total < 0 || perPerson <= 0) {
-    toast.error('Invalid pricing calculation');
-    return false;
-  }
-
-  return true;
-};
-
+    return true;
+  };
 
   const handleSave = async (status='DRAFT', expiry_date) => {
     try {
+      if (!validateQuotation()) return;
 
-      // 5 days 4 nights
       const dayCount = (new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24);
       const durationText = `${dayCount + 1} Days ${dayCount} Nights`;
       const requestId = request?.id;
       
       const detailed_quotation_data = JSON.parse(JSON.stringify(formData));
       detailed_quotation_data.summary.duration = durationText;
+      detailed_quotation_data.selected_categories = selectedCategories;
 
-      //add all the validations 
-       if (!validateQuotation()) return;
       const payload = {
         request_id: requestId,
         status: status || 'DRAFT',
         detailed_quotation_data,
         expiry_date: expiry_date || null,
         cost_breakup: costBreakup
-      }
+      };
 
       setSaving(true);
-
-      await api.createQuotation(payload)
+      await api.createQuotation(payload);
       toast.success('Quotation saved successfully!');
       navigate(`/requests/${requestId}`);
-
-      // Save quotation
-      // if (quotation?.id) {
-      //   await api.updateQuotation(quotation.id, quotationData);
-      //   toast.success('Quotation updated successfully!');
-      // } else {
-      //   await api.createQuotation(quotationData);
-      //   toast.success('Quotation created successfully!');
-      // }
 
     } catch (error) {
       console.error('Error saving quotation:', error);
@@ -509,57 +877,14 @@ const QuotationBuilder = () => {
     }
   };
 
-  const handleGeneratePDF = async () => {
-    try {
-      setGeneratingPDF(true);
-
-      // Validation
-      if (!formData.tripTitle) {
-        toast.error('Please fill in trip title');
-        return;
-      }
-
-      if (formData.days.length === 0) {
-        toast.error('Please add at least one day to the itinerary');
-        return;
-      }
-
-      // Calculate pricing before generating PDF
-      calculatePricing();
-
-      // Generate PDF
-      const response = await api.generateDetailedPDF(formData);
-
-      // Create blob and download
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `quotation_${formData.bookingRef}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('PDF generated successfully!');
-
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF');
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
-
-
   useEffect(() => {
-    if (formData.start_date && formData.end_date) {
+    if (formData.start_date && formData.end_date && request?.is_holiday_package_required) {
       setFormData(prev => ({
         ...prev,
         days: generateDays((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24) + 1)
-      }))
+      }));
     }
-  }, [formData.start_date, formData.end_date]);
+  }, [formData.start_date, formData.end_date, request?.is_holiday_package_required]);
 
   useEffect(() => {
     setFormData(prev => ({
@@ -573,10 +898,8 @@ const QuotationBuilder = () => {
         depositDue: (costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 1.18 - prev.pricing.discount) * 0.3,
         currency: prev.pricing.currency
       }
-
     }));
   }, [costBreakup]);
-
 
   if (loading) {
     return (
@@ -604,16 +927,16 @@ const QuotationBuilder = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Quotation Builder</h1>
-            <p className="text-gray-600">Create detailed quotation with itinerary</p>
+            <p className="text-gray-600">Create detailed quotation with category-specific services</p>
           </div>
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={()=> handleSave()}
+            onClick={() => handleSave()}
             className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-            >
+          >
             <Upload className="w-4 h-4" />
-            {quotation_id ? "Update Draft" : "Save Draft"}
+            Save Draft
           </Button>
 
           <Input
@@ -624,7 +947,7 @@ const QuotationBuilder = () => {
             onChange={(e) => setExpiryDate(e.target.value)}
           />
           <Button
-            onClick={()=>{handleSave('SENT', expiry_date)}}
+            onClick={() => handleSave('SENT', expiry_date)}
             disabled={saving || !expiry_date}
             className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2"
           >
@@ -693,24 +1016,20 @@ const QuotationBuilder = () => {
                 />
               </div>
               <div className="w-1/3 ps-1 pt-4">
-                <div>
-                  <Label htmlFor="travelers">Number of Travelers</Label>
-                  <Input
-                    id="travelers"
-                    type="number"
-                    min="1"
-                    value={formData.summary.travelers}
-                    onChange={(e) => handleInputChange('summary', 'travelers', parseInt(e.target.value))}
-                  />
-                </div>
+                <Label htmlFor="travelers">Number of Travelers</Label>
+                <Input
+                  id="travelers"
+                  type="number"
+                  min="1"
+                  value={formData.summary.travelers}
+                  onChange={(e) => handleInputChange('summary', 'travelers', parseInt(e.target.value))}
+                />
               </div>
               <div className="w-1/2 pe-1 pt-4">
                 <Label htmlFor="bookingRef">Booking Reference</Label>
                 <Input
                   id="bookingRef"
                   value={formData.bookingRef}
-                  onChange={(e) => handleInputChange(null, 'bookingRef', e.target.value)}
-                  placeholder="e.g., REF-12345"
                   disabled={true}
                 />
               </div>
@@ -727,6 +1046,45 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
+        {/* Category Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Categories</CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              Pre-selected based on customer request. You can modify the selection.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4">
+              {availableCategories.map((category) => {
+                const Icon = category.icon;
+                const isSelected = selectedCategories.includes(category.value);
+                return (
+                  <div
+                    key={category.value}
+                    onClick={() => toggleCategory(category.value)}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-orange-600 bg-orange-50'
+                        : 'border-gray-200 hover:border-orange-300'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <Icon className={`w-8 h-8 ${isSelected ? 'text-orange-600' : 'text-gray-400'}`} />
+                      <span className={`font-medium text-center ${isSelected ? 'text-orange-600' : 'text-gray-700'}`}>
+                        {category.label}
+                      </span>
+                      {isSelected && (
+                        <Badge className="bg-orange-600">Selected</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Summary */}
         <Card>
           <CardHeader>
@@ -737,8 +1095,6 @@ const QuotationBuilder = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-
-
               <div>
                 <Label>Highlights</Label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -770,217 +1126,1341 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
+        {/* CATEGORY-SPECIFIC SECTIONS */}
 
-        {/* Day-by-Day Itinerary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Day-by-Day Itinerary
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {formData.days.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                Select start and end dates to auto-generate itinerary days.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {formData.days.map((day, dayIndex) => (
-                  <div key={dayIndex} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold">Day {day.dayNumber}</h3>
-                      <Button
-                        onClick={() => removeDay(dayIndex)}
-                        variant="outline"
-                        size="sm"
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <Label>Date</Label>
-                        <Input
-                          type="date"
-                          value={day.date}
-                          disabled={true}
-                        />
-                      </div>
-                      <div>
-                        <Label>Location</Label>
-                        <Input
-                          value={day.location}
-                          onChange={(e) => updateDay(dayIndex, 'location', e.target.value)}
-                          placeholder="e.g., Srinagar"
-                        />
-                      </div>
-                      <div>
-                        <Label>Hotel &#40;If Needed&#41;</Label>
-                        <br />
-                        {!day.hotel && <Button
-                          onClick={() => {
-                            setSelectedDay(dayIndex);
-                            setShowHotelModal(true);
-                          }}
+        {/* Flight Section */}
+        {selectedCategories.includes('Flight') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Plane className="w-5 h-5" />
+                  Flight Details
+                </div>
+                <Button onClick={addFlight} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Flight
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.flights.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No flights added. Click "Add Flight" to begin.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {formData.flights.map((flight, flightIdx) => (
+                    <div key={flight.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Flight {flightIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeFlight(flightIdx)}
                           variant="outline"
-                          className="w-full flex items-center justify-center"
+                          size="sm"
+                          className="text-red-500"
                         >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Select Hotel
-                        </Button>}
-                        {day.hotel && (
-                          <div className="w-full h-9 border rounded-md px-3 flex items-center justify-between">
-                            <div className='text-sm'>
-                              <span className="truncate">
-                                {day.hotel.name}
-                                <span className="text-yellow-500 ml-1">
-                                  {'★'.repeat(day.hotel.stars)}
-                                </span>
-                              </span>
-                            </div>
-
-
-                            <Button
-                              onClick={() => updateDay(dayIndex, 'hotel', null)}
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                    </div>
 
-                    <div className="mb-4">
-                      <Label className="mb-2 block">Meals</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <label className="font-medium text-xs text-gray-500">Breakfast</label>
-                        <label className="font-medium text-xs text-gray-500">Lunch</label>
-                        <label className="font-medium text-xs text-gray-500">Dinner</label>
-                        <select
-                          value={day.meals.breakfast}
-                          onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, breakfast: e.target.value })}
-                          className="px-3 py-2 border rounded-lg bg-white"
-                        >
-                          <option>Not Included</option>
-                          <option>Included</option>
-                          <option disabled={!day.hotel}>At Hotel</option>
-                        </select>
-                        <select
-                          value={day.meals.lunch}
-                          onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, lunch: e.target.value })}
-                          className="px-3 py-2 border rounded-lg bg-white"
-                        >
-                          <option>Not Included</option>
-                          <option>Included</option>
-                          <option disabled={!day.hotel}>At Hotel</option>
-                        </select>
-                        <select
-                          value={day.meals.dinner}
-                          onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, dinner: e.target.value })}
-                          className="px-3 py-2 border rounded-lg bg-white"
-                        >
-                          <option>Not Included</option>
-                          <option>Included</option>
-                          <option disabled={!day.hotel}>At Hotel</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>Activities</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => {
-                              setSelectedDay(dayIndex);
-                              setShowActivityModal(true);
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <Label>Booking Reference</Label>
+                          <Input
+                            value={flight.booking_reference}
+                            onChange={(e) => {
+                              const updated = [...formData.flights];
+                              updated[flightIdx].booking_reference = e.target.value;
+                              setFormData(prev => ({ ...prev, flights: updated }));
                             }}
+                            placeholder="e.g., EK-501-2025"
+                          />
+                        </div>
+                        <div>
+                          <Label>Journey Type</Label>
+                          <select
+                            value={flight.journey_type}
+                            onChange={(e) => {
+                              const updated = [...formData.flights];
+                              updated[flightIdx].journey_type = e.target.value;
+                              setFormData(prev => ({ ...prev, flights: updated }));
+                            }}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>One-way</option>
+                            <option>Round-trip</option>
+                            <option>Multi-city</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Total Passengers</Label>
+                          <Input
+                            type="number"
+                            value={flight.total_passengers}
+                            onChange={(e) => {
+                              const updated = [...formData.flights];
+                              updated[flightIdx].total_passengers = parseInt(e.target.value);
+                              setFormData(prev => ({ ...prev, flights: updated }));
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-base font-semibold">Flight Segments</Label>
+                          <Button
+                            onClick={() => addFlightSegment(flightIdx)}
                             variant="outline"
                             size="sm"
                           >
                             <Plus className="w-4 h-4 mr-1" />
-                            Add Activity
+                            Add Segment
                           </Button>
                         </div>
-                      </div>
 
-                      {day.activities.length === 0 ? (
-                        <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
-                          No activities added
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {day.activities.map((activity, actIndex) => (
-                            <div key={actIndex} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
-                              <div className="flex-1">
-                                <div className="grid grid-cols-4 gap-2">
-                                  <Input
-                                    value={activity.time}
-                                    onChange={(e) => {
-                                      const updatedActivities = [...day.activities];
-                                      updatedActivities[actIndex].time = e.target.value;
-                                      updateDay(dayIndex, 'activities', updatedActivities);
-                                    }}
-                                    placeholder="Time"
-                                  />
-                                  <Input
-                                    value={activity.title}
-                                    onChange={(e) => {
-                                      const updatedActivities = [...day.activities];
-                                      updatedActivities[actIndex].title = e.target.value;
-                                      updateDay(dayIndex, 'activities', updatedActivities);
-                                    }}
-                                    placeholder="Activity title"
-                                  />
-                                  <Input
-                                    value={activity.meetingPoint}
-                                    onChange={(e) => {
-                                      const updatedActivities = [...day.activities];
-                                      updatedActivities[actIndex].meetingPoint = e.target.value;
-                                      updateDay(dayIndex, 'activities', updatedActivities);
-                                    }}
-                                    placeholder="location / meeting point"
-                                  />
-                                </div>
-                                <Textarea
-                                  value={activity.description}
-                                  onChange={(e) => {
-                                    const updatedActivities = [...day.activities];
-                                    updatedActivities[actIndex].description = e.target.value;
-                                    updateDay(dayIndex, 'activities', updatedActivities);
-                                  }}
-                                  placeholder="Description"
-                                  className="mt-2"
-                                  rows="2"
-                                />
-                              </div>
+                        {flight.segments.map((segment, segIdx) => (
+                          <div key={segment.id} className="bg-gray-50 p-3 rounded-lg mb-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-sm">Segment {segIdx + 1}</span>
                               <Button
-                                onClick={() => removeActivityFromDay(dayIndex, actIndex)}
-                                variant="outline"
+                                onClick={() => removeFlightSegment(flightIdx, segIdx)}
+                                variant="ghost"
                                 size="sm"
                                 className="text-red-500"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            <div className="grid grid-cols-4 gap-2">
+                              <Input
+                                placeholder="Flight Number"
+                                value={segment.flight_number}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'flight_number', e.target.value)}
+                              />
+                              <Input
+                                placeholder="Airline"
+                                value={segment.airline}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'airline', e.target.value)}
+                              />
+                              <Input
+                                placeholder="Departure City"
+                                value={segment.departure_city}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_city', e.target.value)}
+                              />
+                              <Input
+                                placeholder="Arrival City"
+                                value={segment.arrival_city}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_city', e.target.value)}
+                              />
+                              <Input
+                                type="date"
+                                placeholder="Departure Date"
+                                value={segment.departure_date}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_date', e.target.value)}
+                              />
+                              <Input
+                                type="time"
+                                placeholder="Departure Time"
+                                value={segment.departure_time}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_time', e.target.value)}
+                              />
+                              <Input
+                                type="date"
+                                placeholder="Arrival Date"
+                                value={segment.arrival_date}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_date', e.target.value)}
+                              />
+                              <Input
+                                type="time"
+                                placeholder="Arrival Time"
+                                value={segment.arrival_time}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_time', e.target.value)}
+                              />
+                              <Input
+                                placeholder="Cabin Class"
+                                value={segment.cabin_class}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'cabin_class', e.target.value)}
+                              />
+                              <Input
+                                placeholder="Duration"
+                                value={segment.duration}
+                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'duration', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <Label>Notes</Label>
+                        <Textarea
+                          value={flight.notes}
+                          onChange={(e) => {
+                            const updated = [...formData.flights];
+                            updated[flightIdx].notes = e.target.value;
+                            setFormData(prev => ({ ...prev, flights: updated }));
+                          }}
+                          rows="2"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Visa Section */}
+        {selectedCategories.includes('Visa') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Visa Details
+                </div>
+                <Button onClick={addVisa} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Visa
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.visas.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No visas added. Click "Add Visa" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.visas.map((visa, visaIdx) => (
+                    <div key={visa.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Visa {visaIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeVisa(visaIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Visa Name</Label>
+                          <Input
+                            value={visa.name}
+                            onChange={(e) => updateVisa(visaIdx, 'name', e.target.value)}
+                            placeholder="e.g., UAE Business Visa"
+                          />
+                        </div>
+                        <div>
+                          <Label>Visa Type</Label>
+                          <select
+                            value={visa.visa_type}
+                            onChange={(e) => updateVisa(visaIdx, 'visa_type', e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>Tourist</option>
+                            <option>Business</option>
+                            <option>Transit</option>
+                            <option>Student</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Destination Country</Label>
+                          <Input
+                            value={visa.destination_country}
+                            onChange={(e) => updateVisa(visaIdx, 'destination_country', e.target.value)}
+                            placeholder="e.g., United Arab Emirates"
+                          />
+                        </div>
+                        <div>
+                          <Label>Processing Time (Days)</Label>
+                          <Input
+                            type="number"
+                            value={visa.processing_time_days}
+                            onChange={(e) => updateVisa(visaIdx, 'processing_time_days', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={visa.cost_per_person}
+                            onChange={(e) => updateVisa(visaIdx, 'cost_per_person', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Number of People</Label>
+                          <Input
+                            type="number"
+                            value={visa.number_of_people}
+                            onChange={(e) => updateVisa(visaIdx, 'number_of_people', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Description</Label>
+                          <Textarea
+                            value={visa.description}
+                            onChange={(e) => updateVisa(visaIdx, 'description', e.target.value)}
+                            rows="2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Transport Section */}
+        {selectedCategories.includes('Transport') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Car className="w-5 h-5" />
+                  Transport Within City
+                </div>
+                <Button onClick={addTransport} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Transport
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.transports_within_city.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No transport added. Click "Add Transport" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.transports_within_city.map((transport, transportIdx) => (
+                    <div key={transport.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Transport {transportIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeTransport(transportIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Vehicle Type</Label>
+                          <select
+                            value={transport.vehicle_type}
+                            onChange={(e) => updateTransport(transportIdx, 'vehicle_type', e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>Sedan</option>
+                            <option>SUV</option>
+                            <option>Mini Bus</option>
+                            <option>Bus</option>
+                            <option>Tempo Traveller</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Vehicle Name</Label>
+                          <Input
+                            value={transport.vehicle_name}
+                            onChange={(e) => updateTransport(transportIdx, 'vehicle_name', e.target.value)}
+                            placeholder="e.g., Toyota Hiace"
+                          />
+                        </div>
+                        <div>
+                          <Label>Capacity</Label>
+                          <Input
+                            type="number"
+                            value={transport.capacity}
+                            onChange={(e) => updateTransport(transportIdx, 'capacity', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Pickup Location</Label>
+                          <Input
+                            value={transport.pickup_location}
+                            onChange={(e) => updateTransport(transportIdx, 'pickup_location', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Drop Location</Label>
+                          <Input
+                            value={transport.drop_location}
+                            onChange={(e) => updateTransport(transportIdx, 'drop_location', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Pickup Date</Label>
+                          <Input
+                            type="date"
+                            value={transport.pickup_date}
+                            onChange={(e) => updateTransport(transportIdx, 'pickup_date', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Pickup Time</Label>
+                          <Input
+                            type="time"
+                            value={transport.pickup_time}
+                            onChange={(e) => updateTransport(transportIdx, 'pickup_time', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Duration</Label>
+                          <Input
+                            value={transport.duration}
+                            onChange={(e) => updateTransport(transportIdx, 'duration', e.target.value)}
+                            placeholder="e.g., 2 hours"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Vehicle</Label>
+                          <Input
+                            type="number"
+                            value={transport.cost_per_vehicle}
+                            onChange={(e) => updateTransport(transportIdx, 'cost_per_vehicle', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Number of Vehicles</Label>
+                          <Input
+                            type="number"
+                            value={transport.number_of_vehicles}
+                            onChange={(e) => updateTransport(transportIdx, 'number_of_vehicles', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label>Driver Details</Label>
+                          <Input
+                            value={transport.driver_details}
+                            onChange={(e) => updateTransport(transportIdx, 'driver_details', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Notes</Label>
+                          <Textarea
+                            value={transport.notes}
+                            onChange={(e) => updateTransport(transportIdx, 'notes', e.target.value)}
+                            rows="2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* MICE Events Section */}
+        {selectedCategories.includes('MICE') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  MICE Events
+                </div>
+                <Button onClick={addMiceEvent} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Event
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.mice_events.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No MICE events added. Click "Add Event" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.mice_events.map((event, eventIdx) => (
+                    <div key={event.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Event {eventIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeMiceEvent(eventIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Event Type</Label>
+                          <select
+                            value={event.event_type}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'event_type', e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>Meeting</option>
+                            <option>Conference</option>
+                            <option>Exhibition</option>
+                            <option>Incentive</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Event Name</Label>
+                          <Input
+                            value={event.event_name}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'event_name', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Venue Name</Label>
+                          <Input
+                            value={event.venue_name}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'venue_name', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Venue Address</Label>
+                          <Input
+                            value={event.venue_address}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'venue_address', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Capacity</Label>
+                          <Input
+                            type="number"
+                            value={event.capacity}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'capacity', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Number of Attendees</Label>
+                          <Input
+                            type="number"
+                            value={event.number_of_attendees}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'number_of_attendees', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Event Date</Label>
+                          <Input
+                            type="date"
+                            value={event.event_date}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'event_date', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Event Time</Label>
+                          <Input
+                            value={event.event_time}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'event_time', e.target.value)}
+                            placeholder="e.g., 09:00 AM - 05:00 PM"
+                          />
+                        </div>
+                        <div>
+                          <Label>Duration</Label>
+                          <Input
+                            value={event.duration}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'duration', e.target.value)}
+                            placeholder="e.g., 8 hours"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={event.cost_per_person}
+                            onChange={(e) => updateMiceEvent(eventIdx, 'cost_per_person', parseFloat(e.target.value))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Standalone Hotels Section */}
+        {selectedCategories.includes('Hotel') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hotel className="w-5 h-5" />
+                  Standalone Hotels
+                </div>
+                <Button onClick={addStandaloneHotel} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Hotel
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.standalone_hotels.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No hotels added. Click "Add Hotel" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.standalone_hotels.map((hotel, hotelIdx) => (
+                    <div key={hotel.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Hotel {hotelIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeStandaloneHotel(hotelIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Hotel Name</Label>
+                          <Input
+                            value={hotel.name}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Stars</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={hotel.stars}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'stars', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>City</Label>
+                          <Input
+                            value={hotel.city}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'city', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Check-in Date</Label>
+                          <Input
+                            type="date"
+                            value={hotel.check_in_date}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'check_in_date', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Check-out Date</Label>
+                          <Input
+                            type="date"
+                            value={hotel.check_out_date}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'check_out_date', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Number of Nights</Label>
+                          <Input
+                            type="number"
+                            value={hotel.number_of_nights}
+                            disabled
+                          />
+                        </div>
+                        <div>
+                          <Label>Room Type</Label>
+                          <Input
+                            value={hotel.room_type}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'room_type', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Number of Rooms</Label>
+                          <Input
+                            type="number"
+                            value={hotel.number_of_rooms}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'number_of_rooms', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Guests Per Room</Label>
+                          <Input
+                            type="number"
+                            value={hotel.guests_per_room}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'guests_per_room', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Meal Plan</Label>
+                          <select
+                            value={hotel.meal_plan}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'meal_plan', e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>EP (Room Only)</option>
+                            <option>CP (Breakfast)</option>
+                            <option>MAP (Breakfast & Dinner)</option>
+                            <option>AP (All Meals)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Cost Per Room Per Night</Label>
+                          <Input
+                            type="number"
+                            value={hotel.cost_per_room_per_night}
+                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'cost_per_room_per_night', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={hotel.total_cost}
+                            disabled
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sightseeing Packages Section */}
+        {selectedCategories.includes('Sightseeing') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ActivityIcon className="w-5 h-5" />
+                  Sightseeing Packages
+                </div>
+                <Button onClick={addSightseeingPackage} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Package
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.sightseeing_packages.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No sightseeing packages added. Click "Add Package" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.sightseeing_packages.map((pkg, pkgIdx) => (
+                    <div key={pkg.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Package {pkgIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeSightseeingPackage(pkgIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2">
+                          <Label>Package Name</Label>
+                          <Input
+                            value={pkg.package_name}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'package_name', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>City</Label>
+                          <Input
+                            value={pkg.city}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'city', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Date</Label>
+                          <Input
+                            type="date"
+                            value={pkg.date}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'date', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Duration</Label>
+                          <select
+                            value={pkg.duration}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'duration', e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option>Half Day</option>
+                            <option>Full Day</option>
+                            <option>Multi-Day</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Number of People</Label>
+                          <Input
+                            type="number"
+                            value={pkg.number_of_people}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'number_of_people', parseInt(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={pkg.cost_per_person}
+                            onChange={(e) => updateSightseeingPackage(pkgIdx, 'cost_per_person', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={pkg.total_cost}
+                            disabled
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Train Section */}
+        {selectedCategories.includes('Train') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Train className="w-5 h-5" />
+                  Train Details
+                </div>
+                <Button onClick={addTrain} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Train
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.trains.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No trains added. Click "Add Train" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.trains.map((train, trainIdx) => (
+                    <div key={train.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Train {trainIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeTrain(trainIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <Label>PNR</Label>
+                          <Input
+                            value={train.pnr}
+                            onChange={(e) => {
+                              const updated = [...formData.trains];
+                              updated[trainIdx].pnr = e.target.value;
+                              setFormData(prev => ({ ...prev, trains: updated }));
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Passengers</Label>
+                          <Input
+                            type="number"
+                            value={train.total_passengers}
+                            onChange={(e) => {
+                              const updated = [...formData.trains];
+                              updated[trainIdx].total_passengers = parseInt(e.target.value);
+                              setFormData(prev => ({ ...prev, trains: updated }));
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-base font-semibold">Train Segments</Label>
+                          <Button
+                            onClick={() => addTrainSegment(trainIdx)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Segment
+                          </Button>
+                        </div>
+
+                        {train.segments.map((segment, segIdx) => (
+                          <div key={segIdx} className="bg-gray-50 p-3 rounded-lg mb-2">
+                            <div className="grid grid-cols-4 gap-2">
+                              <Input
+                                placeholder="Train Number"
+                                value={segment.train_number}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].train_number = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Train Name"
+                                value={segment.train_name}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].train_name = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Departure City"
+                                value={segment.departure_city}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].departure_city = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Arrival City"
+                                value={segment.arrival_city}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].arrival_city = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                type="date"
+                                placeholder="Departure Date"
+                                value={segment.departure_date}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].departure_date = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                type="time"
+                                placeholder="Departure Time"
+                                value={segment.departure_time}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].departure_time = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Class Type"
+                                value={segment.class_type}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].class_type = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Duration"
+                                value={segment.duration}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[segIdx].duration = e.target.value;
+                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bus Section */}
+        {selectedCategories.includes('Bus') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bus className="w-5 h-5" />
+                  Bus Details
+                </div>
+                <Button onClick={addBus} variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Bus
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.buses.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No buses added. Click "Add Bus" to begin.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.buses.map((bus, busIdx) => (
+                    <div key={bus.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Bus {busIdx + 1}</h3>
+                        <Button
+                          onClick={() => removeBus(busIdx)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <Label>Total Passengers</Label>
+                          <Input
+                            type="number"
+                            value={bus.total_passengers}
+                            onChange={(e) => {
+                              const updated = [...formData.buses];
+                              updated[busIdx].total_passengers = parseInt(e.target.value);
+                              setFormData(prev => ({ ...prev, buses: updated }));
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-base font-semibold">Bus Segments</Label>
+                          <Button
+                            onClick={() => addBusSegment(busIdx)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Segment
+                          </Button>
+                        </div>
+
+                        {bus.segments.map((segment, segIdx) => (
+                          <div key={segIdx} className="bg-gray-50 p-3 rounded-lg mb-2">
+                            <div className="grid grid-cols-4 gap-2">
+                              <Input
+                                placeholder="Bus Operator"
+                                value={segment.bus_operator}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].bus_operator = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Bus Type"
+                                value={segment.bus_type}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].bus_type = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Departure Location"
+                                value={segment.departure_location}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].departure_location = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Arrival Location"
+                                value={segment.arrival_location}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].arrival_location = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                type="date"
+                                placeholder="Departure Date"
+                                value={segment.departure_date}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].departure_date = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                type="time"
+                                placeholder="Departure Time"
+                                value={segment.departure_time}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].departure_time = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                              <Input
+                                placeholder="Duration"
+                                value={segment.duration}
+                                onChange={(e) => {
+                                  const updated = [...formData.buses];
+                                  updated[busIdx].segments[segIdx].duration = e.target.value;
+                                  setFormData(prev => ({ ...prev, buses: updated }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Day-by-Day Itinerary - Only for Holiday Packages */}
+        {selectedCategories.includes('Holiday') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Day-by-Day Itinerary (Holiday Package)
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.days.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  Select start and end dates to auto-generate itinerary days.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {formData.days.map((day, dayIndex) => (
+                    <div key={dayIndex} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">Day {day.dayNumber}</h3>
+                        <Button
+                          onClick={() => removeDay(dayIndex)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <Label>Date</Label>
+                          <Input
+                            type="date"
+                            value={day.date}
+                            disabled={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>Location</Label>
+                          <Input
+                            value={day.location}
+                            onChange={(e) => updateDay(dayIndex, 'location', e.target.value)}
+                            placeholder="e.g., Srinagar"
+                          />
+                        </div>
+                        <div>
+                          <Label>Hotel (If Needed)</Label>
+                          <br />
+                          {!day.hotel && <Button
+                            onClick={() => {
+                              setSelectedDay(dayIndex);
+                              setShowHotelModal(true);
+                            }}
+                            variant="outline"
+                            className="w-full flex items-center justify-center"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Select Hotel
+                          </Button>}
+                          {day.hotel && (
+                            <div className="w-full h-9 border rounded-md px-3 flex items-center justify-between">
+                              <div className='text-sm'>
+                                <span className="truncate">
+                                  {day.hotel.name}
+                                  <span className="text-yellow-500 ml-1">
+                                    {'★'.repeat(day.hotel.stars)}
+                                  </span>
+                                </span>
+                              </div>
+                              <Button
+                                onClick={() => updateDay(dayIndex, 'hotel', null)}
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <Label className="mb-2 block">Meals</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <label className="font-medium text-xs text-gray-500">Breakfast</label>
+                          <label className="font-medium text-xs text-gray-500">Lunch</label>
+                          <label className="font-medium text-xs text-gray-500">Dinner</label>
+                          <select
+                            value={day.meals.breakfast}
+                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, breakfast: e.target.value })}
+                            className="px-3 py-2 border rounded-lg bg-white"
+                          >
+                            <option>Not Included</option>
+                            <option>Included</option>
+                            <option disabled={!day.hotel}>At Hotel</option>
+                          </select>
+                          <select
+                            value={day.meals.lunch}
+                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, lunch: e.target.value })}
+                            className="px-3 py-2 border rounded-lg bg-white"
+                          >
+                            <option>Not Included</option>
+                            <option>Included</option>
+                            <option disabled={!day.hotel}>At Hotel</option>
+                          </select>
+                          <select
+                            value={day.meals.dinner}
+                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, dinner: e.target.value })}
+                            className="px-3 py-2 border rounded-lg bg-white"
+                          >
+                            <option>Not Included</option>
+                            <option>Included</option>
+                            <option disabled={!day.hotel}>At Hotel</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label>Activities</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => {
+                                setSelectedDay(dayIndex);
+                                setShowActivityModal(true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Activity
+                            </Button>
+                          </div>
+                        </div>
+
+                        {day.activities.length === 0 ? (
+                          <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
+                            No activities added
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {day.activities.map((activity, actIndex) => (
+                              <div key={actIndex} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                                <div className="flex-1">
+                                  <div className="grid grid-cols-4 gap-2">
+                                    <Input
+                                      value={activity.time}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].time = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Time"
+                                    />
+                                    <Input
+                                      value={activity.title}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].title = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="Activity title"
+                                    />
+                                    <Input
+                                      value={activity.meetingPoint}
+                                      onChange={(e) => {
+                                        const updatedActivities = [...day.activities];
+                                        updatedActivities[actIndex].meetingPoint = e.target.value;
+                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                      }}
+                                      placeholder="location / meeting point"
+                                    />
+                                  </div>
+                                  <Textarea
+                                    value={activity.description}
+                                    onChange={(e) => {
+                                      const updatedActivities = [...day.activities];
+                                      updatedActivities[actIndex].description = e.target.value;
+                                      updateDay(dayIndex, 'activities', updatedActivities);
+                                    }}
+                                    placeholder="Description"
+                                    className="mt-2"
+                                    rows="2"
+                                  />
+                                </div>
+                                <Button
+                                  onClick={() => removeActivityFromDay(dayIndex, actIndex)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-500"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pricing */}
         <Card>
@@ -991,79 +2471,56 @@ const QuotationBuilder = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-
-            <div>
-              {
-                costBreakup.length > 0 && (
-                  <div className="mb-4">
-                    <Label className="mb-2 block">Cost Breakup</Label>
-                    <div className="max-h-48 overflow-y-auto border rounded-lg">
-                      <table className="w-full table-auto">
-                        <thead className="bg-gray-100">
-                          <tr>
-                            <th className="px-4 py-2 text-left">Item</th>
-                            <th className="px-4 py-2 text-right">Date</th>
-                            <th className="px-4 py-2 text-right">Quantity</th>
-                            <th className="px-4 py-2 text-right">Unit Cost</th>
-                            <th className="px-4 py-2 text-right">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {costBreakup.map((item) => (
-                            <tr key={item.id} className="border-t">
-                              <td className="px-4 py-2">{item.name}</td>
-                              <td className="px-4 py-2 text-right">{item.date}</td>
-                              <td className="px-4 py-2 text-right">
-                                <Input
-                                  type="number"
-                                  value={item.quantity || 0}
-                                  onChange={(e) => {
-                                    const updatedCostBreakup = [...costBreakup];
-                                    updatedCostBreakup[costBreakup.indexOf(item)].quantity = parseFloat(e.target.value);
-                                    setCostBreakup(updatedCostBreakup);
-                                  }}
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-right">
-                                <Input
-                                  type="number"
-                                  value={item.unit_cost}
-                                  onChange={(e) => {
-                                    const updatedCostBreakup = [...costBreakup];
-                                    updatedCostBreakup[costBreakup.indexOf(item)].unit_cost = parseFloat(e.target.value);
-                                    setCostBreakup(updatedCostBreakup);
-                                  }}
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-right">{(item.quantity * item.unit_cost).toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )
-              }
-            </div>
+            {costBreakup.length > 0 && (
+              <div className="mb-4">
+                <Label className="mb-2 block">Cost Breakup</Label>
+                <div className="max-h-48 overflow-y-auto border rounded-lg">
+                  <table className="w-full table-auto">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Item</th>
+                        <th className="px-4 py-2 text-right">Date</th>
+                        <th className="px-4 py-2 text-right">Quantity</th>
+                        <th className="px-4 py-2 text-right">Unit Cost</th>
+                        <th className="px-4 py-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {costBreakup.map((item) => (
+                        <tr key={item.id} className="border-t">
+                          <td className="px-4 py-2">{item.name}</td>
+                          <td className="px-4 py-2 text-right">{item.date}</td>
+                          <td className="px-4 py-2 text-right">
+                            <Input
+                              type="number"
+                              value={item.quantity || 0}
+                              onChange={(e) => {
+                                const updatedCostBreakup = [...costBreakup];
+                                updatedCostBreakup[costBreakup.indexOf(item)].quantity = parseFloat(e.target.value);
+                                setCostBreakup(updatedCostBreakup);
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <Input
+                              type="number"
+                              value={item.unit_cost}
+                              onChange={(e) => {
+                                const updatedCostBreakup = [...costBreakup];
+                                updatedCostBreakup[costBreakup.indexOf(item)].unit_cost = parseFloat(e.target.value);
+                                setCostBreakup(updatedCostBreakup);
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-right">{(item.quantity * item.unit_cost).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="subtotal">Subtotal</Label>
-                <Input
-                  id="subtotal"
-                  type="number"
-                  value={formData.pricing.subtotal}
-                  onChange={(e) => handleInputChange('pricing', 'subtotal', parseFloat(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="taxes">Taxes (18% GST)</Label>
-                <Input
-                  id="taxes"
-                  type="number"
-                  value={formData.pricing.taxes}
-                  onChange={(e) => handleInputChange('pricing', 'taxes', parseFloat(e.target.value))}
-                />
-              </div>
               <div>
                 <Label htmlFor="discount">Discount</Label>
                 <Input
@@ -1074,17 +2531,33 @@ const QuotationBuilder = () => {
                 />
               </div>
               <div>
-                <Label>Total</Label>
+                <Label>Subtotal</Label>
                 <Input
-                  value={formData.pricing.subtotal + formData.pricing.taxes - formData.pricing.discount || 0}
+                  value={formData.pricing.subtotal.toFixed(2)}
                   disabled
                   className="bg-gray-100"
                 />
               </div>
               <div>
+                <Label>Taxes (18% GST)</Label>
+                <Input
+                  value={formData.pricing.taxes.toFixed(2)}
+                  disabled
+                  className="bg-gray-100"
+                />
+              </div>
+              <div>
+                <Label>Total</Label>
+                <Input
+                  value={formData.pricing.total.toFixed(2)}
+                  disabled
+                  className="bg-gray-100 font-bold"
+                />
+              </div>
+              <div>
                 <Label>Per Person</Label>
                 <Input
-                  value={(formData.pricing.subtotal + formData.pricing.taxes - formData.pricing.discount) / formData.summary.travelers || 0}
+                  value={formData.pricing.perPerson.toFixed(2)}
                   disabled
                   className="bg-gray-100"
                 />
@@ -1092,7 +2565,7 @@ const QuotationBuilder = () => {
               <div>
                 <Label>Deposit Due (30%)</Label>
                 <Input
-                  value={(formData.pricing.subtotal + formData.pricing.taxes - formData.pricing.discount) * 0.3 || 0}
+                  value={formData.pricing.depositDue.toFixed(2)}
                   disabled
                   className="bg-gray-100"
                 />
@@ -1101,15 +2574,13 @@ const QuotationBuilder = () => {
           </CardContent>
         </Card>
 
-
-        {/* Inclusions (Editable for current quotation) */}
+        {/* Inclusions */}
         <Card>
           <CardHeader>
             <CardTitle>Inclusions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Add new inclusion */}
               <div className="flex gap-2">
                 <Input
                   value={newInclusion}
@@ -1127,7 +2598,6 @@ const QuotationBuilder = () => {
                 </Button>
               </div>
 
-              {/* Inclusions list */}
               <div className="space-y-2">
                 {formData.inclusions.length === 0 ? (
                   <div className="text-center py-4 text-gray-500">
@@ -1150,21 +2620,17 @@ const QuotationBuilder = () => {
                   ))
                 )}
               </div>
-              <p className="text-sm text-gray-500">
-                Pre-filled from admin settings. You can add or remove items for this specific quotation.
-              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Exclusions (Editable for current quotation) */}
+        {/* Exclusions */}
         <Card>
           <CardHeader>
             <CardTitle>Exclusions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Add new exclusion */}
               <div className="flex gap-2">
                 <Input
                   value={newExclusion}
@@ -1182,7 +2648,6 @@ const QuotationBuilder = () => {
                 </Button>
               </div>
 
-              {/* Exclusions list */}
               <div className="space-y-2">
                 {formData.exclusions.length === 0 ? (
                   <div className="text-center py-4 text-gray-500">
@@ -1205,154 +2670,9 @@ const QuotationBuilder = () => {
                   ))
                 )}
               </div>
-              <p className="text-sm text-gray-500">
-                Pre-filled from admin settings. You can add or remove items for this specific quotation.
-              </p>
             </div>
           </CardContent>
         </Card>
-
-        {/* Terms & Conditions (Read-only) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className='flex justify-between'>
-                Terms & Conditions
-                <button
-                  onClick={() => setShowTnc(!showTnc)}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  {showTnc ? 'Hide' : 'Show'} Terms & Conditions
-                </button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          {showTnc && (<CardContent>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {detailedTerms || 'No terms and conditions set in admin settings'}
-              </p>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Auto-filled from admin settings (read-only)
-            </p>
-          </CardContent>)}
-        </Card>
-
-        {/* Privacy Policy (Read-only) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className='flex justify-between'>
-                Privacy Policy
-                <button
-                  onClick={() => setShowPrivacyPolicy(!showPrivacyPolicy)}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  {showPrivacyPolicy ? 'Hide' : 'Show'} Privacy Policy
-                </button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          {showPrivacyPolicy && (<CardContent>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {privacyPolicy || 'No privacy policy set in admin settings'}
-              </p>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Auto-filled from admin settings (read-only)
-            </p>
-          </CardContent>)}
-        </Card>
-
-        {/* Testimonials (Read-only) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className='flex justify-between'>
-                Testimonials
-                <button
-                  onClick={() => setShowTestimonials(!showTestimonials)}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  {showTestimonials ? 'Hide' : 'Show'} Testimonials
-                </button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          {showTestimonials && (<CardContent>
-            {testimonials.length === 0 ? (
-              <div className="text-center py-4 text-gray-500">
-                No testimonials set in admin settings
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {testimonials.map((testimonial, index) => (
-                  <div key={index} className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">{testimonial.name}</span>
-                      <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${i < testimonial.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-700">{testimonial.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-sm text-gray-500 mt-2">
-              Auto-filled from admin settings (read-only)
-            </p>
-          </CardContent>)}
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4 pb-6">
-          <Button
-            onClick={() => navigate(-1)}
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={()=>handleSave()}
-            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-            >
-            <Upload className="w-4 h-4" />
-            Save Draft
-          </Button>
-
-          <Input
-            type="date"
-            name="expiry_date"
-            className="border border-gray-300 rounded-lg px-3 py-2 w-[150px]"
-            value={expiry_date}
-            onChange={(e) => setExpiryDate(e.target.value)}
-          />  
-          <Button
-            onClick={()=>handleSave('SENT', expiry_date)}
-            disabled={saving || !expiry_date}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            {saving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Save Quotation
-              </>
-            )}
-          </Button>
-        </div>
       </div>
 
       {/* Activity Catalog Modal */}
@@ -1371,28 +2691,27 @@ const QuotationBuilder = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {activities
-                .map((item, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-lg p-4 cursor-pointer hover:border-orange-500 transition-colors"
-                    onClick={() => {
-                      addActivityFromCatalog(selectedDay, item);
-                      setShowActivityModal(false);
-                    }}
-                  >
-                    {item.image_url && (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-full h-32 object-cover rounded mb-2"
-                      />
-                    )}
-                    <h3 className="font-semibold">{item.name}</h3>
-                    <p className="text-sm text-gray-600">{item.description}</p>
-                    <p className="text-sm text-gray-500 mt-1">{item.location}</p>
-                  </div>
-                ))}
+              {activities.map((item, index) => (
+                <div
+                  key={index}
+                  className="border rounded-lg p-4 cursor-pointer hover:border-orange-500 transition-colors"
+                  onClick={() => {
+                    addActivityFromCatalog(selectedDay, item);
+                    setShowActivityModal(false);
+                  }}
+                >
+                  {item.image_url && (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-32 object-cover rounded mb-2"
+                    />
+                  )}
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <p className="text-sm text-gray-600">{item.description}</p>
+                  <p className="text-sm text-gray-500 mt-1">{item.location}</p>
+                </div>
+              ))}
             </div>
 
             {activities.length === 0 && (
@@ -1420,34 +2739,32 @@ const QuotationBuilder = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {hotels
-                .filter(item => item.type === 'hotel')
-                .map((item, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-lg p-4 cursor-pointer hover:border-orange-500 transition-colors"
-                    onClick={() => {
-                      addHotelFromCatalog(selectedDay, item);
-                      setShowHotelModal(false);
-                    }}
-                  >
-                    {item.image_url && (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-full h-32 object-cover rounded mb-2"
-                      />
-                    )}
-                    <h3 className="font-semibold">{item.name}</h3>
-                    <p className="text-sm text-gray-600">{item.description}</p>
-                    <p className="text-sm text-gray-500 mt-1">{item.location}</p>
-                  </div>
-                ))}
+              {hotels.map((item, index) => (
+                <div
+                  key={index}
+                  className="border rounded-lg p-4 cursor-pointer hover:border-orange-500 transition-colors"
+                  onClick={() => {
+                    addHotelFromCatalog(selectedDay, item);
+                    setShowHotelModal(false);
+                  }}
+                >
+                  {item.image_url && (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-32 object-cover rounded mb-2"
+                    />
+                  )}
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <p className="text-sm text-gray-600">{item.description}</p>
+                  <p className="text-sm text-gray-500 mt-1">{item.destination}</p>
+                </div>
+              ))}
             </div>
 
             {hotels.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                No activities in catalog. Add activities to catalog first.
+                No hotels in catalog. Add hotels to catalog first.
               </div>
             )}
           </div>
