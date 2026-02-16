@@ -307,8 +307,8 @@ const QuotationBuilder = () => {
         if (idx === index) {
           const updated = { ...visa, [field]: value };
           // Auto-calculate total_cost
-          if (field === 'cost_per_person' || field === 'number_of_people') {
-            updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          if (field === 'cost_per_person' || field === 'number_of_people' || field === 'gst_percentage') {
+            updated.total_cost = ((updated.cost_per_person * updated.number_of_people) * (100 + updated.gst_percentage)) / 100;
           }
           return updated;
         }
@@ -898,6 +898,9 @@ const QuotationBuilder = () => {
       detailed_quotation_data.summary.duration = durationText;
       detailed_quotation_data.selected_categories = selectedCategories;
 
+      console.log(detailed_quotation_data)
+      return 
+
       const payload = {
         request_id: requestId,
         status: status || 'DRAFT',
@@ -1206,19 +1209,7 @@ const QuotationBuilder = () => {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <Label>Booking Reference</Label>
-                          <Input
-                            value={flight.booking_reference}
-                            onChange={(e) => {
-                              const updated = [...formData.flights];
-                              updated[flightIdx].booking_reference = e.target.value;
-                              setFormData(prev => ({ ...prev, flights: updated }));
-                            }}
-                            placeholder="e.g., EK-501-2025"
-                          />
-                        </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                           <Label>Journey Type</Label>
                           <select
