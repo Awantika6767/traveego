@@ -274,7 +274,10 @@ class Invoice(BaseModel):
     client_phone: str
     total_amount: float
     advance_amount: float
-    status: str = "Verification Pending"  # "Verification Pending", "Paid", "Partially Paid", "Overdue", "Cancelled"
+    status: str = "Pending"  # "Pending", "Partially Paid", "Fully Paid", "Overdue", "Cancelled"
+    tcs_amount: float = 0.0  # TCS (Tax Collected at Source) amount
+    tcs_percent: float = 2.0  # TCS percentage (default 2%)
+    has_breakup: bool = False  # Whether payment breakup has been created
     gst_number: Optional[str] = "GST123456789"
     bank_details: Dict[str, str] = {
         "account_name": "Travel Company Pvt Ltd",
@@ -297,12 +300,34 @@ class Payment(BaseModel):
     accountant_notes: Optional[str] = None
     ops_notes: Optional[str] = None
     proof_url: Optional[str] = None
+    description: Optional[str] = None  # Customer payment description
+    proof_image_url: Optional[str] = None  # Customer uploaded payment proof
     client_name: Optional[str] = None
     client_email: Optional[str] = None
     client_country_code: Optional[str] = None
     client_phone: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     type: str = "partial_payment"
+
+class PaymentBreakup(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_id: str
+    amount: float
+    due_date: str
+    status: str = "pending"  # "pending", "partial_paid", "paid"
+    paid_amount: float = 0.0
+    remaining_amount: float
+    description: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class PaymentAllocation(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    payment_id: str
+    breakup_id: str
+    invoice_id: str
+    allocated_amount: float
+    allocated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class Message(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -1373,8 +1398,39 @@ async def full_payment(invoice_id: str, current_user: Dict = Depends(get_current
     return {"success": True}
     
 
+
+# Step 2.1: Get accepted quotations pending invoice generation
+@api_router.get("/quotations/pending-invoice")
+async def get_pending_invoice_quotations(current_user: Dict = Depends(get_current_user)):
+    """Get all accepted quotations that don't have invoices yet"""
+    # Find all accepted quotations
+    accepted_quotations = await db.quotations.find({"status": QuotationStatus.ACCEPTED}).to_list(length=None)
+    
+    result = []
+    for quotation in accepted_quotations:
+        # Check if invoice exists for this quotation
+        existing_invoice = await db.invoices.find_one({"quotation_id": quotation["id"]})
+        
+        if not existing_invoice:
+            # Get request details
+            request = await db.requests.find_one({"id": quotation["request_id"]})
+            if request:
+                quotation["request_details"] = {
+                    "title": request.get("title"),
+                    "client_id": request.get("client_id"),
+                    "destination": request.get("destination"),
+                    "start_date": request.get("start_date"),
+                    "end_date": request.get("end_date"),
+                    "people_count": request.get("people_count")
+                }
+                result.append(serialize_mongo(quotation))
+    
+    return result
+
+
 @api_router.post("/quotations/{quotation_id}/accept")
 async def accept_quotation(quotation_id: str, current_user: Dict = Depends(get_current_user)):
+    """Step 2.2: Modified to only mark quotation as ACCEPTED without creating invoice"""
     quotation = await db.quotations.find_one({"id": quotation_id})
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
@@ -1384,41 +1440,12 @@ async def accept_quotation(quotation_id: str, current_user: Dict = Depends(get_c
         {"id": quotation_id},
         {"$set": {"status": QuotationStatus.ACCEPTED, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-
     
     # Update request status
     await db.requests.update_one(
         {"id": quotation["request_id"]},
         {"$set": {"status": RequestStatus.ACCEPTED, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    
-
-    # Create invoice
-    request = await db.requests.find_one({"id": quotation["request_id"]})
-    client_id = request.get("client_id")
-    client = await db.users.find_one({"id": client_id})
-
-    invoice = Invoice(
-        invoice_number=f"INV-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}",
-        quotation_id=quotation_id,
-        request_id=quotation["request_id"],
-        client_name=client.get("name"),
-        client_email=client.get("email"),
-        client_country_code=client.get("country_code"),
-        client_phone=client.get("phone"),
-        total_amount=quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("total", 0.0),
-        advance_amount=quotation.get("detailed_quotation_data", {}).get("pricing", {}).get("depositDue", 0.0),
-        due_date=(datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    )
-    await db.invoices.insert_one(invoice.model_dump())
-    
-    # Create payment record
-    payment = Payment(
-        invoice_id=invoice.id,
-        amount=invoice.advance_amount,
-        method="pending"
-    )
-    await db.payments.insert_one(payment.model_dump())
     
     # Create activity
     activity = Activity(
@@ -1427,11 +1454,232 @@ async def accept_quotation(quotation_id: str, current_user: Dict = Depends(get_c
         actor_name=current_user.get("name", "Customer"),
         actor_role=current_user.get("role", "Unknown"),
         action="accepted",
-        notes="Quotation accepted by " + current_user.get("name", "Customer")
+        notes="Quotation accepted by " + current_user.get("name", "Customer") + ". Invoice generation pending."
     )
     await db.activities.insert_one(activity.model_dump())
     
-    return {"success": True, "invoice_id": invoice.id}
+    return {"success": True, "message": "Quotation accepted. Operations can now create invoice with payment breakup."}
+
+
+
+# Step 2.3: Create invoice with TCS from accepted quotation
+class CreateInvoiceRequest(BaseModel):
+    quotation_id: str
+    tcs_percent: float = 2.0
+    subtotal: float
+    tax_amount: float
+    tcs_amount: float
+    total_amount: float
+    advance_amount: float
+
+@api_router.post("/invoices/create-from-quotation")
+async def create_invoice_from_quotation(data: CreateInvoiceRequest, current_user: Dict = Depends(get_current_user)):
+    """Create invoice with TCS from accepted quotation. Operations only."""
+    # Validate user role
+    if current_user.get("role") not in ["operations", "admin"]:
+        raise HTTPException(status_code=403, detail="Only operations team can create invoices")
+    
+    # Get quotation
+    quotation = await db.quotations.find_one({"id": data.quotation_id})
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    if quotation.get("status") != QuotationStatus.ACCEPTED:
+        raise HTTPException(status_code=400, detail="Quotation must be accepted before creating invoice")
+    
+    # Check if invoice already exists for this quotation
+    existing_invoice = await db.invoices.find_one({"quotation_id": data.quotation_id})
+    if existing_invoice:
+        raise HTTPException(status_code=400, detail="Invoice already exists for this quotation")
+    
+    # Get request and client details
+    request = await db.requests.find_one({"id": quotation["request_id"]})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    client_id = request.get("client_id")
+    client = await db.users.find_one({"id": client_id})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Create invoice (without payment breakup - that comes next)
+    invoice = Invoice(
+        invoice_number=f"INV-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}",
+        quotation_id=data.quotation_id,
+        request_id=quotation["request_id"],
+        client_name=client.get("name"),
+        client_email=client.get("email"),
+        client_country_code=client.get("country_code", "+91"),
+        client_phone=client.get("phone"),
+        total_amount=data.total_amount,
+        advance_amount=data.advance_amount,
+        tcs_amount=data.tcs_amount,
+        tcs_percent=data.tcs_percent,
+        has_breakup=False,  # Will be set to True when breakup is created
+        status="Pending",
+        due_date=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    )
+    
+    await db.invoices.insert_one(invoice.model_dump())
+    
+    # Create activity log
+    activity = Activity(
+        request_id=quotation["request_id"],
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", "Operations"),
+        actor_role=current_user.get("role", "operations"),
+        action="invoice_created",
+        notes=f"Invoice {invoice.invoice_number} created with TCS {data.tcs_percent}%. Total: ₹{data.total_amount:,.2f}"
+    )
+    await db.activities.insert_one(activity.model_dump())
+    
+    return {
+        "success": True,
+        "invoice_id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "message": "Invoice created successfully. Please create payment breakup next."
+    }
+
+
+
+# PHASE 3: Payment Breakup Creation
+
+# Step 3.1: Create Payment Breakup
+class PaymentBreakupItem(BaseModel):
+    amount: float
+    due_date: str
+    description: Optional[str] = None
+
+class CreatePaymentBreakupRequest(BaseModel):
+    breakups: List[PaymentBreakupItem]
+
+@api_router.post("/invoices/{invoice_id}/payment-breakup")
+async def create_payment_breakup(invoice_id: str, data: CreatePaymentBreakupRequest, current_user: Dict = Depends(get_current_user)):
+    """Create payment breakup for an invoice. Operations only."""
+    # Validate user role
+    if current_user.get("role") not in ["operations", "admin"]:
+        raise HTTPException(status_code=403, detail="Only operations team can create payment breakup")
+    
+    # Get invoice
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Check if breakup already exists
+    if invoice.get("has_breakup"):
+        raise HTTPException(status_code=400, detail="Payment breakup already exists for this invoice")
+    
+    # Validation 1: Check number of breakup items (1-10)
+    if len(data.breakups) < 1 or len(data.breakups) > 10:
+        raise HTTPException(status_code=400, detail="Payment breakup must have between 1 and 10 items")
+    
+    # Validation 2: Calculate sum of breakups
+    total_breakup = sum(item.amount for item in data.breakups)
+    invoice_total = invoice.get("total_amount")
+    
+    if abs(total_breakup - invoice_total) > 0.01:  # Allow 1 paisa difference for floating point
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Sum of breakups (₹{total_breakup:,.2f}) must equal invoice total (₹{invoice_total:,.2f})"
+        )
+    
+    # Validation 3: Check due dates are future dates and in ascending order
+    now = datetime.now(timezone.utc)
+    previous_date = None
+    
+    for idx, item in enumerate(data.breakups):
+        try:
+            due_date = datetime.fromisoformat(item.due_date.replace('Z', '+00:00'))
+        except (ValueError, AttributeError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid due_date format for breakup item {idx + 1}")
+        
+        # Check if date is in the future (allow same day)
+        if due_date.date() < now.date():
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Due date for breakup item {idx + 1} must be today or in the future"
+            )
+        
+        # Check ascending order
+        if previous_date and due_date < previous_date:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Due dates must be in ascending order. Breakup item {idx + 1} has earlier date than previous item"
+            )
+        
+        previous_date = due_date
+    
+    # Create breakup records
+    breakup_ids = []
+    for item in data.breakups:
+        breakup = PaymentBreakup(
+            invoice_id=invoice_id,
+            amount=item.amount,
+            due_date=item.due_date,
+            remaining_amount=item.amount,  # Initially, full amount is remaining
+            description=item.description,
+            status="pending",
+            paid_amount=0.0
+        )
+        await db.payment_breakups.insert_one(breakup.model_dump())
+        breakup_ids.append(breakup.id)
+    
+    # Update invoice to mark breakup as created
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {"has_breakup": True}}
+    )
+    
+    # Create activity log
+    request_id = invoice.get("request_id")
+    activity = Activity(
+        request_id=request_id,
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", "Operations"),
+        actor_role=current_user.get("role", "operations"),
+        action="payment_breakup_created",
+        notes=f"Payment breakup created with {len(data.breakups)} installments for invoice {invoice.get('invoice_number')}"
+    )
+    await db.activities.insert_one(activity.model_dump())
+    
+    return {
+        "success": True,
+        "message": f"Payment breakup created successfully with {len(data.breakups)} installments",
+        "breakup_count": len(data.breakups),
+        "breakup_ids": breakup_ids
+    }
+
+
+# Step 3.2: Get Payment Breakup
+@api_router.get("/invoices/{invoice_id}/payment-breakup")
+async def get_payment_breakup(invoice_id: str, current_user: Dict = Depends(get_current_user)):
+    """Get payment breakup for an invoice"""
+    # Get invoice
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get all breakup items sorted by due_date (FIFO order)
+    breakups = await db.payment_breakups.find({"invoice_id": invoice_id}).sort("due_date", 1).to_list(length=None)
+    
+    if not breakups:
+        return {
+            "invoice_id": invoice_id,
+            "has_breakup": False,
+            "breakups": []
+        }
+    
+    # Serialize and return
+    breakup_list = [serialize_mongo(breakup) for breakup in breakups]
+    
+    return {
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.get("invoice_number"),
+        "total_amount": invoice.get("total_amount"),
+        "has_breakup": invoice.get("has_breakup", False),
+        "breakup_count": len(breakup_list),
+        "breakups": breakup_list
+    }
 
 
 # New endpoint: Download Proforma Invoice PDF

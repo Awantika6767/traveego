@@ -112,6 +112,143 @@ user_problem_statement: |
   - If person is on leave then backup member have to take responsibility and all active request can be visible to him during his leaves
   - If backup will go on leave and he can add other backup. Then all active of both user requests can be visible to him
   - User can't add backup someone who is already on leave for that day
+  
+
+
+  # PHASE 1: Payment Breakup Database Models
+  - task: "Create PaymentBreakup model"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PaymentBreakup model with id, invoice_id, amount, due_date, status (pending/partial_paid/paid), paid_amount, remaining_amount, description, created_at, updated_at fields"
+      - working: true
+        agent: "main"
+        comment: "Model successfully created and verified. Backend server running without errors. Model can be imported and instantiated properly."
+
+  - task: "Create PaymentAllocation model"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created PaymentAllocation model with id, payment_id, breakup_id, invoice_id, allocated_amount, allocated_at fields for tracking FIFO payment settlements"
+      - working: true
+        agent: "main"
+        comment: "Model successfully created and verified. Ready for payment allocation tracking."
+
+  - task: "Update Invoice model with TCS and breakup fields"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added tcs_amount (float, default 0.0), tcs_percent (float, default 2.0), has_breakup (bool, default False) fields. Updated status values to: Pending, Partially Paid, Fully Paid, Overdue, Cancelled"
+      - working: true
+        agent: "main"
+        comment: "Invoice model updated successfully. All new fields verified and working."
+
+  - task: "Update Payment model with proof and description"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added description (Optional[str]) and proof_image_url (Optional[str]) fields for customer payment requests"
+      - working: true
+        agent: "main"
+        comment: "Payment model updated successfully. Ready for customer payment submissions."
+
+  # PHASE 2: Invoice Creation with TCS
+  - task: "Create endpoint to get accepted quotations pending invoice"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/quotations/pending-invoice endpoint that fetches all accepted quotations without invoices, includes request details for operations team"
+
+  - task: "Modify quotation accept flow to not create invoice"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modified POST /api/quotations/{quotation_id}/accept to only mark quotation as ACCEPTED without auto-creating invoice. Invoice creation now requires separate step by operations team."
+
+  - task: "Create endpoint to create invoice with TCS"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added POST /api/invoices/create-from-quotation endpoint. Operations can create invoice with editable amounts and TCS percentage. Validates quotation is accepted, prevents duplicate invoices, calculates TCS, creates activity log. Returns invoice_id and invoice_number."
+
+
+  # PHASE 3: Payment Breakup Creation
+  - task: "Create endpoint to create payment breakup"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added POST /api/invoices/{invoice_id}/payment-breakup endpoint with comprehensive validations: (1) 1-10 items limit, (2) sum must equal invoice total (with 0.01 tolerance), (3) due dates must be today or future, (4) due dates must be in ascending order. Creates PaymentBreakup records sorted by due_date for FIFO. Updates invoice.has_breakup = True. Returns breakup_ids and count."
+
+  - task: "Create endpoint to get payment breakup for invoice"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/invoices/{invoice_id}/payment-breakup endpoint. Returns invoice details with all breakup items sorted by due_date (FIFO order). Includes invoice_number, total_amount, breakup_count, and array of breakup items with status, paid_amount, remaining_amount fields."
+
+
+  NEW FEATURE: Payment Breakup System
+  - When quotation is accepted, operations creates invoice (can edit quotation data, add 2% TCS)
+  - After invoice creation, operations creates payment breakup (1-10 items, sum must equal invoice total)
+  - Customer sees payment breakup with due dates
+  - Customer raises payment request with optional proof + description
+  - Accountant verifies payment → automatic FIFO settlement based on due dates
+  - Invoice status updates based on breakup status (Pending/Partially Paid/Fully Paid/Overdue)
+  - Alerts for overdue payments visible to sales/operations on dashboard
+  - Track payment allocation history for audit trail
 
 backend:
   - task: "Add country_code field to TravelRequest and User models"
@@ -724,30 +861,28 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 3
+  version: "3.0"
+  test_sequence: 5
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Add can_see_cost_breakup field to User model"
-    - "Create get_current_user dependency function"
-    - "Create admin endpoint to get all salespeople"
-    - "Create admin endpoint to toggle cost breakup permission"
-    - "Update login endpoint to return can_see_cost_breakup"
-    - "Add admin user to MOCK_USERS"
-    - "Add conditional cost breakup display in RequestDetail"
-    - "Create AdminPanel component"
-    - "Add admin API methods to API utility"
-    - "Add admin panel route in App.js"
-    - "Add admin navigation in Layout"
-    - "Add admin dashboard view"
-    - "Add CSS for simplified line item layout"
+    - "Create PaymentBreakup model"
+    - "Create PaymentAllocation model"
+    - "Update Invoice model with TCS and breakup fields"
+    - "Update Payment model with proof and description"
+    - "Create endpoint to get accepted quotations pending invoice"
+    - "Modify quotation accept flow to not create invoice"
+    - "Create endpoint to create invoice with TCS"
+    - "Create endpoint to create payment breakup"
+    - "Create endpoint to get payment breakup for invoice"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: "Phase 1, 2, and 3 completed. Database models created and updated. Five new endpoints implemented: GET /api/quotations/pending-invoice, POST /api/invoices/create-from-quotation, POST /api/invoices/{invoice_id}/payment-breakup (with 4 validations), GET /api/invoices/{invoice_id}/payment-breakup. Payment breakup system foundation complete with FIFO-ready sorting. Backend server running successfully. Ready for backend testing."
   - agent: "main"
     message: |
       Implementation complete for all three requirements:
