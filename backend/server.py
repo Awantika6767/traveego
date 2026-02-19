@@ -1682,6 +1682,332 @@ async def get_payment_breakup(invoice_id: str, current_user: Dict = Depends(get_
     }
 
 
+
+# ============================================================================
+# PHASE 5: FIFO Payment Settlement
+# ============================================================================
+
+# Step 5.1: FIFO Settlement Function
+async def settle_payment_fifo(payment_id: str, invoice_id: str, amount: float) -> Dict[str, Any]:
+    """
+    Settle payment using FIFO (First In First Out) method.
+    Allocates payment amount to breakups in order of due_date.
+    
+    Returns allocation summary with updated breakup statuses.
+    """
+    # Get all breakups for this invoice, sorted by due_date (FIFO)
+    breakups = await db.payment_breakups.find(
+        {"invoice_id": invoice_id}
+    ).sort("due_date", 1).to_list(length=None)
+    
+    if not breakups:
+        raise HTTPException(status_code=404, detail="No payment breakup found for this invoice")
+    
+    remaining_amount = amount
+    allocations = []
+    
+    # Iterate through breakups in FIFO order
+    for breakup in breakups:
+        if remaining_amount <= 0:
+            break
+        
+        breakup_remaining = breakup["remaining_amount"]
+        
+        # Skip if this breakup is already fully paid
+        if breakup_remaining <= 0:
+            continue
+        
+        # Calculate allocation for this breakup
+        allocated_to_this_breakup = min(remaining_amount, breakup_remaining)
+        
+        # Update breakup amounts
+        new_paid_amount = breakup["paid_amount"] + allocated_to_this_breakup
+        new_remaining_amount = breakup["amount"] - new_paid_amount
+        
+        # Determine new status
+        if new_remaining_amount <= 0.01:  # Fully paid (allowing 1 paisa tolerance)
+            new_status = "paid"
+            new_remaining_amount = 0.0
+        elif new_paid_amount > 0:
+            new_status = "partial_paid"
+        else:
+            new_status = "pending"
+        
+        # Update breakup in database
+        await db.payment_breakups.update_one(
+            {"id": breakup["id"]},
+            {"$set": {
+                "paid_amount": new_paid_amount,
+                "remaining_amount": new_remaining_amount,
+                "status": new_status,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Create allocation record
+        allocation = PaymentAllocation(
+            payment_id=payment_id,
+            breakup_id=breakup["id"],
+            invoice_id=invoice_id,
+            allocated_amount=allocated_to_this_breakup
+        )
+        await db.payment_allocations.insert_one(allocation.model_dump())
+        
+        # Add to summary
+        allocations.append({
+            "breakup_id": breakup["id"],
+            "breakup_description": breakup.get("description", ""),
+            "breakup_amount": breakup["amount"],
+            "allocated_amount": allocated_to_this_breakup,
+            "breakup_status": new_status
+        })
+        
+        # Reduce remaining amount
+        remaining_amount -= allocated_to_this_breakup
+    
+    # Calculate invoice status after allocation
+    await update_invoice_status(invoice_id)
+    
+    return {
+        "total_allocated": amount - remaining_amount,
+        "remaining_unallocated": remaining_amount,
+        "allocations": allocations
+    }
+
+
+async def update_invoice_status(invoice_id: str):
+    """
+    Update invoice status based on payment breakup statuses.
+    Status: "Pending", "Partially Paid", "Fully Paid", "Overdue"
+    """
+    # Get invoice
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        return
+    
+    # Check if invoice has breakup
+    if not invoice.get("has_breakup"):
+        # No breakup, use simple logic based on payments
+        return
+    
+    # Get all breakups for this invoice
+    breakups = await db.payment_breakups.find({"invoice_id": invoice_id}).to_list(length=None)
+    
+    if not breakups:
+        return
+    
+    # Calculate total paid and total amount
+    total_amount = sum(b["amount"] for b in breakups)
+    total_paid = sum(b["paid_amount"] for b in breakups)
+    
+    # Check if any breakup is overdue
+    now = datetime.now(timezone.utc)
+    has_overdue = False
+    
+    for breakup in breakups:
+        if breakup["status"] != "paid":
+            due_date = datetime.fromisoformat(breakup["due_date"].replace('Z', '+00:00'))
+            if due_date.date() < now.date():
+                has_overdue = True
+                break
+    
+    # Determine status
+    if total_paid >= total_amount - 0.01:  # Fully paid (1 paisa tolerance)
+        new_status = "Fully Paid"
+    elif total_paid > 0:
+        if has_overdue:
+            new_status = "Overdue"
+        else:
+            new_status = "Partially Paid"
+    else:
+        if has_overdue:
+            new_status = "Overdue"
+        else:
+            new_status = "Pending"
+    
+    # Update invoice status
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {"status": new_status}}
+    )
+
+
+# Step 5.2: Accountant Verification Endpoint
+@api_router.put("/payments/{payment_id}/verify-by-accountant")
+async def verify_payment_by_accountant(payment_id: str, data: Dict[str, Any], current_user: Dict = Depends(get_current_user)):
+    """
+    Accountant verifies payment and triggers FIFO settlement.
+    This is the critical step where payment allocation happens.
+    """
+    # Verify user is accountant
+    if current_user.get("role") not in ["accountant", "admin"]:
+        raise HTTPException(status_code=403, detail="Only accountants can verify payments")
+    
+    # Get payment
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # Check if already verified
+    if payment.get("status") != PaymentStatus.PENDING:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Payment already processed with status: {payment.get('status')}"
+        )
+    
+    # Get invoice
+    invoice_id = payment.get("invoice_id")
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Check if invoice has breakup
+    if not invoice.get("has_breakup"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Invoice does not have payment breakup. Please create payment breakup first."
+        )
+    
+    # Update payment status to RECEIVED_BY_ACCOUNTANT
+    accountant_notes = data.get("notes", "Payment verified by accountant")
+    
+    await db.payments.update_one(
+        {"id": payment_id},
+        {"$set": {
+            "status": PaymentStatus.RECEIVED_BY_ACCOUNTANT,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "accountant_notes": accountant_notes
+        }}
+    )
+    
+    # *** TRIGGER FIFO SETTLEMENT ***
+    try:
+        settlement_result = await settle_payment_fifo(
+            payment_id=payment_id,
+            invoice_id=invoice_id,
+            amount=payment.get("amount")
+        )
+    except Exception as e:
+        # Rollback payment status if settlement fails
+        await db.payments.update_one(
+            {"id": payment_id},
+            {"$set": {"status": PaymentStatus.PENDING}}
+        )
+        raise HTTPException(status_code=500, detail=f"FIFO settlement failed: {str(e)}")
+    
+    # Create activity log
+    request_id = invoice.get("request_id")
+    activity = Activity(
+        request_id=request_id,
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", "Accountant"),
+        actor_role=current_user.get("role", "accountant"),
+        action="payment_verified_accountant",
+        notes=f"Payment of ₹{payment['amount']:,.2f} verified by accountant. Allocated: ₹{settlement_result['total_allocated']:,.2f}"
+    )
+    await db.activities.insert_one(activity.model_dump())
+    
+    # Create notification for operations
+    operations_users = await db.users.find({"role": "operations", "is_active": True}).to_list(100)
+    
+    for ops_user in operations_users:
+        notification = Notification(
+            user_id=ops_user["id"],
+            title="Payment Verified by Accountant",
+            message=f"Payment of ₹{payment['amount']:,.2f} for invoice {invoice.get('invoice_number')} has been verified and allocated",
+            link=f"/payments/{payment_id}"
+        )
+        await db.notifications.insert_one(notification.model_dump())
+    
+    return {
+        "success": True,
+        "message": "Payment verified and allocated successfully",
+        "payment_id": payment_id,
+        "status": PaymentStatus.RECEIVED_BY_ACCOUNTANT,
+        "settlement": settlement_result
+    }
+
+
+# Step 5.3: Operations Verification Endpoint
+@api_router.put("/payments/{payment_id}/verify-by-operations")
+async def verify_payment_by_operations(payment_id: str, data: Dict[str, Any], current_user: Dict = Depends(get_current_user)):
+    """
+    Operations final verification of payment.
+    Settlement already done by accountant, this is final approval.
+    """
+    # Verify user is operations
+    if current_user.get("role") not in ["operations", "admin"]:
+        raise HTTPException(status_code=403, detail="Only operations team can perform final verification")
+    
+    # Get payment
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # Check if payment was verified by accountant
+    if payment.get("status") != PaymentStatus.RECEIVED_BY_ACCOUNTANT:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Payment must be verified by accountant first. Current status: {payment.get('status')}"
+        )
+    
+    # Update payment status to VERIFIED_BY_OPS
+    ops_notes = data.get("notes", "Payment verified by operations")
+    
+    await db.payments.update_one(
+        {"id": payment_id},
+        {"$set": {
+            "status": PaymentStatus.VERIFIED_BY_OPS,
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "ops_notes": ops_notes
+        }}
+    )
+    
+    # Get invoice for activity log
+    invoice_id = payment.get("invoice_id")
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    
+    if invoice:
+        request_id = invoice.get("request_id")
+        
+        # Create activity log
+        activity = Activity(
+            request_id=request_id,
+            actor_id=current_user.get("sub", ""),
+            actor_name=current_user.get("name", "Operations"),
+            actor_role=current_user.get("role", "operations"),
+            action="payment_verified_operations",
+            notes=f"Payment of ₹{payment['amount']:,.2f} final verification completed"
+        )
+        await db.activities.insert_one(activity.model_dump())
+        
+        # Create notification for customer
+        client_id = invoice.get("client_id") if invoice.get("client_id") else None
+        
+        # Try to get client from request
+        if not client_id:
+            request = await db.requests.find_one({"id": request_id})
+            if request:
+                client_id = request.get("client_id")
+        
+        if client_id:
+            notification = Notification(
+                user_id=client_id,
+                title="Payment Verified",
+                message=f"Your payment of ₹{payment['amount']:,.2f} has been verified and processed",
+                link=f"/requests/{request_id}"
+            )
+            await db.notifications.insert_one(notification.model_dump())
+    
+    return {
+        "success": True,
+        "message": "Payment final verification completed",
+        "payment_id": payment_id,
+        "status": PaymentStatus.VERIFIED_BY_OPS
+    }
+
+
+
 # New endpoint: Download Proforma Invoice PDF
 @api_router.get("/quotations/{quotation_id}/download-proforma")
 async def download_proforma_invoice(quotation_id: str):
