@@ -1,20 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { api } from '../utils/api';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Badge } from './ui/badge';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { api } from "../utils/api";
+import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Badge } from "./ui/badge";
 import {
-  ArrowLeft, Plus, Trash2, Save, Upload, Star, Calendar,
-  Users, DollarSign, MapPin, Clock, Hotel, Plane, Activity as ActivityIcon, FileText,
-  Bus, Train, Car, Building2
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { v4 as uuid } from 'uuid';
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Save,
+  Upload,
+  Star,
+  Calendar,
+  Users,
+  DollarSign,
+  MapPin,
+  Clock,
+  Hotel,
+  Plane,
+  Activity as ActivityIcon,
+  FileText,
+  Bus,
+  Train,
+  Car,
+  Building2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { v4 as uuid } from "uuid";
 
 const QuotationBuilder = () => {
   const { user } = useAuth();
@@ -32,40 +48,88 @@ const QuotationBuilder = () => {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
 
-  const [detailedTerms, setDetailedTerms] = useState('');
-  const [privacyPolicy, setPrivacyPolicy] = useState('');
+  const [detailedTerms, setDetailedTerms] = useState("");
+  const [privacyPolicy, setPrivacyPolicy] = useState("");
   const [testimonials, setTestimonials] = useState([]);
 
-  const [expiry_date, setExpiryDate] = useState('');
+  const [expiry_date, setExpiryDate] = useState("");
   const [costBreakup, setCostBreakup] = useState([]);
 
   // Category selection state - pre-populated from request
   const [selectedCategories, setSelectedCategories] = useState([]);
-  
+
   const availableCategories = [
-    { value: 'Holiday', label: 'Holiday Package', icon: Calendar, requestKey: 'is_holiday_package_required' },
-    { value: 'Visa', label: 'Visa', icon: FileText, requestKey: 'is_visa_required' },
-    { value: 'Hotel', label: 'Hotel', icon: Hotel, requestKey: 'is_hotel_booking_required' },
-    { value: 'MICE', label: 'MICE Events', icon: Building2, requestKey: 'is_mice_required' },
-    { value: 'Sightseeing', label: 'Sightseeing', icon: ActivityIcon, requestKey: 'is_sight_seeing_required' },
-    { value: 'Transport', label: 'Transport within City', icon: Car, requestKey: 'is_transport_within_city_required' },
-    { value: 'Flight', label: 'Flight', icon: Plane, requestKey: 'is_transfer_to_destination_required', subType: 'flight' },
-    { value: 'Train', label: 'Train', icon: Train, requestKey: 'is_transfer_to_destination_required', subType: 'train' },
-    { value: 'Bus', label: 'Bus', icon: Bus, requestKey: 'is_transfer_to_destination_required', subType: 'bus' }
+    {
+      value: "Holiday",
+      label: "Holiday Package",
+      icon: Calendar,
+      requestKey: "is_holiday_package_required",
+    },
+    {
+      value: "Visa",
+      label: "Visa",
+      icon: FileText,
+      requestKey: "is_visa_required",
+    },
+    {
+      value: "Hotel",
+      label: "Hotel",
+      icon: Hotel,
+      requestKey: "is_hotel_booking_required",
+    },
+    {
+      value: "MICE",
+      label: "MICE Events",
+      icon: Building2,
+      requestKey: "is_mice_required",
+    },
+    {
+      value: "Sightseeing",
+      label: "Sightseeing",
+      icon: ActivityIcon,
+      requestKey: "is_sight_seeing_required",
+    },
+    {
+      value: "Transport",
+      label: "Transport within City",
+      icon: Car,
+      requestKey: "is_transport_within_city_required",
+    },
+    {
+      value: "Flight",
+      label: "Flight",
+      icon: Plane,
+      requestKey: "is_transfer_to_destination_required",
+      subType: "flight",
+    },
+    {
+      value: "Train",
+      label: "Train",
+      icon: Train,
+      requestKey: "is_transfer_to_destination_required",
+      subType: "train",
+    },
+    {
+      value: "Bus",
+      label: "Bus",
+      icon: Bus,
+      requestKey: "is_transfer_to_destination_required",
+      subType: "bus",
+    },
   ];
 
   const [formData, setFormData] = useState({
-    tripTitle: '',
-    city: '',
-    bookingRef: '',
-    start_date: '',
-    end_date: '',
-    coverImage: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19',
+    tripTitle: "",
+    city: "",
+    bookingRef: "",
+    start_date: "",
+    end_date: "",
+    coverImage: "https://images.unsplash.com/photo-1559827260-dc66d52bef19",
     summary: {
-      duration: '',
+      duration: "",
       travelers: 1,
       rating: 4.8,
-      highlights: []
+      highlights: [],
     },
     pricing: {
       subtotal: 0,
@@ -74,8 +138,8 @@ const QuotationBuilder = () => {
       total: 0,
       perPerson: 0,
       depositDue: 0,
-      currency: 'INR',
-      tcs_percentage: 2
+      currency: "INR",
+      tcs_percentage: 2,
     },
     days: [],
     inclusions: [],
@@ -88,12 +152,26 @@ const QuotationBuilder = () => {
     standalone_hotels: [],
     sightseeing_packages: [],
     trains: [],
-    buses: []
+    buses: [],
   });
 
-  const [newHighlight, setNewHighlight] = useState('');
-  const [newInclusion, setNewInclusion] = useState('');
-  const [newExclusion, setNewExclusion] = useState('');
+  const [newHighlight, setNewHighlight] = useState("");
+  const [newInclusion, setNewInclusion] = useState("");
+  const [newExclusion, setNewExclusion] = useState("");
+
+  const AMENITY_OPTIONS = ["wifi", "parking", "pool", "gym", "restaurant"];
+  const EQUIPMENT_OPTIONS = [
+    "sound_system",
+    "microphone",
+    "projector",
+    "led_screen",
+    "lighting",
+    "stage",
+    "podium",
+    "dj_console",
+    "video_recording",
+    "live_streaming",
+  ];
 
   useEffect(() => {
     loadData();
@@ -102,7 +180,7 @@ const QuotationBuilder = () => {
   const loadData = async () => {
     try {
       if (!request) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
       setLoading(true);
 
@@ -113,8 +191,10 @@ const QuotationBuilder = () => {
       // Load catalog for activities
       const catalogResponse = await api.getCatalog();
       setCatalog(catalogResponse.data);
-      setActivities(catalogResponse.data.filter(item => item.type !== 'hotel'));
-      setHotels(catalogResponse.data.filter(item => item.type === 'hotel'));
+      setActivities(
+        catalogResponse.data.filter((item) => item.type !== "hotel"),
+      );
+      setHotels(catalogResponse.data.filter((item) => item.type === "hotel"));
 
       // Pre-fill form data
       const initialData = { ...formData };
@@ -123,44 +203,52 @@ const QuotationBuilder = () => {
       if (settingsResponse.data) {
         initialData.inclusions = settingsResponse.data.default_inclusions || [];
         initialData.exclusions = settingsResponse.data.default_exclusions || [];
-        setDetailedTerms(settingsResponse.data.terms_and_conditions || '');
-        setPrivacyPolicy(settingsResponse.data.privacy_policy || '');
+        setDetailedTerms(settingsResponse.data.terms_and_conditions || "");
+        setPrivacyPolicy(settingsResponse.data.privacy_policy || "");
         setTestimonials(settingsResponse.data.testimonials || []);
       }
 
       // From request data
       if (request) {
-        initialData.city = request.destination || '';
+        initialData.city = request.destination || "";
         initialData.summary.travelers = request.people_count || 1;
         initialData.bookingRef = `REF-${request.id?.substring(0, 8).toUpperCase()}`;
-        initialData.tripTitle = request.title || '';
-        initialData.start_date = request.start_date || '';
-        initialData.end_date = request.end_date || '';
+        initialData.tripTitle = request.title || "";
+        initialData.start_date = request.start_date || "";
+        initialData.end_date = request.end_date || "";
 
         // Pre-populate selected categories from request
         const preSelectedCategories = [];
-        
-        if (request.is_visa_required) preSelectedCategories.push('Visa');
-        if (request.is_hotel_booking_required) preSelectedCategories.push('Hotel');
-        if (request.is_mice_required) preSelectedCategories.push('MICE');
-        if (request.is_sight_seeing_required) preSelectedCategories.push('Sightseeing');
-        if (request.is_transport_within_city_required) preSelectedCategories.push('Transport');
-        
+
+        if (request.is_visa_required) preSelectedCategories.push("Visa");
+        if (request.is_hotel_booking_required)
+          preSelectedCategories.push("Hotel");
+        if (request.is_mice_required) preSelectedCategories.push("MICE");
+        if (request.is_sight_seeing_required)
+          preSelectedCategories.push("Sightseeing");
+        if (request.is_transport_within_city_required)
+          preSelectedCategories.push("Transport");
+
         // For transport to destination, check type_of_travel array
-        if (request.is_transfer_to_destination_required && request.type_of_travel) {
-          if (request.type_of_travel.includes('flight')) preSelectedCategories.push('Flight');
-          if (request.type_of_travel.includes('train')) preSelectedCategories.push('Train');
-          if (request.type_of_travel.includes('bus')) preSelectedCategories.push('Bus');
+        if (
+          request.is_transfer_to_destination_required &&
+          request.type_of_travel
+        ) {
+          if (request.type_of_travel.includes("flight"))
+            preSelectedCategories.push("Flight");
+          if (request.type_of_travel.includes("train"))
+            preSelectedCategories.push("Train");
+          if (request.type_of_travel.includes("bus"))
+            preSelectedCategories.push("Bus");
         }
-        
+
         setSelectedCategories(preSelectedCategories);
       }
 
       setFormData(initialData);
-
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
+      console.error("Error loading data:", error);
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -168,81 +256,136 @@ const QuotationBuilder = () => {
 
   const handleInputChange = (section, field, value) => {
     if (section) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [section]: {
           ...prev[section],
-          [field]: value
-        }
+          [field]: value,
+        },
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [field]: value
+        [field]: value,
       }));
     }
   };
 
   const toggleCategory = (category) => {
-    setSelectedCategories(prev => {
+    setSelectedCategories((prev) => {
       if (prev.includes(category)) {
-        return prev.filter(c => c !== category);
+        return prev.filter((c) => c !== category);
       } else {
         return [...prev, category];
       }
     });
   };
 
+  const updateTrainField = (trainIdx, field, value) => {
+    const updated = [...formData.trains];
+    updated[trainIdx][field] = value;
+
+    if (
+      field === "cost_per_person" ||
+      field === "total_passengers" ||
+      field === "gst_percentage"
+    ) {
+      const train = updated[trainIdx];
+
+      const cost = train.cost_per_person || 0;
+      const passengers = train.total_passengers || 0;
+      const gst = train.gst_percentage || 0;
+
+      const baseTotal = cost * passengers;
+      const totalWithGst = baseTotal * (1 + gst / 100);
+
+      train.total_cost = Math.round(totalWithGst);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      trains: updated,
+    }));
+  };
+
+  const updateFlightField = (flightIdx, field, value) => {
+    const updated = [...formData.flights]; // FIXED
+    const flight = updated[flightIdx];
+
+    flight[field] = value;
+
+    // Recalculate total when relevant fields change
+    if (
+      field === "cost_per_person" ||
+      field === "total_passengers" ||
+      field === "gst_percentage"
+    ) {
+      const cost = flight.cost_per_person || 0;
+      const passengers = flight.total_passengers || 0;
+      const gst = flight.gst_percentage || 0;
+
+      const baseTotal = cost * passengers;
+      const totalWithGst = baseTotal * (1 + gst / 100);
+
+      flight.total_cost = Math.round(totalWithGst);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      flights: updated,
+    }));
+  };
+
   // Flight management
   const addFlight = () => {
     const newFlight = {
       id: uuid(),
-      booking_reference: '',
+      booking_reference: "",
       total_passengers: formData.summary.travelers,
-      journey_type: 'Round-trip',
+      journey_type: "Round-trip",
       total_cost: 0,
       cost_per_person: 0,
       gst_percentage: 0,
       segments: [],
-      notes: ''
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      flights: [...prev.flights, newFlight]
+      flights: [...prev.flights, newFlight],
     }));
   };
 
   const addFlightSegment = (flightIndex) => {
     const newSegment = {
       id: uuid(),
-      flight_number: '',
-      airline: '',
-      airline_logo: '',
-      departure_airport: '',
-      departure_city: '',
-      departure_time: '',
-      departure_date: '',
-      arrival_airport: '',
-      arrival_city: '',
-      arrival_time: '',
-      arrival_date: '',
-      duration: '',
-      cabin_class: 'Economy',
-      baggage_checkin: '15 KG',
-      baggage_cabin: '7 KG'
+      flight_number: "",
+      airline: "",
+      airline_logo: "",
+      departure_airport: "",
+      departure_city: "",
+      departure_time: "",
+      departure_date: "",
+      arrival_airport: "",
+      arrival_city: "",
+      arrival_time: "",
+      arrival_date: "",
+      duration: "",
+      cabin_class: "Economy",
+      baggage_checkin: "15 KG",
+      baggage_cabin: "7 KG",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       flights: prev.flights.map((flight, idx) =>
         idx === flightIndex
           ? { ...flight, segments: [...flight.segments, newSegment] }
-          : flight
-      )
+          : flight,
+      ),
     }));
   };
 
   const updateFlightSegment = (flightIndex, segmentIndex, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       flights: prev.flights.map((flight, fIdx) =>
         fIdx === flightIndex
@@ -251,32 +394,34 @@ const QuotationBuilder = () => {
               segments: flight.segments.map((segment, sIdx) =>
                 sIdx === segmentIndex
                   ? { ...segment, [field]: value }
-                  : segment
-              )
+                  : segment,
+              ),
             }
-          : flight
-      )
+          : flight,
+      ),
     }));
   };
 
   const removeFlightSegment = (flightIndex, segmentIndex) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       flights: prev.flights.map((flight, fIdx) =>
         fIdx === flightIndex
           ? {
               ...flight,
-              segments: flight.segments.filter((_, sIdx) => sIdx !== segmentIndex)
+              segments: flight.segments.filter(
+                (_, sIdx) => sIdx !== segmentIndex,
+              ),
             }
-          : flight
-      )
+          : flight,
+      ),
     }));
   };
 
   const removeFlight = (flightIndex) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      flights: prev.flights.filter((_, idx) => idx !== flightIndex)
+      flights: prev.flights.filter((_, idx) => idx !== flightIndex),
     }));
   };
 
@@ -284,43 +429,67 @@ const QuotationBuilder = () => {
   const addVisa = () => {
     const newVisa = {
       id: uuid(),
-      name: '',
-      visa_type: 'Tourist',
-      destination_country: '',
+      name: "",
+      visa_type: "Tourist",
+      destination_country: "",
       processing_time_days: 5,
       cost_per_person: 0,
       number_of_people: formData.summary.travelers,
       total_cost: 0,
       gst_percentage: 0,
-      description: ''
+      description: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      visas: [...prev.visas, newVisa]
+      visas: [...prev.visas, newVisa],
+    }));
+  };
+
+  const updateBusSegment = (busIdx, segIdx, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      buses: prev.buses.map((bus, bIndex) =>
+        bIndex === busIdx
+          ? {
+              ...bus,
+              segments: bus.segments.map((segment, sIndex) =>
+                sIndex === segIdx ? { ...segment, [field]: value } : segment,
+              ),
+            }
+          : bus,
+      ),
     }));
   };
 
   const updateVisa = (index, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       visas: prev.visas.map((visa, idx) => {
         if (idx === index) {
           const updated = { ...visa, [field]: value };
           // Auto-calculate total_cost
-          if (field === 'cost_per_person' || field === 'number_of_people' || field === 'gst_percentage') {
-            updated.total_cost = ((updated.cost_per_person * updated.number_of_people) * (100 + updated.gst_percentage)) / 100;
+          if (
+            field === "cost_per_person" ||
+            field === "number_of_people" ||
+            field === "gst_percentage"
+          ) {
+            updated.total_cost =
+              (updated.cost_per_person *
+                updated.number_of_people *
+                (100 + updated.gst_percentage)) /
+              100;
           }
           return updated;
         }
         return visa;
-      })
+      }),
     }));
   };
 
   const removeVisa = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      visas: prev.visas.filter((_, idx) => idx !== index)
+      visas: prev.visas.filter((_, idx) => idx !== index),
     }));
   };
 
@@ -328,48 +497,59 @@ const QuotationBuilder = () => {
   const addTransport = () => {
     const newTransport = {
       id: uuid(),
-      vehicle_type: 'Sedan',
-      vehicle_name: '',
+      vehicle_type: "Sedan",
+      vehicle_name: "",
       capacity: 4,
-      pickup_location: '',
-      drop_location: '',
-      pickup_date: '',
-      pickup_time: '',
-      duration: '',
+      pickup_location: "",
+      drop_location: "",
+      pickup_date: "",
+      pickup_time: "",
+      duration: "",
       total_cost: 0,
       cost_per_vehicle: 0,
       number_of_vehicles: 1,
       gst_percentage: 10,
-      driver_details: '',
-      notes: ''
+      driver_details: "",
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      transports_within_city: [...prev.transports_within_city, newTransport]
+      transports_within_city: [...prev.transports_within_city, newTransport],
     }));
   };
 
   const updateTransport = (index, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      transports_within_city: prev.transports_within_city.map((transport, idx) => {
-        if (idx === index) {
-          const updated = { ...transport, [field]: value };
-          // Auto-calculate total_cost
-          if (field === 'cost_per_vehicle' || field === 'number_of_vehicles') {
-            updated.total_cost = updated.cost_per_vehicle * updated.number_of_vehicles;
+      transports_within_city: prev.transports_within_city.map(
+        (transport, idx) => {
+          if (idx === index) {
+            const updated = { ...transport, [field]: value };
+            // Auto-calculate total_cost
+            if (
+              field === "cost_per_vehicle" ||
+              field === "number_of_vehicles" ||
+              field === "gst_percentage"
+            ) {
+              updated.total_cost =
+                updated.cost_per_vehicle *
+                updated.number_of_vehicles *
+                (1 + updated.gst_percentage / 100);
+            }
+            return updated;
           }
-          return updated;
-        }
-        return transport;
-      })
+          return transport;
+        },
+      ),
     }));
   };
 
   const removeTransport = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      transports_within_city: prev.transports_within_city.filter((_, idx) => idx !== index)
+      transports_within_city: prev.transports_within_city.filter(
+        (_, idx) => idx !== index,
+      ),
     }));
   };
 
@@ -377,49 +557,57 @@ const QuotationBuilder = () => {
   const addMiceEvent = () => {
     const newEvent = {
       id: uuid(),
-      event_type: 'Meeting',
-      event_name: '',
-      venue_name: '',
-      venue_address: '',
+      event_type: "Meeting",
+      event_name: "",
+      venue_name: "",
+      venue_address: "",
       capacity: 0,
       number_of_attendees: formData.summary.travelers,
-      event_date: '',
-      event_time: '',
-      duration: '',
+      event_date: "",
+      event_time: "",
+      duration: "",
       equipment_provided: [],
       catering_included: false,
-      catering_details: '',
+      catering_details: "",
       total_cost: 0,
       cost_per_person: 0,
-      gst_percentage: 0
+      gst_percentage: 0,
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      mice_events: [...prev.mice_events, newEvent]
+      mice_events: [...prev.mice_events, newEvent],
     }));
   };
 
   const updateMiceEvent = (index, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       mice_events: prev.mice_events.map((event, idx) => {
         if (idx === index) {
           const updated = { ...event, [field]: value };
           // Auto-calculate total_cost
-          if (field === 'cost_per_person' || field === 'number_of_attendees') {
-            updated.total_cost = updated.cost_per_person * updated.number_of_attendees;
+          if (
+            field === "cost_per_person" ||
+            field === "number_of_attendees" ||
+            field === "gst_percentage"
+          ) {
+            const gst = updated.gst_percentage || 0;
+            updated.total_cost =
+              updated.cost_per_person *
+              updated.number_of_attendees *
+              (1 + gst / 100);
           }
           return updated;
         }
         return event;
-      })
+      }),
     }));
   };
 
   const removeMiceEvent = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      mice_events: prev.mice_events.filter((_, idx) => idx !== index)
+      mice_events: prev.mice_events.filter((_, idx) => idx !== index),
     }));
   };
 
@@ -427,60 +615,73 @@ const QuotationBuilder = () => {
   const addStandaloneHotel = () => {
     const newHotel = {
       id: uuid(),
-      name: '',
+      name: "",
       stars: 3,
-      image: '',
-      address: '',
+      image: "",
+      address: "",
       city: formData.city,
-      check_in_date: '',
-      check_out_date: '',
+      check_in_date: "",
+      check_out_date: "",
       number_of_nights: 1,
-      room_type: 'Standard',
+      room_type: "Standard",
       number_of_rooms: 1,
       guests_per_room: 2,
-      meal_plan: 'EP (Room Only)',
-      url: '',
+      meal_plan: "EP (Room Only)",
+      url: "",
       amenities: [],
       total_cost: 0,
       cost_per_room_per_night: 0,
       gst_percentage: 18,
-      notes: ''
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      standalone_hotels: [...prev.standalone_hotels, newHotel]
+      standalone_hotels: [...prev.standalone_hotels, newHotel],
     }));
   };
 
   const updateStandaloneHotel = (index, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       standalone_hotels: prev.standalone_hotels.map((hotel, idx) => {
         if (idx === index) {
           const updated = { ...hotel, [field]: value };
           // Auto-calculate total_cost
-          if (field === 'cost_per_room_per_night' || field === 'number_of_rooms' || field === 'number_of_nights') {
-            updated.total_cost = updated.cost_per_room_per_night * updated.number_of_rooms * updated.number_of_nights;
+          if (
+            field === "cost_per_room_per_night" ||
+            field === "number_of_rooms" ||
+            field === "number_of_nights"
+          ) {
+            const gst = updated.gst_percentage || 0;
+            updated.total_cost =
+              updated.cost_per_room_per_night *
+              updated.number_of_rooms *
+              updated.number_of_nights *
+              (1 + gst / 100);
           }
           // Auto-calculate nights if dates change
-          if (field === 'check_in_date' || field === 'check_out_date') {
+          if (field === "check_in_date" || field === "check_out_date") {
             if (updated.check_in_date && updated.check_out_date) {
               const checkIn = new Date(updated.check_in_date);
               const checkOut = new Date(updated.check_out_date);
-              updated.number_of_nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+              updated.number_of_nights = Math.ceil(
+                (checkOut - checkIn) / (1000 * 60 * 60 * 24),
+              );
             }
           }
           return updated;
         }
         return hotel;
-      })
+      }),
     }));
   };
 
   const removeStandaloneHotel = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      standalone_hotels: prev.standalone_hotels.filter((_, idx) => idx !== index)
+      standalone_hotels: prev.standalone_hotels.filter(
+        (_, idx) => idx !== index,
+      ),
     }));
   };
 
@@ -488,101 +689,109 @@ const QuotationBuilder = () => {
   const addSightseeingPackage = () => {
     const newPackage = {
       id: uuid(),
-      package_name: '',
+      package_name: "",
       city: formData.city,
-      date: '',
-      start_time: '',
-      end_time: '',
-      duration: 'Full Day',
+      date: "",
+      start_time: "",
+      end_time: "",
+      duration: "Full Day",
       places: [],
       transport_included: true,
-      transport_details: '',
+      transport_details: "",
       guide_included: true,
       meal_included: false,
-      meal_details: '',
+      meal_details: "",
       total_cost: 0,
       cost_per_person: 0,
       number_of_people: formData.summary.travelers,
       gst_percentage: 5,
-      notes: ''
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      sightseeing_packages: [...prev.sightseeing_packages, newPackage]
+      sightseeing_packages: [...prev.sightseeing_packages, newPackage],
     }));
   };
 
   const addPlaceToPackage = (packageIndex) => {
     const newPlace = {
-      name: '',
-      description: '',
-      image: '',
-      duration: '',
-      entry_fee_included: true
+      name: "",
+      description: "",
+      image: "",
+      duration: "",
+      entry_fee_included: true,
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       sightseeing_packages: prev.sightseeing_packages.map((pkg, idx) =>
         idx === packageIndex
           ? { ...pkg, places: [...pkg.places, newPlace] }
-          : pkg
-      )
+          : pkg,
+      ),
     }));
   };
 
   const updatePlaceInPackage = (packageIndex, placeIndex, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       sightseeing_packages: prev.sightseeing_packages.map((pkg, pIdx) =>
         pIdx === packageIndex
           ? {
               ...pkg,
               places: pkg.places.map((place, plIdx) =>
-                plIdx === placeIndex
-                  ? { ...place, [field]: value }
-                  : place
-              )
+                plIdx === placeIndex ? { ...place, [field]: value } : place,
+              ),
             }
-          : pkg
-      )
+          : pkg,
+      ),
     }));
   };
 
   const removePlaceFromPackage = (packageIndex, placeIndex) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       sightseeing_packages: prev.sightseeing_packages.map((pkg, pIdx) =>
         pIdx === packageIndex
           ? {
               ...pkg,
-              places: pkg.places.filter((_, plIdx) => plIdx !== placeIndex)
+              places: pkg.places.filter((_, plIdx) => plIdx !== placeIndex),
             }
-          : pkg
-      )
+          : pkg,
+      ),
     }));
   };
 
   const updateSightseeingPackage = (index, field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       sightseeing_packages: prev.sightseeing_packages.map((pkg, idx) => {
         if (idx === index) {
           const updated = { ...pkg, [field]: value };
           // Auto-calculate total_cost
-          if (field === 'cost_per_person' || field === 'number_of_people') {
-            updated.total_cost = updated.cost_per_person * updated.number_of_people;
+          if (
+            field === "cost_per_person" ||
+            field === "number_of_people" ||
+            field === "gst_percentage"
+          ) {
+            const gst = updated.gst_percentage || 0;
+            updated.total_cost =
+              updated.cost_per_person *
+              updated.number_of_people *
+              (1 + gst / 100);
           }
           return updated;
         }
         return pkg;
-      })
+      }),
     }));
   };
 
   const removeSightseeingPackage = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      sightseeing_packages: prev.sightseeing_packages.filter((_, idx) => idx !== index)
+      sightseeing_packages: prev.sightseeing_packages.filter(
+        (_, idx) => idx !== index,
+      ),
     }));
   };
 
@@ -590,50 +799,50 @@ const QuotationBuilder = () => {
   const addTrain = () => {
     const newTrain = {
       id: uuid(),
-      pnr: '',
+      pnr: "",
       total_passengers: formData.summary.travelers,
       total_cost: 0,
       cost_per_person: 0,
       gst_percentage: 0,
       segments: [],
-      notes: ''
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      trains: [...prev.trains, newTrain]
+      trains: [...prev.trains, newTrain],
     }));
   };
 
   const addTrainSegment = (trainIndex) => {
     const newSegment = {
-      train_number: '',
-      train_name: '',
-      departure_station: '',
-      departure_city: '',
-      departure_time: '',
-      departure_date: '',
-      arrival_station: '',
-      arrival_city: '',
-      arrival_time: '',
-      arrival_date: '',
-      duration: '',
-      class_type: 'AC 3 Tier',
-      seat_numbers: ''
+      train_number: "",
+      train_name: "",
+      departure_station: "",
+      departure_city: "",
+      departure_time: "",
+      departure_date: "",
+      arrival_station: "",
+      arrival_city: "",
+      arrival_time: "",
+      arrival_date: "",
+      duration: "",
+      class_type: "AC 3 Tier",
+      seat_numbers: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       trains: prev.trains.map((train, idx) =>
         idx === trainIndex
           ? { ...train, segments: [...train.segments, newSegment] }
-          : train
-      )
+          : train,
+      ),
     }));
   };
 
   const removeTrain = (trainIndex) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      trains: prev.trains.filter((_, idx) => idx !== trainIndex)
+      trains: prev.trains.filter((_, idx) => idx !== trainIndex),
     }));
   };
 
@@ -645,99 +854,99 @@ const QuotationBuilder = () => {
       total_cost: 0,
       gst_percentage: 0,
       segments: [],
-      notes: ''
+      notes: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      buses: [...prev.buses, newBus]
+      buses: [...prev.buses, newBus],
     }));
   };
 
   const addBusSegment = (busIndex) => {
     const newSegment = {
-      bus_operator: '',
-      bus_type: 'AC Sleeper',
-      departure_location: '',
-      departure_time: '',
-      departure_date: '',
-      duration: '',
-      arrival_location: '',
-      arrival_time: '',
-      arrival_date: ''
+      bus_operator: "",
+      bus_type: "AC Sleeper",
+      departure_location: "",
+      departure_time: "",
+      departure_date: "",
+      duration: "",
+      arrival_location: "",
+      arrival_time: "",
+      arrival_date: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       buses: prev.buses.map((bus, idx) =>
         idx === busIndex
           ? { ...bus, segments: [...bus.segments, newSegment] }
-          : bus
-      )
+          : bus,
+      ),
     }));
   };
 
   const removeBus = (busIndex) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      buses: prev.buses.filter((_, idx) => idx !== busIndex)
+      buses: prev.buses.filter((_, idx) => idx !== busIndex),
     }));
   };
 
   // Highlights
   const addHighlight = () => {
     if (newHighlight.trim()) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         summary: {
           ...prev.summary,
-          highlights: [...prev.summary.highlights, newHighlight.trim()]
-        }
+          highlights: [...prev.summary.highlights, newHighlight.trim()],
+        },
       }));
-      setNewHighlight('');
+      setNewHighlight("");
     }
   };
 
   const removeHighlight = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       summary: {
         ...prev.summary,
-        highlights: prev.summary.highlights.filter((_, i) => i !== index)
-      }
+        highlights: prev.summary.highlights.filter((_, i) => i !== index),
+      },
     }));
   };
 
   // Inclusions/Exclusions
   const addInclusion = () => {
     if (newInclusion.trim()) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        inclusions: [...prev.inclusions, newInclusion.trim()]
+        inclusions: [...prev.inclusions, newInclusion.trim()],
       }));
-      setNewInclusion('');
+      setNewInclusion("");
     }
   };
 
   const removeInclusion = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      inclusions: prev.inclusions.filter((_, i) => i !== index)
+      inclusions: prev.inclusions.filter((_, i) => i !== index),
     }));
   };
 
   const addExclusion = () => {
     if (newExclusion.trim()) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        exclusions: [...prev.exclusions, newExclusion.trim()]
+        exclusions: [...prev.exclusions, newExclusion.trim()],
       }));
-      setNewExclusion('');
+      setNewExclusion("");
     }
   };
 
   const removeExclusion = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      exclusions: prev.exclusions.filter((_, i) => i !== index)
+      exclusions: prev.exclusions.filter((_, i) => i !== index),
     }));
   };
 
@@ -745,62 +954,106 @@ const QuotationBuilder = () => {
   const generateDays = (dayCount) => {
     const days = Array.from({ length: dayCount }, (_, idx) => ({
       dayNumber: idx + 1,
-      date: new Date(new Date(formData.start_date).getTime() + idx * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      location: '',
+      date: new Date(
+        new Date(formData.start_date).getTime() + idx * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .split("T")[0],
+      location: "",
       meals: {
-        breakfast: 'Not Included',
-        lunch: 'Not Included',
-        dinner: 'Not Included'
+        breakfast: "Not Included",
+        lunch: "Not Included",
+        dinner: "Not Included",
       },
       hotel: null,
-      activities: []
+      activities: [],
     }));
 
     return days;
   };
 
   const removeDay = (index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      days: prev.days.filter((_, i) => i !== index).map((day, idx) => ({
-        ...day,
-        dayNumber: idx + 1
-      }))
+      days: prev.days
+        .filter((_, i) => i !== index)
+        .map((day, idx) => ({
+          ...day,
+          dayNumber: idx + 1,
+        })),
     }));
   };
 
-  const updateDay = (index, field, value) => {
-    if (field === 'hotel') {
-      setCostBreakup(prev => prev.filter(item => item.id !== formData.days[index].hotel?.id));
+ const updateDay = (index, field, value) => {
+  setFormData((prev) => {
+    const updatedDays = [...prev.days];
+    const day = { ...updatedDays[index] };
+
+    // 1️⃣ Remove hotel cost from costBreakup if hotel changed
+    if (field === "hotel" && day.hotel?.id) {
+      setCostBreakup((prevCost) =>
+        prevCost.filter((item) => item.id !== day.hotel.id),
+      );
     }
-    setFormData(prev => ({
+
+    // 2️⃣ Update the changed field first
+    day[field] = value;
+
+    // 3️⃣ Recalculate total when needed
+    if (
+      field === "cost_per_person" ||
+      field === "total_passengers" ||
+      field === "gst_percentage"
+    ) {
+      const cost = Number(day.cost_per_person) || 0;
+      const passengers = Number(day.total_passengers) || 0;
+      const gst = Number(day.gst_percentage) || 0;
+
+      const baseTotal = cost * passengers;
+      const totalWithGst = baseTotal * (1 + gst / 100);
+
+      day.total_cost = Math.round(totalWithGst);
+    }
+
+    updatedDays[index] = day;
+
+    return {
       ...prev,
-      days: prev.days.map((day, i) =>
-        i === index ? { ...day, [field]: value } : day
-      )
-    }));
-  };
+      days: updatedDays,
+    };
+  });
+};
 
   const addActivityToDay = (dayIndex, activity) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       days: prev.days.map((day, i) =>
         i === dayIndex
           ? { ...day, activities: [...day.activities, activity] }
-          : day
-      )
+          : day,
+      ),
     }));
   };
 
   const removeActivityFromDay = (dayIndex, activityIndex) => {
-    setCostBreakup(prev => prev.filter(item => item.id !== formData.days[dayIndex].activities[activityIndex].id));
-    setFormData(prev => ({
+    setCostBreakup((prev) =>
+      prev.filter(
+        (item) =>
+          item.id !== formData.days[dayIndex].activities[activityIndex].id,
+      ),
+    );
+    setFormData((prev) => ({
       ...prev,
       days: prev.days.map((day, i) =>
         i === dayIndex
-          ? { ...day, activities: day.activities.filter((_, ai) => ai !== activityIndex) }
-          : day
-      )
+          ? {
+              ...day,
+              activities: day.activities.filter(
+                (_, ai) => ai !== activityIndex,
+              ),
+            }
+          : day,
+      ),
     }));
   };
 
@@ -808,21 +1061,21 @@ const QuotationBuilder = () => {
     const id = uuid();
     const activity = {
       id,
-      time: '09:00 AM',
+      time: "09:00 AM",
       title: catalogItem.name,
-      description: catalogItem.description || '',
+      description: catalogItem.description || "",
       image: catalogItem.image_url,
-      meetingPoint: catalogItem.destination || '',
-      type: 'Included'
+      meetingPoint: catalogItem.destination || "",
+      type: "Included",
     };
     const activityCostBreakup = {
       id,
       name: catalogItem.name + " - " + catalogItem.supplier,
       date: formData.days[dayIndex].date,
       quantity: 1,
-      unit_cost: catalogItem.default_price || 0
+      unit_cost: catalogItem.default_price || 0,
     };
-    setCostBreakup(prev => [...prev, activityCostBreakup]);
+    setCostBreakup((prev) => [...prev, activityCostBreakup]);
     addActivityToDay(dayIndex, activity);
   };
 
@@ -832,119 +1085,238 @@ const QuotationBuilder = () => {
       id,
       name: catalogItem.name,
       stars: catalogItem.rating || 0,
-      image: catalogItem.image_url || '',
-      address: catalogItem.destination || '',
-      amenities: (catalogItem.description || "").split(",").map(a => a.trim()),
+      image: catalogItem.image_url || "",
+      address: catalogItem.destination || "",
+      amenities: (catalogItem.description || "")
+        .split(",")
+        .map((a) => a.trim()),
     };
     const hotelCostBreakup = {
       id,
       name: catalogItem.name + " - " + catalogItem.supplier,
       date: formData.days[dayIndex].date,
       quantity: 1,
-      unit_cost: catalogItem.default_price || 0
+      unit_cost: catalogItem.default_price || 0,
     };
-    setCostBreakup(prev => [...prev, hotelCostBreakup]);
-    setFormData(prev => ({
+    setCostBreakup((prev) => [...prev, hotelCostBreakup]);
+    setFormData((prev) => ({
       ...prev,
       days: prev.days.map((day, i) =>
-        i === dayIndex ? { ...day, hotel } : day
-      )
+        i === dayIndex ? { ...day, hotel } : day,
+      ),
     }));
   };
 
   const validateQuotation = () => {
     if (!formData.tripTitle?.trim()) {
-      toast.error('Trip title is required');
+      toast.error("Trip title is required");
       return false;
     }
 
     if (!formData.city?.trim()) {
-      toast.error('Destination is required');
+      toast.error("Destination is required");
       return false;
     }
 
     if (!formData.start_date || !formData.end_date) {
-      toast.error('Start and end dates are required');
+      toast.error("Start and end dates are required");
       return false;
     }
 
     if (new Date(formData.start_date) > new Date(formData.end_date)) {
-      toast.error('End date cannot be before start date');
+      toast.error("End date cannot be before start date");
       return false;
     }
 
     if (formData.summary.travelers < 1) {
-      toast.error('At least 1 traveler is required');
+      toast.error("At least 1 traveler is required");
       return false;
     }
 
     if (selectedCategories.length === 0) {
-      toast.error('Please select at least one category');
+      toast.error("Please select at least one category");
       return false;
     }
 
     return true;
   };
 
-  const handleSave = async (status='DRAFT', expiry_date) => {
+  useEffect(() => {
+  setFormData((prev) => {
+    const sumCategory = (arr = []) =>
+      arr.reduce((t, item) => t + (Number(item.total_cost) || 0), 0);
+
+    const sumCostBreakup = (arr = []) =>
+      arr.reduce(
+        (t, item) =>
+          t + (Number(item.unit_cost) || 0) * (Number(item.quantity) || 0),
+        0,
+      );
+
+    const categoryMap = {
+      Visa: prev.visas,
+      Flight: prev.flights,
+      Hotel: prev.standalone_hotels,
+      MICE: prev.mice_events,
+      Sightseeing: prev.sightseeing_packages,
+      Transport: prev.transports_within_city,
+      Train: prev.trains,
+      Bus: prev.buses,
+      Holiday: prev.days,
+    };
+
+    const total = (selectedCategories || []).reduce(
+      (sum, category) => {
+        if (!categoryMap[category]) return sum;
+
+        if (category === "Holiday") {
+          return (
+            sum +
+            sumCategory(categoryMap[category]) +
+            sumCostBreakup(costBreakup)
+          );
+        }
+
+        return sum + sumCategory(categoryMap[category]);
+      },
+      0,
+    );
+
+    const discount = Number(prev.pricing.discount) || 0;
+    const subtotal = total + discount;
+    const travelers = Number(prev.summary.travelers) || 1;
+
+    // 🔥 Prevent unnecessary state update
+    if (
+      prev.pricing.total === total &&
+      prev.pricing.subtotal === subtotal &&
+      prev.pricing.perPerson === total / travelers
+    ) {
+      return prev;
+    }
+
+    return {
+      ...prev,
+      pricing: {
+        ...prev.pricing,
+        subtotal,
+        total,
+        perPerson: total / travelers,
+      },
+    };
+  });
+}, [
+  costBreakup,
+  formData.visas,
+  formData.flights,
+  formData.standalone_hotels,
+  formData.mice_events,
+  formData.sightseeing_packages,
+  formData.transports_within_city,
+  formData.trains,
+  formData.buses,
+  formData.days,
+  selectedCategories,
+  formData.pricing.discount,
+  formData.summary.travelers,
+]);
+
+
+  const handleSave = async (status = "DRAFT", expiry_date) => {
     try {
       if (!validateQuotation()) return;
 
-      const dayCount = (new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24);
+      const dayCount =
+        (new Date(formData.end_date) - new Date(formData.start_date)) /
+        (1000 * 60 * 60 * 24);
       const durationText = `${dayCount + 1} Days ${dayCount} Nights`;
       const requestId = request?.id;
-      
+
       const detailed_quotation_data = JSON.parse(JSON.stringify(formData));
       detailed_quotation_data.summary.duration = durationText;
       detailed_quotation_data.selected_categories = selectedCategories;
 
-      console.log(detailed_quotation_data)
-      return 
+      if (!detailed_quotation_data.selected_categories.includes("Visa")) {
+        delete detailed_quotation_data.visas;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Flight")) {
+        delete detailed_quotation_data.flights;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Hotel")) {
+        delete detailed_quotation_data.standalone_hotels;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("MICE")) {
+        delete detailed_quotation_data.mice_events;
+      }
+
+      if (
+        !detailed_quotation_data.selected_categories.includes("Sightseeing")
+      ) {
+        delete detailed_quotation_data.sightseeing_packages;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Transport")) {
+        delete detailed_quotation_data.transports_within_city;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Train")) {
+        delete detailed_quotation_data.trains;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Bus")) {
+        delete detailed_quotation_data.buses;
+      }
+
+      if (!detailed_quotation_data.selected_categories.includes("Holiday")) {
+        delete detailed_quotation_data.days;
+      }
+    
+      console.log(detailed_quotation_data, "check detailed quotation data");
 
       const payload = {
         request_id: requestId,
-        status: status || 'DRAFT',
+        status: status || "DRAFT",
         detailed_quotation_data,
         expiry_date: expiry_date || null,
-        cost_breakup: costBreakup
+        cost_breakup: costBreakup,
       };
 
       setSaving(true);
       await api.createQuotation(payload);
-      toast.success('Quotation saved successfully!');
+      toast.success("Quotation saved successfully!");
       navigate(`/requests/${requestId}`);
-
     } catch (error) {
-      console.error('Error saving quotation:', error);
-      toast.error('Failed to save quotation');
+      console.error("Error saving quotation:", error);
+      toast.error("Failed to save quotation");
     } finally {
       setSaving(false);
     }
   };
 
   useEffect(() => {
-    if (formData.start_date && formData.end_date && request?.is_holiday_package_required) {
-      setFormData(prev => ({
+    if (
+      formData.start_date &&
+      formData.end_date &&
+      request?.is_holiday_package_required
+    ) {
+      setFormData((prev) => ({
         ...prev,
-        days: generateDays((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24) + 1)
+        days: generateDays(
+          (new Date(formData.end_date) - new Date(formData.start_date)) /
+            (1000 * 60 * 60 * 24) +
+            1,
+        ),
       }));
     }
-  }, [formData.start_date, formData.end_date, request?.is_holiday_package_required]);
+  }, [
+    formData.start_date,
+    formData.end_date,
+    request?.is_holiday_package_required,
+  ]);
 
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      pricing: {
-        subtotal: costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0),
-        taxes: costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 0.18,
-        discount: prev.pricing.discount,
-        total: costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 1.18 - prev.pricing.discount,
-        perPerson: prev.summary.travelers > 0 ? (costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 1.18 - prev.pricing.discount) / prev.summary.travelers : (costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 1.18 - prev.pricing.discount),
-        depositDue: (costBreakup.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0) * 1.18 - prev.pricing.discount) * 0.3,
-        currency: prev.pricing.currency
-      }
-    }));
-  }, [costBreakup]);
 
   if (loading) {
     return (
@@ -971,8 +1343,12 @@ const QuotationBuilder = () => {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Quotation Builder</h1>
-            <p className="text-gray-600">Create detailed quotation with category-specific services</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Quotation Builder
+            </h1>
+            <p className="text-gray-600">
+              Create detailed quotation with category-specific services
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -992,7 +1368,7 @@ const QuotationBuilder = () => {
             onChange={(e) => setExpiryDate(e.target.value)}
           />
           <Button
-            onClick={() => handleSave('SENT', expiry_date)}
+            onClick={() => handleSave("SENT", expiry_date)}
             disabled={saving || !expiry_date}
             className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2"
           >
@@ -1022,21 +1398,25 @@ const QuotationBuilder = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap">
-              <div className='w-1/2 pe-1 pt-4'>
+              <div className="w-1/2 pe-1 pt-4">
                 <Label htmlFor="tripTitle">Trip Title</Label>
                 <Input
                   id="tripTitle"
                   value={formData.tripTitle}
-                  onChange={(e) => handleInputChange(null, 'tripTitle', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(null, "tripTitle", e.target.value)
+                  }
                   placeholder="e.g., 5 Days Kashmir Adventure"
                 />
               </div>
-              <div className='w-1/2 ps-1 pt-4'>
+              <div className="w-1/2 ps-1 pt-4">
                 <Label htmlFor="city">Destination</Label>
                 <Input
                   id="city"
                   value={formData.city}
-                  onChange={(e) => handleInputChange(null, 'city', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(null, "city", e.target.value)
+                  }
                   placeholder="e.g., Srinagar"
                 />
               </div>
@@ -1045,8 +1425,10 @@ const QuotationBuilder = () => {
                 <Input
                   id="start_date"
                   value={formData.start_date}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => handleInputChange(null, 'start_date', e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) =>
+                    handleInputChange(null, "start_date", e.target.value)
+                  }
                   type="date"
                 />
               </div>
@@ -1056,7 +1438,9 @@ const QuotationBuilder = () => {
                   id="end_date"
                   value={formData.end_date}
                   min={formData.start_date}
-                  onChange={(e) => handleInputChange(null, 'end_date', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(null, "end_date", e.target.value)
+                  }
                   type="date"
                 />
               </div>
@@ -1067,7 +1451,13 @@ const QuotationBuilder = () => {
                   type="number"
                   min="1"
                   value={formData.summary.travelers}
-                  onChange={(e) => handleInputChange('summary', 'travelers', parseInt(e.target.value))}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "summary",
+                      "travelers",
+                      parseInt(e.target.value),
+                    )
+                  }
                 />
               </div>
               <div className="w-1/2 pe-1 pt-4">
@@ -1083,7 +1473,9 @@ const QuotationBuilder = () => {
                 <Input
                   id="coverImage"
                   value={formData.coverImage}
-                  onChange={(e) => handleInputChange(null, 'coverImage', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(null, "coverImage", e.target.value)
+                  }
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
@@ -1096,7 +1488,8 @@ const QuotationBuilder = () => {
           <CardHeader>
             <CardTitle>Service Categories</CardTitle>
             <p className="text-sm text-gray-500 mt-1">
-              Pre-selected based on customer request. You can modify the selection.
+              Pre-selected based on customer request. You can modify the
+              selection.
             </p>
           </CardHeader>
           <CardContent>
@@ -1110,13 +1503,17 @@ const QuotationBuilder = () => {
                     onClick={() => toggleCategory(category.value)}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-orange-600 bg-orange-50'
-                        : 'border-gray-200 hover:border-orange-300'
+                        ? "border-orange-600 bg-orange-50"
+                        : "border-gray-200 hover:border-orange-300"
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <Icon className={`w-8 h-8 ${isSelected ? 'text-orange-600' : 'text-gray-400'}`} />
-                      <span className={`font-medium text-center ${isSelected ? 'text-orange-600' : 'text-gray-700'}`}>
+                      <Icon
+                        className={`w-8 h-8 ${isSelected ? "text-orange-600" : "text-gray-400"}`}
+                      />
+                      <span
+                        className={`font-medium text-center ${isSelected ? "text-orange-600" : "text-gray-700"}`}
+                      >
                         {category.label}
                       </span>
                       {isSelected && (
@@ -1159,7 +1556,7 @@ const QuotationBuilder = () => {
                   <Input
                     value={newHighlight}
                     onChange={(e) => setNewHighlight(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addHighlight()}
+                    onKeyPress={(e) => e.key === "Enter" && addHighlight()}
                     placeholder="Add a highlight"
                   />
                   <Button onClick={addHighlight} variant="outline">
@@ -1174,7 +1571,7 @@ const QuotationBuilder = () => {
         {/* CATEGORY-SPECIFIC SECTIONS */}
 
         {/* Flight Section */}
-        {selectedCategories.includes('Flight') && (
+        {selectedCategories.includes("Flight") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1198,7 +1595,9 @@ const QuotationBuilder = () => {
                   {formData.flights.map((flight, flightIdx) => (
                     <div key={flight.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Flight {flightIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Flight {flightIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeFlight(flightIdx)}
                           variant="outline"
@@ -1217,7 +1616,10 @@ const QuotationBuilder = () => {
                             onChange={(e) => {
                               const updated = [...formData.flights];
                               updated[flightIdx].journey_type = e.target.value;
-                              setFormData(prev => ({ ...prev, flights: updated }));
+                              setFormData((prev) => ({
+                                ...prev,
+                                flights: updated,
+                              }));
                             }}
                             className="w-full px-3 py-2 border rounded-lg"
                           >
@@ -1233,16 +1635,47 @@ const QuotationBuilder = () => {
                             value={flight.total_passengers}
                             onChange={(e) => {
                               const updated = [...formData.flights];
-                              updated[flightIdx].total_passengers = parseInt(e.target.value);
-                              setFormData(prev => ({ ...prev, flights: updated }));
+                              updated[flightIdx].total_passengers = parseInt(
+                                e.target.value,
+                              );
+                              setFormData((prev) => ({
+                                ...prev,
+                                flights: updated,
+                              }));
                             }}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={flight.cost_per_person}
+                            onChange={(e) => {
+                              updateFlightField(
+                                flightIdx,
+                                "cost_per_person",
+                                parseInt(e.target.value),
+                              );
+                            }}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={flight.total_cost}
+                            disabled
                           />
                         </div>
                       </div>
 
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-base font-semibold">Flight Segments</Label>
+                          <Label className="text-base font-semibold">
+                            Flight Segments
+                          </Label>
                           <Button
                             onClick={() => addFlightSegment(flightIdx)}
                             variant="outline"
@@ -1254,11 +1687,19 @@ const QuotationBuilder = () => {
                         </div>
 
                         {flight.segments.map((segment, segIdx) => (
-                          <div key={segment.id} className="bg-gray-50 p-3 rounded-lg mb-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium text-sm">Segment {segIdx + 1}</span>
+                          <div
+                            key={segment.id}
+                            className="bg-gray-50 p-4 rounded-lg mb-3 space-y-4"
+                          >
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">
+                                Segment {segIdx + 1}
+                              </span>
                               <Button
-                                onClick={() => removeFlightSegment(flightIdx, segIdx)}
+                                onClick={() =>
+                                  removeFlightSegment(flightIdx, segIdx)
+                                }
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-500"
@@ -1266,60 +1707,215 @@ const QuotationBuilder = () => {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
+
+                            {/* Flight info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                               <Input
                                 placeholder="Flight Number"
                                 value={segment.flight_number}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'flight_number', e.target.value)}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "flight_number",
+                                    e.target.value,
+                                  )
+                                }
                               />
                               <Input
                                 placeholder="Airline"
                                 value={segment.airline}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'airline', e.target.value)}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "airline",
+                                    e.target.value,
+                                  )
+                                }
                               />
                               <Input
-                                placeholder="Departure City"
-                                value={segment.departure_city}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_city', e.target.value)}
-                              />
-                              <Input
-                                placeholder="Arrival City"
-                                value={segment.arrival_city}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_city', e.target.value)}
-                              />
-                              <Input
-                                type="date"
-                                placeholder="Departure Date"
-                                value={segment.departure_date}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_date', e.target.value)}
-                              />
-                              <Input
-                                type="time"
-                                placeholder="Departure Time"
-                                value={segment.departure_time}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'departure_time', e.target.value)}
-                              />
-                              <Input
-                                type="date"
-                                placeholder="Arrival Date"
-                                value={segment.arrival_date}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_date', e.target.value)}
-                              />
-                              <Input
-                                type="time"
-                                placeholder="Arrival Time"
-                                value={segment.arrival_time}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'arrival_time', e.target.value)}
+                                placeholder="Airline Logo URL"
+                                value={segment.airline_logo}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "airline_logo",
+                                    e.target.value,
+                                  )
+                                }
                               />
                               <Input
                                 placeholder="Cabin Class"
                                 value={segment.cabin_class}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'cabin_class', e.target.value)}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "cabin_class",
+                                    e.target.value,
+                                  )
+                                }
                               />
+                            </div>
+
+                            {/* Departure */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <Input
+                                placeholder="Departure City"
+                                value={segment.departure_city}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "departure_city",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <Input
+                                placeholder="Departure Airport"
+                                value={segment.departure_airport}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "departure_airport",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <div>
+                                <Label>Departure Date</Label>
+                                <Input
+                                  type="date"
+                                  value={segment.departure_date}
+                                  onChange={(e) =>
+                                    updateFlightSegment(
+                                      flightIdx,
+                                      segIdx,
+                                      "departure_date",
+                                      e.target.value,
+                                    )
+                                  }
+                                  min={new Date().toISOString().split("T")[0]}
+                                />
+                              </div>
+                              <div>
+                                <Label>Departure Time</Label>
+                                <Input
+                                  type="time"
+                                  value={segment.departure_time}
+                                  onChange={(e) =>
+                                    updateFlightSegment(
+                                      flightIdx,
+                                      segIdx,
+                                      "departure_time",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {/* Arrival */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <Input
+                                placeholder="Arrival City"
+                                value={segment.arrival_city}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "arrival_city",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <Input
+                                placeholder="Arrival Airport"
+                                value={segment.arrival_airport}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "arrival_airport",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <div>
+                                <Label>Arrival Date</Label>
+                                <Input
+                                  type="date"
+                                  value={segment.arrival_date}
+                                  onChange={(e) =>
+                                    updateFlightSegment(
+                                      flightIdx,
+                                      segIdx,
+                                      "arrival_date",
+                                      e.target.value,
+                                    )
+                                  }
+                                  disabled={!segment.departure_date}
+                                  min={segment.departure_date}
+                                />
+                              </div>
+                              <div>
+                                <Label>Arrival Time</Label>
+                                <Input
+                                  type="time"
+                                  value={segment.arrival_time}
+                                  onChange={(e) =>
+                                    updateFlightSegment(
+                                      flightIdx,
+                                      segIdx,
+                                      "arrival_time",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {/* Extra details */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                               <Input
                                 placeholder="Duration"
                                 value={segment.duration}
-                                onChange={(e) => updateFlightSegment(flightIdx, segIdx, 'duration', e.target.value)}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "duration",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <Input
+                                placeholder="Baggage Check-in"
+                                value={segment.baggage_checkin}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "baggage_checkin",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                              <Input
+                                placeholder="Baggage Cabin"
+                                value={segment.baggage_cabin}
+                                onChange={(e) =>
+                                  updateFlightSegment(
+                                    flightIdx,
+                                    segIdx,
+                                    "baggage_cabin",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </div>
                           </div>
@@ -1334,10 +1930,13 @@ const QuotationBuilder = () => {
                             step="0.01"
                             value={flight.gst_percentage || 0}
                             onChange={(e) => {
-                              const updated = [...formData.flights];
-                              updated[flightIdx].gst_percentage = parseFloat(e.target.value);
-                              setFormData(prev => ({ ...prev, flights: updated }));
+                              updateFlightField(
+                                flightIdx,
+                                "gst_percentage",
+                                e.target.value,
+                              );
                             }}
+                            min="0"
                           />
                         </div>
                         <div>
@@ -1347,7 +1946,10 @@ const QuotationBuilder = () => {
                             onChange={(e) => {
                               const updated = [...formData.flights];
                               updated[flightIdx].notes = e.target.value;
-                              setFormData(prev => ({ ...prev, flights: updated }));
+                              setFormData((prev) => ({
+                                ...prev,
+                                flights: updated,
+                              }));
                             }}
                             rows="2"
                           />
@@ -1362,7 +1964,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Visa Section */}
-        {selectedCategories.includes('Visa') && (
+        {selectedCategories.includes("Visa") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1386,7 +1988,9 @@ const QuotationBuilder = () => {
                   {formData.visas.map((visa, visaIdx) => (
                     <div key={visa.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Visa {visaIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Visa {visaIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeVisa(visaIdx)}
                           variant="outline"
@@ -1402,7 +2006,9 @@ const QuotationBuilder = () => {
                           <Label>Visa Name</Label>
                           <Input
                             value={visa.name}
-                            onChange={(e) => updateVisa(visaIdx, 'name', e.target.value)}
+                            onChange={(e) =>
+                              updateVisa(visaIdx, "name", e.target.value)
+                            }
                             placeholder="e.g., UAE Business Visa"
                           />
                         </div>
@@ -1410,7 +2016,9 @@ const QuotationBuilder = () => {
                           <Label>Visa Type</Label>
                           <select
                             value={visa.visa_type}
-                            onChange={(e) => updateVisa(visaIdx, 'visa_type', e.target.value)}
+                            onChange={(e) =>
+                              updateVisa(visaIdx, "visa_type", e.target.value)
+                            }
                             className="w-full px-3 py-2 border rounded-lg"
                           >
                             <option>Tourist</option>
@@ -1423,7 +2031,13 @@ const QuotationBuilder = () => {
                           <Label>Destination Country</Label>
                           <Input
                             value={visa.destination_country}
-                            onChange={(e) => updateVisa(visaIdx, 'destination_country', e.target.value)}
+                            onChange={(e) =>
+                              updateVisa(
+                                visaIdx,
+                                "destination_country",
+                                e.target.value,
+                              )
+                            }
                             placeholder="e.g., United Arab Emirates"
                           />
                         </div>
@@ -1432,7 +2046,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={visa.processing_time_days}
-                            onChange={(e) => updateVisa(visaIdx, 'processing_time_days', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateVisa(
+                                visaIdx,
+                                "processing_time_days",
+                                parseInt(e.target.value),
+                              )
+                            }
+                            min="0"
                           />
                         </div>
                         <div>
@@ -1440,7 +2061,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={visa.cost_per_person}
-                            onChange={(e) => updateVisa(visaIdx, 'cost_per_person', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateVisa(
+                                visaIdx,
+                                "cost_per_person",
+                                parseFloat(e.target.value),
+                              )
+                            }
+                            min="0"
                           />
                         </div>
                         <div>
@@ -1448,7 +2076,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={visa.number_of_people}
-                            onChange={(e) => updateVisa(visaIdx, 'number_of_people', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateVisa(
+                                visaIdx,
+                                "number_of_people",
+                                parseInt(e.target.value),
+                              )
+                            }
+                            min="0"
                           />
                         </div>
                         <div>
@@ -1457,14 +2092,31 @@ const QuotationBuilder = () => {
                             type="number"
                             step="0.01"
                             value={visa.gst_percentage || 0}
-                            onChange={(e) => updateVisa(visaIdx, 'gst_percentage', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateVisa(
+                                visaIdx,
+                                "gst_percentage",
+                                parseFloat(e.target.value),
+                              )
+                            }
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={visa.total_cost}
+                            disabled
                           />
                         </div>
                         <div className="col-span-3">
                           <Label>Description</Label>
                           <Textarea
                             value={visa.description}
-                            onChange={(e) => updateVisa(visaIdx, 'description', e.target.value)}
+                            onChange={(e) =>
+                              updateVisa(visaIdx, "description", e.target.value)
+                            }
                             rows="2"
                           />
                         </div>
@@ -1478,7 +2130,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Transport Section */}
-        {selectedCategories.includes('Transport') && (
+        {selectedCategories.includes("Transport") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1499,132 +2151,227 @@ const QuotationBuilder = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {formData.transports_within_city.map((transport, transportIdx) => (
-                    <div key={transport.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Transport {transportIdx + 1}</h3>
-                        <Button
-                          onClick={() => removeTransport(transportIdx)}
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Vehicle Type</Label>
-                          <select
-                            value={transport.vehicle_type}
-                            onChange={(e) => updateTransport(transportIdx, 'vehicle_type', e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg"
+                  {formData.transports_within_city.map(
+                    (transport, transportIdx) => (
+                      <div key={transport.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold">
+                            Transport {transportIdx + 1}
+                          </h3>
+                          <Button
+                            onClick={() => removeTransport(transportIdx)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500"
                           >
-                            <option>Sedan</option>
-                            <option>SUV</option>
-                            <option>Mini Bus</option>
-                            <option>Bus</option>
-                            <option>Tempo Traveller</option>
-                          </select>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div>
-                          <Label>Vehicle Name</Label>
-                          <Input
-                            value={transport.vehicle_name}
-                            onChange={(e) => updateTransport(transportIdx, 'vehicle_name', e.target.value)}
-                            placeholder="e.g., Toyota Hiace"
-                          />
-                        </div>
-                        <div>
-                          <Label>Capacity</Label>
-                          <Input
-                            type="number"
-                            value={transport.capacity}
-                            onChange={(e) => updateTransport(transportIdx, 'capacity', parseInt(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label>Pickup Location</Label>
-                          <Input
-                            value={transport.pickup_location}
-                            onChange={(e) => updateTransport(transportIdx, 'pickup_location', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Drop Location</Label>
-                          <Input
-                            value={transport.drop_location}
-                            onChange={(e) => updateTransport(transportIdx, 'drop_location', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Pickup Date</Label>
-                          <Input
-                            type="date"
-                            value={transport.pickup_date}
-                            onChange={(e) => updateTransport(transportIdx, 'pickup_date', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Pickup Time</Label>
-                          <Input
-                            type="time"
-                            value={transport.pickup_time}
-                            onChange={(e) => updateTransport(transportIdx, 'pickup_time', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Duration</Label>
-                          <Input
-                            value={transport.duration}
-                            onChange={(e) => updateTransport(transportIdx, 'duration', e.target.value)}
-                            placeholder="e.g., 2 hours"
-                          />
-                        </div>
-                        <div>
-                          <Label>Cost Per Vehicle</Label>
-                          <Input
-                            type="number"
-                            value={transport.cost_per_vehicle}
-                            onChange={(e) => updateTransport(transportIdx, 'cost_per_vehicle', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label>Number of Vehicles</Label>
-                          <Input
-                            type="number"
-                            value={transport.number_of_vehicles}
-                            onChange={(e) => updateTransport(transportIdx, 'number_of_vehicles', parseInt(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label>GST %</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={transport.gst_percentage || 10}
-                            onChange={(e) => updateTransport(transportIdx, 'gst_percentage', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label>Driver Details</Label>
-                          <Input
-                            value={transport.driver_details}
-                            onChange={(e) => updateTransport(transportIdx, 'driver_details', e.target.value)}
-                          />
-                        </div>
-                        <div className="col-span-3">
-                          <Label>Notes</Label>
-                          <Textarea
-                            value={transport.notes}
-                            onChange={(e) => updateTransport(transportIdx, 'notes', e.target.value)}
-                            rows="2"
-                          />
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <Label>Vehicle Type</Label>
+                            <select
+                              value={transport.vehicle_type}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "vehicle_type",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full px-3 py-2 border rounded-lg"
+                            >
+                              <option>Sedan</option>
+                              <option>SUV</option>
+                              <option>Mini Bus</option>
+                              <option>Bus</option>
+                              <option>Tempo Traveller</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label>Vehicle Name</Label>
+                            <Input
+                              value={transport.vehicle_name}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "vehicle_name",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="e.g., Toyota Hiace"
+                            />
+                          </div>
+                          <div>
+                            <Label>Capacity</Label>
+                            <Input
+                              type="number"
+                              value={transport.capacity}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "capacity",
+                                  parseInt(e.target.value),
+                                )
+                              }
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label>Pickup Location</Label>
+                            <Input
+                              value={transport.pickup_location}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "pickup_location",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label>Drop Location</Label>
+                            <Input
+                              value={transport.drop_location}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "drop_location",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label>Pickup Date</Label>
+                            <Input
+                              type="date"
+                              value={transport.pickup_date}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "pickup_date",
+                                  e.target.value,
+                                )
+                              }
+                              min={new Date().toISOString().split("T")[0]}
+                            />
+                          </div>
+                          <div>
+                            <Label>Pickup Time</Label>
+                            <Input
+                              type="time"
+                              value={transport.pickup_time}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "pickup_time",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label>Duration</Label>
+                            <Input
+                              value={transport.duration}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "duration",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="e.g., 2 hours"
+                            />
+                          </div>
+                          <div>
+                            <Label>Cost Per Vehicle</Label>
+                            <Input
+                              type="number"
+                              value={transport.cost_per_vehicle}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "cost_per_vehicle",
+                                  parseFloat(e.target.value),
+                                )
+                              }
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label>Number of Vehicles</Label>
+                            <Input
+                              type="number"
+                              value={transport.number_of_vehicles}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "number_of_vehicles",
+                                  parseInt(e.target.value),
+                                )
+                              }
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label>GST %</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={transport.gst_percentage || 0}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "gst_percentage",
+                                  parseFloat(e.target.value),
+                                )
+                              }
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label>Total Cost (Auto-calculated)</Label>
+                            <Input
+                              type="number"
+                              value={transport.total_cost}
+                              disabled
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label>Driver Details</Label>
+                            <Input
+                              value={transport.driver_details}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "driver_details",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Label>Notes</Label>
+                            <Textarea
+                              value={transport.notes}
+                              onChange={(e) =>
+                                updateTransport(
+                                  transportIdx,
+                                  "notes",
+                                  e.target.value,
+                                )
+                              }
+                              rows="2"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </CardContent>
@@ -1632,7 +2379,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* MICE Events Section */}
-        {selectedCategories.includes('MICE') && (
+        {selectedCategories.includes("MICE") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1656,7 +2403,9 @@ const QuotationBuilder = () => {
                   {formData.mice_events.map((event, eventIdx) => (
                     <div key={event.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Event {eventIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Event {eventIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeMiceEvent(eventIdx)}
                           variant="outline"
@@ -1672,7 +2421,13 @@ const QuotationBuilder = () => {
                           <Label>Event Type</Label>
                           <select
                             value={event.event_type}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'event_type', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "event_type",
+                                e.target.value,
+                              )
+                            }
                             className="w-full px-3 py-2 border rounded-lg"
                           >
                             <option>Meeting</option>
@@ -1685,21 +2440,40 @@ const QuotationBuilder = () => {
                           <Label>Event Name</Label>
                           <Input
                             value={event.event_name}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'event_name', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "event_name",
+                                e.target.value,
+                              )
+                            }
                           />
                         </div>
                         <div>
                           <Label>Venue Name</Label>
                           <Input
                             value={event.venue_name}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'venue_name', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "venue_name",
+                                e.target.value,
+                              )
+                            }
                           />
                         </div>
+
                         <div className="col-span-3">
                           <Label>Venue Address</Label>
                           <Input
                             value={event.venue_address}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'venue_address', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "venue_address",
+                                e.target.value,
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1707,7 +2481,13 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={event.capacity}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'capacity', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "capacity",
+                                parseInt(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1715,22 +2495,78 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={event.number_of_attendees}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'number_of_attendees', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "number_of_attendees",
+                                parseInt(e.target.value),
+                              )
+                            }
                           />
                         </div>
+
+                        <div>
+                          <Label>Catering</Label>
+                          <select
+                            value={event.catering_included ? "true" : "false"}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "catering_included",
+                                e.target.value === "true",
+                              )
+                            }
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option value="false">Catering not included</option>
+                            <option value="true">Catering included</option>
+                          </select>
+                        </div>
+
+                        {event.catering_included && (
+                          <div className="mt-2">
+                            <Label>Catering Details</Label>
+                            <Input
+                              type="text"
+                              value={event.catering_details}
+                              onChange={(e) =>
+                                updateMiceEvent(
+                                  eventIdx,
+                                  "catering_details",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Enter catering details"
+                            />
+                          </div>
+                        )}
+
                         <div>
                           <Label>Event Date</Label>
                           <Input
                             type="date"
                             value={event.event_date}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'event_date', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "event_date",
+                                e.target.value,
+                              )
+                            }
+                            min={new Date().toISOString().split("T")[0]}
                           />
                         </div>
                         <div>
                           <Label>Event Time</Label>
                           <Input
                             value={event.event_time}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'event_time', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "event_time",
+                                e.target.value,
+                              )
+                            }
                             placeholder="e.g., 09:00 AM - 05:00 PM"
                           />
                         </div>
@@ -1738,7 +2574,13 @@ const QuotationBuilder = () => {
                           <Label>Duration</Label>
                           <Input
                             value={event.duration}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'duration', e.target.value)}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "duration",
+                                e.target.value,
+                              )
+                            }
                             placeholder="e.g., 8 hours"
                           />
                         </div>
@@ -1747,7 +2589,13 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={event.cost_per_person}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'cost_per_person', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "cost_per_person",
+                                parseFloat(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1756,8 +2604,102 @@ const QuotationBuilder = () => {
                             type="number"
                             step="0.01"
                             value={event.gst_percentage || 0}
-                            onChange={(e) => updateMiceEvent(eventIdx, 'gst_percentage', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateMiceEvent(
+                                eventIdx,
+                                "gst_percentage",
+                                parseFloat(e.target.value),
+                              )
+                            }
                           />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={event.total_cost}
+                            disabled
+                          />
+                        </div>
+                        <div>
+                          <Label>Notes</Label>
+                          <Input
+                            type="text"
+                            value={event.notes}
+                            onChange={(e) =>
+                              updateMiceEvent(eventIdx, "notes", e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Label>Equipment Provided</Label>
+                        <select
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (!value) return;
+
+                            const allEquipments = EQUIPMENT_OPTIONS;
+
+                            // If "all" selected, fill all
+                            if (value === "all") {
+                              updateMiceEvent(
+                                eventIdx,
+                                "equipment_provided",
+                                allEquipments,
+                              );
+                            } else {
+                              const current = event.equipment_provided || [];
+                              if (!current.includes(value)) {
+                                updateMiceEvent(
+                                  eventIdx,
+                                  "equipment_provided",
+                                  [...current, value],
+                                );
+                              }
+                            }
+
+                            e.target.value = ""; // reset dropdown
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg"
+                        >
+                          <option value="">Select equipment</option>
+                          {EQUIPMENT_OPTIONS.map((item) => (
+                            <option key={item} value={item}>
+                              {item
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </option>
+                          ))}
+                          <option value="all">All Equipment</option>
+                        </select>
+
+                        {/* Selected chips */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {event.equipment_provided?.map((equipment) => (
+                            <div
+                              key={equipment}
+                              className="flex items-center gap-1 px-2 py-1 bg-gray-200 rounded-full text-sm"
+                            >
+                              {equipment.replace(/_/g, " ")}
+                              <button
+                                onClick={() => {
+                                  const updated =
+                                    event.equipment_provided.filter(
+                                      (e) => e !== equipment,
+                                    );
+                                  updateMiceEvent(
+                                    eventIdx,
+                                    "equipment_provided",
+                                    updated,
+                                  );
+                                }}
+                                className="text-red-500 ml-1"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1769,7 +2711,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Standalone Hotels Section */}
-        {selectedCategories.includes('Hotel') && (
+        {selectedCategories.includes("Hotel") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1777,7 +2719,11 @@ const QuotationBuilder = () => {
                   <Hotel className="w-5 h-5" />
                   Standalone Hotels
                 </div>
-                <Button onClick={addStandaloneHotel} variant="outline" size="sm">
+                <Button
+                  onClick={addStandaloneHotel}
+                  variant="outline"
+                  size="sm"
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Hotel
                 </Button>
@@ -1793,7 +2739,9 @@ const QuotationBuilder = () => {
                   {formData.standalone_hotels.map((hotel, hotelIdx) => (
                     <div key={hotel.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Hotel {hotelIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Hotel {hotelIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeStandaloneHotel(hotelIdx)}
                           variant="outline"
@@ -1809,7 +2757,13 @@ const QuotationBuilder = () => {
                           <Label>Hotel Name</Label>
                           <Input
                             value={hotel.name}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'name', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "name",
+                                e.target.value,
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1819,14 +2773,40 @@ const QuotationBuilder = () => {
                             min="1"
                             max="5"
                             value={hotel.stars}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'stars', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "stars",
+                                parseInt(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         <div>
                           <Label>City</Label>
                           <Input
                             value={hotel.city}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'city', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "city",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Hotel Address</Label>
+                          <Input
+                            value={hotel.address}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "address",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Address"
                           />
                         </div>
                         <div>
@@ -1834,7 +2814,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="date"
                             value={hotel.check_in_date}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'check_in_date', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "check_in_date",
+                                e.target.value,
+                              )
+                            }
+                            min={new Date().toISOString().split("T")[0]}
                           />
                         </div>
                         <div>
@@ -1842,7 +2829,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="date"
                             value={hotel.check_out_date}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'check_out_date', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "check_out_date",
+                                e.target.value,
+                              )
+                            }
+                            min={hotel.check_in_date}
                           />
                         </div>
                         <div>
@@ -1857,7 +2851,13 @@ const QuotationBuilder = () => {
                           <Label>Room Type</Label>
                           <Input
                             value={hotel.room_type}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'room_type', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "room_type",
+                                e.target.value,
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1865,7 +2865,14 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={hotel.number_of_rooms}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'number_of_rooms', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "number_of_rooms",
+                                parseInt(e.target.value),
+                              )
+                            }
+                            min="0"
                           />
                         </div>
                         <div>
@@ -1873,14 +2880,27 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={hotel.guests_per_room}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'guests_per_room', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "guests_per_room",
+                                parseInt(e.target.value),
+                              )
+                            }
+                            min="0"
                           />
                         </div>
                         <div>
                           <Label>Meal Plan</Label>
                           <select
                             value={hotel.meal_plan}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'meal_plan', e.target.value)}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "meal_plan",
+                                e.target.value,
+                              )
+                            }
                             className="w-full px-3 py-2 border rounded-lg"
                           >
                             <option>EP (Room Only)</option>
@@ -1894,7 +2914,111 @@ const QuotationBuilder = () => {
                           <Input
                             type="number"
                             value={hotel.cost_per_room_per_night}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'cost_per_room_per_night', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "cost_per_room_per_night",
+                                parseFloat(e.target.value),
+                              )
+                            }
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Amenities</Label>
+
+                          {/* Dropdown */}
+                          <select
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (!value) return;
+
+                              const allAmenities = AMENITY_OPTIONS;
+
+                              // If "all" selected, fill all
+                              if (value === "all") {
+                                updateStandaloneHotel(
+                                  hotelIdx,
+                                  "amenities",
+                                  allAmenities,
+                                );
+                              } else {
+                                const current = hotel.amenities || [];
+                                if (!current.includes(value)) {
+                                  updateStandaloneHotel(hotelIdx, "amenities", [
+                                    ...current,
+                                    value,
+                                  ]);
+                                }
+                              }
+
+                              e.target.value = ""; // reset dropdown
+                            }}
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option value="">Select amenity</option>
+                            {AMENITY_OPTIONS.map((amenity) => (
+                              <option key={amenity} value={amenity}>
+                                {amenity.charAt(0).toUpperCase() +
+                                  amenity.slice(1)}
+                              </option>
+                            ))}
+                            <option value="all">All Amenities</option>
+                          </select>
+
+                          {/* Selected chips */}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {hotel.amenities?.map((amenity) => (
+                              <div
+                                key={amenity}
+                                className="flex items-center gap-1 px-2 py-1 bg-gray-200 rounded-full text-sm"
+                              >
+                                {amenity}
+                                <button
+                                  onClick={() => {
+                                    const updated = hotel.amenities.filter(
+                                      (a) => a !== amenity,
+                                    );
+                                    updateStandaloneHotel(
+                                      hotelIdx,
+                                      "amenities",
+                                      updated,
+                                    );
+                                  }}
+                                  className="text-red-500 ml-1"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Hotel Website / URL</Label>
+                          <Input
+                            value={hotel.url}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "url",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Website / URL"
+                          />
+                        </div>
+                        <div>
+                          <Label>Hotel Image</Label>
+                          <Input
+                            value={hotel.image}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "image",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Hotel Image URL"
                           />
                         </div>
                         <div>
@@ -1903,7 +3027,13 @@ const QuotationBuilder = () => {
                             type="number"
                             step="0.01"
                             value={hotel.gst_percentage || 18}
-                            onChange={(e) => updateStandaloneHotel(hotelIdx, 'gst_percentage', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "gst_percentage",
+                                parseFloat(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         <div>
@@ -1912,6 +3042,20 @@ const QuotationBuilder = () => {
                             type="number"
                             value={hotel.total_cost}
                             disabled
+                          />
+                        </div>
+                        <div>
+                          <Label>Notes</Label>
+                          <Input
+                            value={hotel.notes}
+                            onChange={(e) =>
+                              updateStandaloneHotel(
+                                hotelIdx,
+                                "notes",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Notes"
                           />
                         </div>
                       </div>
@@ -1924,7 +3068,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Sightseeing Packages Section */}
-        {selectedCategories.includes('Sightseeing') && (
+        {selectedCategories.includes("Sightseeing") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -1932,7 +3076,11 @@ const QuotationBuilder = () => {
                   <ActivityIcon className="w-5 h-5" />
                   Sightseeing Packages
                 </div>
-                <Button onClick={addSightseeingPackage} variant="outline" size="sm">
+                <Button
+                  onClick={addSightseeingPackage}
+                  variant="outline"
+                  size="sm"
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Package
                 </Button>
@@ -1946,9 +3094,14 @@ const QuotationBuilder = () => {
               ) : (
                 <div className="space-y-6">
                   {formData.sightseeing_packages.map((pkg, pkgIdx) => (
-                    <div key={pkg.id} className="border-2 border-orange-200 rounded-lg p-6 bg-orange-50/30">
+                    <div
+                      key={pkg.id}
+                      className="border-2 border-orange-200 rounded-lg p-6 bg-orange-50/30"
+                    >
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold text-orange-700">Package {pkgIdx + 1}</h3>
+                        <h3 className="text-xl font-bold text-orange-700">
+                          Package {pkgIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeSightseeingPackage(pkgIdx)}
                           variant="outline"
@@ -1970,7 +3123,13 @@ const QuotationBuilder = () => {
                             <Label>Package Name</Label>
                             <Input
                               value={pkg.package_name}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'package_name', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "package_name",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., Complete Delhi Heritage Tour"
                             />
                           </div>
@@ -1978,7 +3137,13 @@ const QuotationBuilder = () => {
                             <Label>City</Label>
                             <Input
                               value={pkg.city}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'city', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "city",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., New Delhi"
                             />
                           </div>
@@ -1987,7 +3152,14 @@ const QuotationBuilder = () => {
                             <Input
                               type="date"
                               value={pkg.date}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'date', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "date",
+                                  e.target.value,
+                                )
+                              }
+                              min={new Date().toISOString().split("T")[0]}
                             />
                           </div>
                           <div>
@@ -1995,7 +3167,13 @@ const QuotationBuilder = () => {
                             <Input
                               type="time"
                               value={pkg.start_time}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'start_time', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "start_time",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., 08:00 AM"
                             />
                           </div>
@@ -2004,7 +3182,13 @@ const QuotationBuilder = () => {
                             <Input
                               type="time"
                               value={pkg.end_time}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'end_time', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "end_time",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., 06:00 PM"
                             />
                           </div>
@@ -2012,7 +3196,13 @@ const QuotationBuilder = () => {
                             <Label>Duration (text)</Label>
                             <Input
                               value={pkg.duration}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'duration', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "duration",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., 10 hours or Full Day"
                             />
                           </div>
@@ -2039,75 +3229,129 @@ const QuotationBuilder = () => {
 
                         {pkg.places && pkg.places.length === 0 ? (
                           <div className="text-center py-6 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
-                            No places added. Click "Add Place" to add sightseeing destinations.
+                            No places added. Click "Add Place" to add
+                            sightseeing destinations.
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            {pkg.places && pkg.places.map((place, placeIdx) => (
-                              <div key={placeIdx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="font-medium text-sm text-gray-700">Place {placeIdx + 1}</span>
-                                  <Button
-                                    onClick={() => removePlaceFromPackage(pkgIdx, placeIdx)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:bg-red-50 h-8"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <Label className="text-xs">Place Name</Label>
-                                    <Input
-                                      value={place.name}
-                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'name', e.target.value)}
-                                      placeholder="e.g., Red Fort (Lal Qila)"
-                                      className="h-9"
-                                    />
+                            {pkg.places &&
+                              pkg.places.map((place, placeIdx) => (
+                                <div
+                                  key={placeIdx}
+                                  className="bg-gray-50 border border-gray-200 rounded-lg p-4"
+                                >
+                                  <div className="flex items-center justify-between mb-3">
+                                    <span className="font-medium text-sm text-gray-700">
+                                      Place {placeIdx + 1}
+                                    </span>
+                                    <Button
+                                      onClick={() =>
+                                        removePlaceFromPackage(pkgIdx, placeIdx)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-500 hover:bg-red-50 h-8"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
                                   </div>
-                                  <div>
-                                    <Label className="text-xs">Duration</Label>
-                                    <Input
-                                      value={place.duration}
-                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'duration', e.target.value)}
-                                      placeholder="e.g., 1.5 hours"
-                                      className="h-9"
-                                    />
-                                  </div>
-                                  <div className="col-span-2">
-                                    <Label className="text-xs">Image URL</Label>
-                                    <Input
-                                      value={place.image}
-                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'image', e.target.value)}
-                                      placeholder="https://example.com/image.jpg"
-                                      className="h-9"
-                                    />
-                                  </div>
-                                  <div className="col-span-2">
-                                    <Label className="text-xs">Description</Label>
-                                    <Textarea
-                                      value={place.description}
-                                      onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'description', e.target.value)}
-                                      placeholder="Brief description of the place..."
-                                      rows="2"
-                                      className="text-sm"
-                                    />
-                                  </div>
-                                  <div className="col-span-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={place.entry_fee_included}
-                                        onChange={(e) => updatePlaceInPackage(pkgIdx, placeIdx, 'entry_fee_included', e.target.checked)}
-                                        className="w-4 h-4 text-orange-600 rounded"
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label className="text-xs">
+                                        Place Name
+                                      </Label>
+                                      <Input
+                                        value={place.name}
+                                        onChange={(e) =>
+                                          updatePlaceInPackage(
+                                            pkgIdx,
+                                            placeIdx,
+                                            "name",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="e.g., Red Fort (Lal Qila)"
+                                        className="h-9"
                                       />
-                                      <span className="text-sm text-gray-700">Entry fee included</span>
-                                    </label>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">
+                                        Duration
+                                      </Label>
+                                      <Input
+                                        value={place.duration}
+                                        onChange={(e) =>
+                                          updatePlaceInPackage(
+                                            pkgIdx,
+                                            placeIdx,
+                                            "duration",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="e.g., 1.5 hours"
+                                        className="h-9"
+                                      />
+                                    </div>
+                                    <div className="col-span-2">
+                                      <Label className="text-xs">
+                                        Image URL
+                                      </Label>
+                                      <Input
+                                        value={place.image}
+                                        onChange={(e) =>
+                                          updatePlaceInPackage(
+                                            pkgIdx,
+                                            placeIdx,
+                                            "image",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="https://example.com/image.jpg"
+                                        className="h-9"
+                                      />
+                                    </div>
+                                    <div className="col-span-2">
+                                      <Label className="text-xs">
+                                        Description
+                                      </Label>
+                                      <Textarea
+                                        value={place.description}
+                                        onChange={(e) =>
+                                          updatePlaceInPackage(
+                                            pkgIdx,
+                                            placeIdx,
+                                            "description",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="Brief description of the place..."
+                                        rows="2"
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                    <div className="col-span-2">
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={place.entry_fee_included}
+                                          onChange={(e) =>
+                                            updatePlaceInPackage(
+                                              pkgIdx,
+                                              placeIdx,
+                                              "entry_fee_included",
+                                              e.target.checked,
+                                            )
+                                          }
+                                          className="w-4 h-4 text-orange-600 rounded"
+                                        />
+                                        <span className="text-sm text-gray-700">
+                                          Entry fee included
+                                        </span>
+                                      </label>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         )}
                       </div>
@@ -2125,17 +3369,33 @@ const QuotationBuilder = () => {
                               <input
                                 type="checkbox"
                                 checked={pkg.transport_included}
-                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'transport_included', e.target.checked)}
+                                onChange={(e) =>
+                                  updateSightseeingPackage(
+                                    pkgIdx,
+                                    "transport_included",
+                                    e.target.checked,
+                                  )
+                                }
                                 className="w-4 h-4 text-orange-600 rounded"
                               />
-                              <span className="font-medium text-sm text-gray-700">Transport Included</span>
+                              <span className="font-medium text-sm text-gray-700">
+                                Transport Included
+                              </span>
                             </label>
                             {pkg.transport_included && (
                               <div>
-                                <Label className="text-xs">Transport Details</Label>
+                                <Label className="text-xs">
+                                  Transport Details
+                                </Label>
                                 <Input
                                   value={pkg.transport_details}
-                                  onChange={(e) => updateSightseeingPackage(pkgIdx, 'transport_details', e.target.value)}
+                                  onChange={(e) =>
+                                    updateSightseeingPackage(
+                                      pkgIdx,
+                                      "transport_details",
+                                      e.target.value,
+                                    )
+                                  }
                                   placeholder="e.g., Air-conditioned sedan (Toyota Etios / Similar) with experienced driver"
                                   className="h-9"
                                 />
@@ -2149,10 +3409,18 @@ const QuotationBuilder = () => {
                               <input
                                 type="checkbox"
                                 checked={pkg.guide_included}
-                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'guide_included', e.target.checked)}
+                                onChange={(e) =>
+                                  updateSightseeingPackage(
+                                    pkgIdx,
+                                    "guide_included",
+                                    e.target.checked,
+                                  )
+                                }
                                 className="w-4 h-4 text-orange-600 rounded"
                               />
-                              <span className="font-medium text-sm text-gray-700">Guide Included</span>
+                              <span className="font-medium text-sm text-gray-700">
+                                Guide Included
+                              </span>
                             </label>
                           </div>
 
@@ -2162,17 +3430,31 @@ const QuotationBuilder = () => {
                               <input
                                 type="checkbox"
                                 checked={pkg.meal_included}
-                                onChange={(e) => updateSightseeingPackage(pkgIdx, 'meal_included', e.target.checked)}
+                                onChange={(e) =>
+                                  updateSightseeingPackage(
+                                    pkgIdx,
+                                    "meal_included",
+                                    e.target.checked,
+                                  )
+                                }
                                 className="w-4 h-4 text-orange-600 rounded"
                               />
-                              <span className="font-medium text-sm text-gray-700">Meal Included</span>
+                              <span className="font-medium text-sm text-gray-700">
+                                Meal Included
+                              </span>
                             </label>
                             {pkg.meal_included && (
                               <div>
                                 <Label className="text-xs">Meal Details</Label>
                                 <Input
                                   value={pkg.meal_details}
-                                  onChange={(e) => updateSightseeingPackage(pkgIdx, 'meal_details', e.target.value)}
+                                  onChange={(e) =>
+                                    updateSightseeingPackage(
+                                      pkgIdx,
+                                      "meal_details",
+                                      e.target.value,
+                                    )
+                                  }
                                   placeholder="e.g., Lunch at a popular local restaurant (Vegetarian and Non-vegetarian options)"
                                   className="h-9"
                                 />
@@ -2194,7 +3476,13 @@ const QuotationBuilder = () => {
                             <Input
                               type="number"
                               value={pkg.number_of_people}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'number_of_people', parseInt(e.target.value))}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "number_of_people",
+                                  parseInt(e.target.value),
+                                )
+                              }
                               className="h-9"
                             />
                           </div>
@@ -2203,7 +3491,13 @@ const QuotationBuilder = () => {
                             <Input
                               type="number"
                               value={pkg.cost_per_person}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'cost_per_person', parseFloat(e.target.value))}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "cost_per_person",
+                                  parseFloat(e.target.value),
+                                )
+                              }
                               className="h-9"
                             />
                           </div>
@@ -2213,7 +3507,13 @@ const QuotationBuilder = () => {
                               type="number"
                               step="0.01"
                               value={pkg.gst_percentage || 5}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'gst_percentage', parseFloat(e.target.value))}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "gst_percentage",
+                                  parseFloat(e.target.value),
+                                )
+                              }
                               className="h-9"
                             />
                           </div>
@@ -2230,7 +3530,13 @@ const QuotationBuilder = () => {
                             <Label>Notes</Label>
                             <Textarea
                               value={pkg.notes}
-                              onChange={(e) => updateSightseeingPackage(pkgIdx, 'notes', e.target.value)}
+                              onChange={(e) =>
+                                updateSightseeingPackage(
+                                  pkgIdx,
+                                  "notes",
+                                  e.target.value,
+                                )
+                              }
                               placeholder="e.g., Comfortable walking shoes recommended. Friday is closed for Jama Masjid."
                               rows="2"
                             />
@@ -2246,7 +3552,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Train Section */}
-        {selectedCategories.includes('Train') && (
+        {selectedCategories.includes("Train") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -2270,7 +3576,9 @@ const QuotationBuilder = () => {
                   {formData.trains.map((train, trainIdx) => (
                     <div key={train.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Train {trainIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Train {trainIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeTrain(trainIdx)}
                           variant="outline"
@@ -2289,7 +3597,10 @@ const QuotationBuilder = () => {
                             onChange={(e) => {
                               const updated = [...formData.trains];
                               updated[trainIdx].pnr = e.target.value;
-                              setFormData(prev => ({ ...prev, trains: updated }));
+                              setFormData((prev) => ({
+                                ...prev,
+                                trains: updated,
+                              }));
                             }}
                           />
                         </div>
@@ -2299,10 +3610,37 @@ const QuotationBuilder = () => {
                             type="number"
                             value={train.total_passengers}
                             onChange={(e) => {
-                              const updated = [...formData.trains];
-                              updated[trainIdx].total_passengers = parseInt(e.target.value);
-                              setFormData(prev => ({ ...prev, trains: updated }));
+                              updateTrainField(
+                                trainIdx,
+                                "total_passengers",
+                                parseInt(e.target.value),
+                              );
                             }}
+                            min="1"
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={train.cost_per_person}
+                            onChange={(e) => {
+                              updateTrainField(
+                                trainIdx,
+                                "cost_per_person",
+                                parseInt(e.target.value),
+                              );
+                            }}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={train.total_cost}
+                            disabled
                           />
                         </div>
                         <div>
@@ -2312,17 +3650,22 @@ const QuotationBuilder = () => {
                             step="0.01"
                             value={train.gst_percentage || 0}
                             onChange={(e) => {
-                              const updated = [...formData.trains];
-                              updated[trainIdx].gst_percentage = parseFloat(e.target.value);
-                              setFormData(prev => ({ ...prev, trains: updated }));
+                              updateTrainField(
+                                trainIdx,
+                                "gst_percentage",
+                                parseFloat(e.target.value),
+                              );
                             }}
+                            min="0"
                           />
                         </div>
                       </div>
 
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-base font-semibold">Train Segments</Label>
+                          <Label className="text-base font-semibold">
+                            Train Segments
+                          </Label>
                           <Button
                             onClick={() => addTrainSegment(trainIdx)}
                             variant="outline"
@@ -2332,87 +3675,243 @@ const QuotationBuilder = () => {
                             Add Segment
                           </Button>
                         </div>
-
                         {train.segments.map((segment, segIdx) => (
-                          <div key={segIdx} className="bg-gray-50 p-3 rounded-lg mb-2">
-                            <div className="grid grid-cols-4 gap-2">
+                          <div
+                            key={segIdx}
+                            className="bg-gray-50 p-4 rounded-lg mb-3 space-y-4"
+                          >
+                            {/* Train info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                               <Input
                                 placeholder="Train Number"
                                 value={segment.train_number}
                                 onChange={(e) => {
                                   const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].train_number = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].train_number = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
                                 }}
                               />
+
                               <Input
                                 placeholder="Train Name"
                                 value={segment.train_name}
                                 onChange={(e) => {
                                   const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].train_name = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].train_name = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
                                 }}
                               />
-                              <Input
-                                placeholder="Departure City"
-                                value={segment.departure_city}
-                                onChange={(e) => {
-                                  const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].departure_city = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
-                                }}
-                              />
-                              <Input
-                                placeholder="Arrival City"
-                                value={segment.arrival_city}
-                                onChange={(e) => {
-                                  const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].arrival_city = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
-                                }}
-                              />
-                              <Input
-                                type="date"
-                                placeholder="Departure Date"
-                                value={segment.departure_date}
-                                onChange={(e) => {
-                                  const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].departure_date = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
-                                }}
-                              />
-                              <Input
-                                type="time"
-                                placeholder="Departure Time"
-                                value={segment.departure_time}
-                                onChange={(e) => {
-                                  const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].departure_time = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
-                                }}
-                              />
+
                               <Input
                                 placeholder="Class Type"
                                 value={segment.class_type}
                                 onChange={(e) => {
                                   const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].class_type = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].class_type = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
                                 }}
                               />
+
+                              <Input
+                                placeholder="Seat Number"
+                                value={segment.seat_numbers}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].seat_numbers = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
+                                }}
+                              />
+                            </div>
+
+                            {/* Departure */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <Input
+                                placeholder="Departure City"
+                                value={segment.departure_city}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].departure_city = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
+                                }}
+                              />
+
+                              <Input
+                                placeholder="Departure Station"
+                                value={segment.departure_station}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].departure_station = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
+                                }}
+                              />
+
+                              <div>
+                                <Label>Departure Date</Label>
+                                <Input
+                                  type="date"
+                                  value={segment.departure_date}
+                                  onChange={(e) => {
+                                    const updated = [...formData.trains];
+                                    updated[trainIdx].segments[
+                                      segIdx
+                                    ].departure_date = e.target.value;
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      trains: updated,
+                                    }));
+                                  }}
+                                  min={new Date().toISOString().split("T")[0]}
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Departure Time</Label>
+                                <Input
+                                  type="time"
+                                  value={segment.departure_time}
+                                  onChange={(e) => {
+                                    const updated = [...formData.trains];
+                                    updated[trainIdx].segments[
+                                      segIdx
+                                    ].departure_time = e.target.value;
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      trains: updated,
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Arrival */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <Input
+                                placeholder="Arrival City"
+                                value={segment.arrival_city}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].arrival_city = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
+                                }}
+                              />
+
+                              <Input
+                                placeholder="Arrival Station"
+                                value={segment.arrival_station}
+                                onChange={(e) => {
+                                  const updated = [...formData.trains];
+                                  updated[trainIdx].segments[
+                                    segIdx
+                                  ].arrival_station = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
+                                }}
+                              />
+
+                              <div>
+                                <Label>Arrival Date</Label>
+                                <Input
+                                  type="date"
+                                  value={segment.arrival_date}
+                                  min={segment.departure_date}
+                                  onChange={(e) => {
+                                    const updated = [...formData.trains];
+                                    updated[trainIdx].segments[
+                                      segIdx
+                                    ].arrival_date = e.target.value;
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      trains: updated,
+                                    }));
+                                  }}
+                                  disabled={!segment.departure_date}
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Arrival Time</Label>
+                                <Input
+                                  type="time"
+                                  value={segment.arrival_time}
+                                  onChange={(e) => {
+                                    const updated = [...formData.trains];
+                                    updated[trainIdx].segments[
+                                      segIdx
+                                    ].arrival_time = e.target.value;
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      trains: updated,
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Extra info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <Input
                                 placeholder="Duration"
                                 value={segment.duration}
                                 onChange={(e) => {
                                   const updated = [...formData.trains];
-                                  updated[trainIdx].segments[segIdx].duration = e.target.value;
-                                  setFormData(prev => ({ ...prev, trains: updated }));
+                                  updated[trainIdx].segments[segIdx].duration =
+                                    e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    trains: updated,
+                                  }));
                                 }}
                               />
                             </div>
                           </div>
                         ))}
+                      </div>
+                      <div className="mb-4">
+                        <Label>Notes</Label>
+                        <Textarea
+                          value={train.notes}
+                          onChange={(e) => {
+                            updateTrainField(trainIdx, "notes", e.target.value);
+                          }}
+                          rows="2"
+                        />
                       </div>
                     </div>
                   ))}
@@ -2423,7 +3922,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Bus Section */}
-        {selectedCategories.includes('Bus') && (
+        {selectedCategories.includes("Bus") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -2447,7 +3946,9 @@ const QuotationBuilder = () => {
                   {formData.buses.map((bus, busIdx) => (
                     <div key={bus.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Bus {busIdx + 1}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Bus {busIdx + 1}
+                        </h3>
                         <Button
                           onClick={() => removeBus(busIdx)}
                           variant="outline"
@@ -2466,9 +3967,15 @@ const QuotationBuilder = () => {
                             value={bus.total_passengers}
                             onChange={(e) => {
                               const updated = [...formData.buses];
-                              updated[busIdx].total_passengers = parseInt(e.target.value);
-                              setFormData(prev => ({ ...prev, buses: updated }));
+                              updated[busIdx].total_passengers = parseInt(
+                                e.target.value,
+                              );
+                              setFormData((prev) => ({
+                                ...prev,
+                                buses: updated,
+                              }));
                             }}
+                            min="0"
                           />
                         </div>
                         <div>
@@ -2479,16 +3986,24 @@ const QuotationBuilder = () => {
                             value={bus.gst_percentage || 0}
                             onChange={(e) => {
                               const updated = [...formData.buses];
-                              updated[busIdx].gst_percentage = parseFloat(e.target.value);
-                              setFormData(prev => ({ ...prev, buses: updated }));
+                              updated[busIdx].gst_percentage = parseFloat(
+                                e.target.value,
+                              );
+                              setFormData((prev) => ({
+                                ...prev,
+                                buses: updated,
+                              }));
                             }}
+                            min="0"
                           />
                         </div>
                       </div>
 
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-base font-semibold">Bus Segments</Label>
+                          <Label className="text-base font-semibold">
+                            Bus Segments
+                          </Label>
                           <Button
                             onClick={() => addBusSegment(busIdx)}
                             variant="outline"
@@ -2500,76 +4015,188 @@ const QuotationBuilder = () => {
                         </div>
 
                         {bus.segments.map((segment, segIdx) => (
-                          <div key={segIdx} className="bg-gray-50 p-3 rounded-lg mb-2">
-                            <div className="grid grid-cols-4 gap-2">
-                              <Input
-                                placeholder="Bus Operator"
-                                value={segment.bus_operator}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].bus_operator = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                placeholder="Bus Type"
-                                value={segment.bus_type}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].bus_type = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                placeholder="Departure Location"
-                                value={segment.departure_location}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].departure_location = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                placeholder="Arrival Location"
-                                value={segment.arrival_location}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].arrival_location = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                type="date"
-                                placeholder="Departure Date"
-                                value={segment.departure_date}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].departure_date = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                type="time"
-                                placeholder="Departure Time"
-                                value={segment.departure_time}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].departure_time = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
-                              <Input
-                                placeholder="Duration"
-                                value={segment.duration}
-                                onChange={(e) => {
-                                  const updated = [...formData.buses];
-                                  updated[busIdx].segments[segIdx].duration = e.target.value;
-                                  setFormData(prev => ({ ...prev, buses: updated }));
-                                }}
-                              />
+                          <div
+                            key={segIdx}
+                            className="bg-gray-50 p-3 rounded-lg mb-2"
+                          >
+                            {" "}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <Label>Bus Operator</Label>
+                                <Input
+                                  value={segment.bus_operator}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "bus_operator",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="e.g. Volvo Travels"
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Bus Type</Label>
+                                <Input
+                                  value={segment.bus_type}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "bus_type",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="AC Sleeper"
+                                />
+                              </div>
+                            </div>
+                            {/* Departure Section */}
+                            <div className="border-t pt-4 mt-2">
+                              <h4 className="text-sm font-semibold text-gray-600 mb-3">
+                                Departure Details
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <Input
+                                  placeholder="Departure Location"
+                                  value={segment.departure_location}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "departure_location",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+
+                                <Input
+                                  type="date"
+                                  value={segment.departure_date}
+                                  min={new Date().toISOString().split("T")[0]}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "departure_date",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+
+                                <Input
+                                  type="time"
+                                  value={segment.departure_time}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "departure_time",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                            {/* Arrival Section */}
+                            <div className="border-t pt-4 mt-4">
+                              <h4 className="text-sm font-semibold text-gray-600 mb-3">
+                                Arrival Details
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <Input
+                                  placeholder="Arrival Location"
+                                  value={segment.arrival_location}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "arrival_location",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+
+                                <Input
+                                  type="date"
+                                  value={segment.arrival_date}
+                                  min={segment.departure_date}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "arrival_date",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+
+                                <Input
+                                  type="time"
+                                  value={segment.arrival_time}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "arrival_time",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <Input
+                                  placeholder="Duration"
+                                  value={segment.duration}
+                                  onChange={(e) =>
+                                    updateBusSegment(
+                                      busIdx,
+                                      segIdx,
+                                      "duration",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
                             </div>
                           </div>
                         ))}
+
+                        <div className="mt-4">
+                          <Label>Total Cost</Label>
+                          <Input
+                            value={bus.total_cost}
+                            onChange={(e) => {
+                              const updated = [...formData.buses];
+                              ((updated[busIdx].total_cost = e.target.value),
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  buses: updated,
+                                })));
+                            }}
+                            placeholder="Additional information..."
+                            rows={2}
+                          />
+                        </div>
+                        {/* Notes */}
+                        <div className="mt-4">
+                          <Label>Notes</Label>
+                          <Textarea
+                            value={bus.notes}
+                            onChange={(e) => {
+                              const updated = [...formData.buses];
+                              ((updated[busIdx].notes = e.target.value),
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  buses: updated,
+                                })));
+                            }}
+                            placeholder="Additional information..."
+                            rows={2}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2580,7 +4207,7 @@ const QuotationBuilder = () => {
         )}
 
         {/* Day-by-Day Itinerary - Only for Holiday Packages */}
-        {selectedCategories.includes('Holiday') && (
+        {selectedCategories.includes("Holiday") && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -2600,7 +4227,9 @@ const QuotationBuilder = () => {
                   {formData.days.map((day, dayIndex) => (
                     <div key={dayIndex} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Day {day.dayNumber}</h3>
+                        <h3 className="text-lg font-semibold">
+                          Day {day.dayNumber}
+                        </h3>
                         <Button
                           onClick={() => removeDay(dayIndex)}
                           variant="outline"
@@ -2614,46 +4243,48 @@ const QuotationBuilder = () => {
                       <div className="grid grid-cols-3 gap-4 mb-4">
                         <div>
                           <Label>Date</Label>
-                          <Input
-                            type="date"
-                            value={day.date}
-                            disabled={true}
-                          />
+                          <Input type="date" value={day.date} disabled={true} />
                         </div>
                         <div>
                           <Label>Location</Label>
                           <Input
                             value={day.location}
-                            onChange={(e) => updateDay(dayIndex, 'location', e.target.value)}
+                            onChange={(e) =>
+                              updateDay(dayIndex, "location", e.target.value)
+                            }
                             placeholder="e.g., Srinagar"
                           />
                         </div>
                         <div>
                           <Label>Hotel (If Needed)</Label>
                           <br />
-                          {!day.hotel && <Button
-                            onClick={() => {
-                              setSelectedDay(dayIndex);
-                              setShowHotelModal(true);
-                            }}
-                            variant="outline"
-                            className="w-full flex items-center justify-center"
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Select Hotel
-                          </Button>}
+                          {!day.hotel && (
+                            <Button
+                              onClick={() => {
+                                setSelectedDay(dayIndex);
+                                setShowHotelModal(true);
+                              }}
+                              variant="outline"
+                              className="w-full flex items-center justify-center"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Select Hotel
+                            </Button>
+                          )}
                           {day.hotel && (
                             <div className="w-full h-9 border rounded-md px-3 flex items-center justify-between">
-                              <div className='text-sm'>
+                              <div className="text-sm">
                                 <span className="truncate">
                                   {day.hotel.name}
                                   <span className="text-yellow-500 ml-1">
-                                    {'★'.repeat(day.hotel.stars)}
+                                    {"★".repeat(day.hotel.stars)}
                                   </span>
                                 </span>
                               </div>
                               <Button
-                                onClick={() => updateDay(dayIndex, 'hotel', null)}
+                                onClick={() =>
+                                  updateDay(dayIndex, "hotel", null)
+                                }
                                 variant="ghost"
                                 size="icon"
                                 className="text-red-500 hover:text-red-700"
@@ -2664,16 +4295,82 @@ const QuotationBuilder = () => {
                           )}
                         </div>
                       </div>
-
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 w-full mb-4">
+                        <div>
+                          <Label>Total Persons</Label>
+                          <Input
+                            type="number"
+                            value={day.total_passengers}
+                            onChange={(e) => {
+                              updateDay(
+                                dayIndex,
+                                "total_passengers",
+                                parseInt(e.target.value),
+                              );
+                            }}
+                            min="1"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cost Per Person</Label>
+                          <Input
+                            type="number"
+                            value={day.cost_per_person}
+                            onChange={(e) => {
+                              updateDay(
+                                dayIndex,
+                                "cost_per_person",
+                                parseInt(e.target.value),
+                              );
+                            }}
+                            min="0"
+                          />
+                        </div>
+                                  <div>
+                          <Label>GST %</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={day.gst_percentage || 0}
+                            onChange={(e) => {
+                              updateDay(
+                                dayIndex,
+                                "gst_percentage",
+                                parseFloat(e.target.value),
+                              );
+                            }}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Cost (Auto-calculated)</Label>
+                          <Input
+                            type="number"
+                            value={day.total_cost}
+                            disabled
+                          />
+                        </div>
+                      </div>
                       <div className="mb-4">
                         <Label className="mb-2 block">Meals</Label>
                         <div className="grid grid-cols-3 gap-2">
-                          <label className="font-medium text-xs text-gray-500">Breakfast</label>
-                          <label className="font-medium text-xs text-gray-500">Lunch</label>
-                          <label className="font-medium text-xs text-gray-500">Dinner</label>
+                          <label className="font-medium text-xs text-gray-500">
+                            Breakfast
+                          </label>
+                          <label className="font-medium text-xs text-gray-500">
+                            Lunch
+                          </label>
+                          <label className="font-medium text-xs text-gray-500">
+                            Dinner
+                          </label>
                           <select
                             value={day.meals.breakfast}
-                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, breakfast: e.target.value })}
+                            onChange={(e) =>
+                              updateDay(dayIndex, "meals", {
+                                ...day.meals,
+                                breakfast: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border rounded-lg bg-white"
                           >
                             <option>Not Included</option>
@@ -2682,7 +4379,12 @@ const QuotationBuilder = () => {
                           </select>
                           <select
                             value={day.meals.lunch}
-                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, lunch: e.target.value })}
+                            onChange={(e) =>
+                              updateDay(dayIndex, "meals", {
+                                ...day.meals,
+                                lunch: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border rounded-lg bg-white"
                           >
                             <option>Not Included</option>
@@ -2691,7 +4393,12 @@ const QuotationBuilder = () => {
                           </select>
                           <select
                             value={day.meals.dinner}
-                            onChange={(e) => updateDay(dayIndex, 'meals', { ...day.meals, dinner: e.target.value })}
+                            onChange={(e) =>
+                              updateDay(dayIndex, "meals", {
+                                ...day.meals,
+                                dinner: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border rounded-lg bg-white"
                           >
                             <option>Not Included</option>
@@ -2726,51 +4433,162 @@ const QuotationBuilder = () => {
                         ) : (
                           <div className="space-y-2">
                             {day.activities.map((activity, actIndex) => (
-                              <div key={actIndex} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                              <div
+                                key={actIndex}
+                                className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg"
+                              >
                                 <div className="flex-1">
+                                  {/* Main row */}
                                   <div className="grid grid-cols-4 gap-2">
                                     <Input
                                       value={activity.time}
                                       onChange={(e) => {
-                                        const updatedActivities = [...day.activities];
-                                        updatedActivities[actIndex].time = e.target.value;
-                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].time =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
                                       }}
                                       placeholder="Time"
                                     />
+
                                     <Input
                                       value={activity.title}
                                       onChange={(e) => {
-                                        const updatedActivities = [...day.activities];
-                                        updatedActivities[actIndex].title = e.target.value;
-                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].title =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
                                       }}
                                       placeholder="Activity title"
                                     />
+
                                     <Input
                                       value={activity.meetingPoint}
                                       onChange={(e) => {
-                                        const updatedActivities = [...day.activities];
-                                        updatedActivities[actIndex].meetingPoint = e.target.value;
-                                        updateDay(dayIndex, 'activities', updatedActivities);
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[
+                                          actIndex
+                                        ].meetingPoint = e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
                                       }}
-                                      placeholder="location / meeting point"
+                                      placeholder="Location / meeting point"
+                                    />
+
+                                    <Input
+                                      value={activity.address}
+                                      onChange={(e) => {
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].address =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
+                                      }}
+                                      placeholder="Address"
                                     />
                                   </div>
+
+                                  {/* Description */}
                                   <Textarea
                                     value={activity.description}
                                     onChange={(e) => {
-                                      const updatedActivities = [...day.activities];
-                                      updatedActivities[actIndex].description = e.target.value;
-                                      updateDay(dayIndex, 'activities', updatedActivities);
+                                      const updatedActivities = [
+                                        ...day.activities,
+                                      ];
+                                      updatedActivities[actIndex].description =
+                                        e.target.value;
+                                      updateDay(
+                                        dayIndex,
+                                        "activities",
+                                        updatedActivities,
+                                      );
                                     }}
                                     placeholder="Description"
                                     className="mt-2"
-                                    rows="2"
+                                    rows={2}
                                   />
+
+                                  {/* New fields */}
+                                  <div className="grid grid-cols-3 gap-2 mt-2">
+                                    <Input
+                                      value={activity.amenities}
+                                      onChange={(e) => {
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].amenities =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
+                                      }}
+                                      placeholder="Amenities (WiFi, Parking, etc.)"
+                                    />
+
+                                    <Input
+                                      value={activity.url}
+                                      onChange={(e) => {
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].url =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
+                                      }}
+                                      placeholder="Website / URL"
+                                    />
+
+                                    <Input
+                                      value={activity.notes}
+                                      onChange={(e) => {
+                                        const updatedActivities = [
+                                          ...day.activities,
+                                        ];
+                                        updatedActivities[actIndex].notes =
+                                          e.target.value;
+                                        updateDay(
+                                          dayIndex,
+                                          "activities",
+                                          updatedActivities,
+                                        );
+                                      }}
+                                      placeholder="Notes"
+                                    />
+                                  </div>
                                 </div>
+
                                 <Button
-                                  onClick={() => removeActivityFromDay(dayIndex, actIndex)}
+                                  onClick={() =>
+                                    removeActivityFromDay(dayIndex, actIndex)
+                                  }
                                   variant="outline"
                                   size="sm"
                                   className="text-red-500"
@@ -2784,6 +4602,71 @@ const QuotationBuilder = () => {
                       </div>
                     </div>
                   ))}
+                  {costBreakup.length > 0 && (
+                    <div className="mb-4">
+                      <Label className="mb-2 block">
+                        Cost Breakup (Only for Calculation)
+                      </Label>
+                      <div className="max-h-48 overflow-y-auto border rounded-lg">
+                        <table className="w-full table-auto">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-4 py-2 text-left">Item</th>
+                              <th className="px-4 py-2 text-right">Date</th>
+                              <th className="px-4 py-2 text-right">Quantity</th>
+                              <th className="px-4 py-2 text-right">
+                                Unit Cost
+                              </th>
+                              <th className="px-4 py-2 text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {costBreakup.map((item) => (
+                              <tr key={item.id} className="border-t">
+                                <td className="px-4 py-2">{item.name}</td>
+                                <td className="px-4 py-2 text-right">
+                                  {item.date}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <Input
+                                    type="number"
+                                    value={item.quantity || 0}
+                                    onChange={(e) => {
+                                      const updatedCostBreakup = [
+                                        ...costBreakup,
+                                      ];
+                                      updatedCostBreakup[
+                                        costBreakup.indexOf(item)
+                                      ].quantity = parseFloat(e.target.value);
+                                      setCostBreakup(updatedCostBreakup);
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <Input
+                                    type="number"
+                                    value={item.unit_cost}
+                                    onChange={(e) => {
+                                      const updatedCostBreakup = [
+                                        ...costBreakup,
+                                      ];
+                                      updatedCostBreakup[
+                                        costBreakup.indexOf(item)
+                                      ].unit_cost = parseFloat(e.target.value);
+                                      setCostBreakup(updatedCostBreakup);
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  {(item.quantity * item.unit_cost).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -2795,59 +4678,10 @@ const QuotationBuilder = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="w-5 h-5" />
-              Pricing
+              Final Pricing
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {costBreakup.length > 0 && (
-              <div className="mb-4">
-                <Label className="mb-2 block">Cost Breakup</Label>
-                <div className="max-h-48 overflow-y-auto border rounded-lg">
-                  <table className="w-full table-auto">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-4 py-2 text-left">Item</th>
-                        <th className="px-4 py-2 text-right">Date</th>
-                        <th className="px-4 py-2 text-right">Quantity</th>
-                        <th className="px-4 py-2 text-right">Unit Cost</th>
-                        <th className="px-4 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {costBreakup.map((item) => (
-                        <tr key={item.id} className="border-t">
-                          <td className="px-4 py-2">{item.name}</td>
-                          <td className="px-4 py-2 text-right">{item.date}</td>
-                          <td className="px-4 py-2 text-right">
-                            <Input
-                              type="number"
-                              value={item.quantity || 0}
-                              onChange={(e) => {
-                                const updatedCostBreakup = [...costBreakup];
-                                updatedCostBreakup[costBreakup.indexOf(item)].quantity = parseFloat(e.target.value);
-                                setCostBreakup(updatedCostBreakup);
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-right">
-                            <Input
-                              type="number"
-                              value={item.unit_cost}
-                              onChange={(e) => {
-                                const updatedCostBreakup = [...costBreakup];
-                                updatedCostBreakup[costBreakup.indexOf(item)].unit_cost = parseFloat(e.target.value);
-                                setCostBreakup(updatedCostBreakup);
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-right">{(item.quantity * item.unit_cost).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="discount">Discount</Label>
@@ -2855,31 +4689,20 @@ const QuotationBuilder = () => {
                   id="discount"
                   type="number"
                   value={formData.pricing.discount}
-                  onChange={(e) => handleInputChange('pricing', 'discount', parseFloat(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="tcs_percentage">TCS %</Label>
-                <Input
-                  id="tcs_percentage"
-                  type="number"
-                  step="0.01"
-                  value={formData.pricing.tcs_percentage || 2}
-                  onChange={(e) => handleInputChange('pricing', 'tcs_percentage', parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "pricing",
+                      "discount",
+                      parseFloat(e.target.value),
+                    )
+                  }
+                  min="0"
                 />
               </div>
               <div>
                 <Label>Subtotal</Label>
                 <Input
                   value={formData.pricing.subtotal.toFixed(2)}
-                  disabled
-                  className="bg-gray-100"
-                />
-              </div>
-              <div>
-                <Label>Taxes (18% GST)</Label>
-                <Input
-                  value={formData.pricing.taxes.toFixed(2)}
                   disabled
                   className="bg-gray-100"
                 />
@@ -2901,14 +4724,20 @@ const QuotationBuilder = () => {
                 />
               </div>
               <div>
-                <Label>Deposit Due (30%)</Label>
+                <Label>Advance Payment</Label>
                 <Input
-                  value={formData.pricing.depositDue.toFixed(2)}
-                  disabled
+                  value={formData.pricing.depositDue}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "pricing",
+                      "depositDue",
+                      e.target.value,
+                    )
+                  }
                   className="bg-gray-100"
                 />
               </div>
-            </div>  
+            </div>
           </CardContent>
         </Card>
 
@@ -2924,7 +4753,7 @@ const QuotationBuilder = () => {
                   value={newInclusion}
                   onChange={(e) => setNewInclusion(e.target.value)}
                   placeholder="Add inclusion item..."
-                  onKeyPress={(e) => e.key === 'Enter' && addInclusion()}
+                  onKeyPress={(e) => e.key === "Enter" && addInclusion()}
                 />
                 <Button
                   type="button"
@@ -2943,7 +4772,10 @@ const QuotationBuilder = () => {
                   </div>
                 ) : (
                   formData.inclusions.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg"
+                    >
                       <span className="flex-1 text-green-800">✓ {item}</span>
                       <Button
                         type="button"
@@ -2974,7 +4806,7 @@ const QuotationBuilder = () => {
                   value={newExclusion}
                   onChange={(e) => setNewExclusion(e.target.value)}
                   placeholder="Add exclusion item..."
-                  onKeyPress={(e) => e.key === 'Enter' && addExclusion()}
+                  onKeyPress={(e) => e.key === "Enter" && addExclusion()}
                 />
                 <Button
                   type="button"
@@ -2993,7 +4825,10 @@ const QuotationBuilder = () => {
                   </div>
                 ) : (
                   formData.exclusions.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg"
+                    >
                       <span className="flex-1 text-red-800">✗ {item}</span>
                       <Button
                         type="button"
@@ -3018,7 +4853,9 @@ const QuotationBuilder = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Select Activity from Catalog</h2>
+              <h2 className="text-xl font-bold">
+                Select Activity from Catalog
+              </h2>
               <Button
                 onClick={() => setShowActivityModal(false)}
                 variant="outline"
@@ -3095,7 +4932,9 @@ const QuotationBuilder = () => {
                   )}
                   <h3 className="font-semibold">{item.name}</h3>
                   <p className="text-sm text-gray-600">{item.description}</p>
-                  <p className="text-sm text-gray-500 mt-1">{item.destination}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {item.destination}
+                  </p>
                 </div>
               ))}
             </div>
