@@ -17,6 +17,8 @@ import AdminSettings from "./components/AdminSettings";
 import UserManagement from "./components/UserManagement";
 import QuotationBuilder from "./components/QuotationBuilder";
 import PendingInvoices from "./components/PendingInvoices";
+import OverduePaymentsList from "./components/OverduePaymentsList";
+import PaymentAllocationView from "./components/PaymentAllocationView";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
@@ -157,6 +159,24 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <PendingInvoices />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/overdue-payments"
+        element={
+          <ProtectedRoute>
+            <OverduePaymentsList />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/payment-allocations/:invoiceId"
+        element={
+          <ProtectedRoute>
+            <PaymentAllocationView />
           </ProtectedRoute>
         }
       />

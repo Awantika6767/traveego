@@ -15,22 +15,26 @@ import {
   Package,
   Calendar,
   Settings,
-  Receipt
+  Receipt,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { api } from '../utils/api';
 import Notifications from './Notifications';
+import AlertBadge from './AlertBadge';
 
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [overdueCount, setOverdueCount] = useState(0);
 
   useEffect(() => {
     if (user) {
       loadNotifications();
+      loadOverdueCount();
     }
   }, [user]);
 
@@ -40,6 +44,15 @@ export const Layout = ({ children }) => {
       setNotifications(response.data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
+    }
+  };
+
+  const loadOverdueCount = async () => {
+    try {
+      const response = await api.getOverdueCount();
+      setOverdueCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Failed to load overdue count:', error);
     }
   };
 
@@ -64,6 +77,7 @@ export const Layout = ({ children }) => {
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['operations'] },
         { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['operations'] },
         { path: '/pending-invoices', icon: Receipt, label: 'Pending Invoices', roles: ['operations'] },
+        { path: '/overdue-payments', icon: AlertTriangle, label: 'Overdue Payments', roles: ['operations'], badge: overdueCount },
         { path: '/catalog', icon: Package, label: 'Catalog', roles: ['operations'] },
         { path: '/payments', icon: DollarSign, label: 'Payments', roles: ['operations'] },
         { path: '/leaves', icon: Calendar, label: 'Leave Management', roles: ['operations'] }
@@ -76,6 +90,7 @@ export const Layout = ({ children }) => {
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['sales'] },
         { path: '/new-request', icon: Plus, label: 'New Request', roles: ['sales'] },
         { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['sales'] },
+        { path: '/overdue-payments', icon: AlertTriangle, label: 'Overdue Payments', roles: ['sales'], badge: overdueCount },
         // { path: '/quotes', icon: FileText, label: 'My Quotes', roles: ['sales'] },
         { path: '/leaves', icon: Calendar, label: 'Leave Management', roles: ['sales'] }
       ];
@@ -136,6 +151,15 @@ export const Layout = ({ children }) => {
                 </Badge>
               )}
             </button> */}
+            
+            {/* Overdue Payments Alert Badge */}
+            {(user?.role === 'operations' || user?.role === 'sales') && (
+              <AlertBadge 
+                count={overdueCount} 
+                onClick={() => navigate('/overdue-payments')} 
+              />
+            )}
+            
             <Notifications notifications={notifications} />
 
             <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
@@ -172,7 +196,7 @@ export const Layout = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative ${
                   isActive
                     ? 'bg-orange-600 text-white shadow-lg shadow-orange-200'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -182,6 +206,11 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium">{item.label}</span>
+                {item.badge && item.badge > 0 && (
+                  <Badge className="ml-auto bg-red-600 text-white text-xs border-0">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </Badge>
+                )}
               </Link>
             );
           })}

@@ -57,8 +57,25 @@ export const api = {
   // Payments
   getPayments: (params) => axios.get(`${API_BASE}/payments`, { params }),
   getPayment: (id) => axios.get(`${API_BASE}/payments/${id}`),
+  createPayment: (data) => axios.post(`${API_BASE}/payments`, data),
+  uploadPaymentProof: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axios.post(`${API_BASE}/payments/upload-proof`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
   markPaymentReceived: (id, data) => axios.put(`${API_BASE}/payments/${id}/mark-received`, data),
   verifyPayment: (id, data) => axios.put(`${API_BASE}/payments/${id}/verify`, data),
+  verifyPaymentByAccountant: (paymentId) => axios.put(`${API_BASE}/payments/${paymentId}/verify-by-accountant`),
+  verifyPaymentByOperations: (paymentId) => axios.put(`${API_BASE}/payments/${paymentId}/verify-by-operations`),
+  
+  // Payment Allocations
+  getPaymentAllocations: (invoiceId) => axios.get(`${API_BASE}/invoices/${invoiceId}/payment-allocations`),
+  
+  // Alerts & Overdue
+  getOverdueBreakups: () => axios.get(`${API_BASE}/payment-breakups/overdue`),
+  getOverdueCount: () => axios.get(`${API_BASE}/alerts/overdue-count`),
   
   // Activities
   getActivities: (params) => axios.get(`${API_BASE}/activities`, { params }),

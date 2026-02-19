@@ -11,18 +11,22 @@ import {
   TrendingUp, 
   AlertCircle,
   CheckCircle,
-  Package
+  Package,
+  AlertTriangle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import AlertBadge from './AlertBadge';
 
 export const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [overdueCount, setOverdueCount] = useState(0);
 
   useEffect(() => {
     loadStats();
+    loadOverdueCount();
   }, [user]);
 
   const loadStats = async () => {
@@ -33,6 +37,15 @@ export const Dashboard = () => {
       console.error('Failed to load stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOverdueCount = async () => {
+    try {
+      const response = await api.getOverdueCount();
+      setOverdueCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Failed to load overdue count:', error);
     }
   };
 
@@ -102,6 +115,38 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Overdue Payments Alert */}
+      {overdueCount > 0 && (
+        <Card className="mb-6 border-2 border-red-500 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-900 mb-1">
+                    {overdueCount} Overdue Payment{overdueCount !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-sm text-red-700 mb-3">
+                    You have installments that are past their due date. Please review and follow up with customers.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/overdue-payments')}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    size="sm"
+                    data-testid="view-overdue-btn"
+                  >
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    View Overdue Payments
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -201,6 +246,37 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Overdue Payments Alert for Sales */}
+      {overdueCount > 0 && (
+        <Card className="mb-6 border-2 border-red-500 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-900 mb-1">
+                    {overdueCount} Overdue Payment{overdueCount !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-sm text-red-700 mb-3">
+                    Your requests have overdue payments. Please follow up with customers.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/overdue-payments')}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    size="sm"
+                  >
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    View Overdue Payments
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

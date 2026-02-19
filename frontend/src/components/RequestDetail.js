@@ -30,6 +30,7 @@ import {
 import { formatCurrency, formatDateTime, getStatusColor, formatDate } from '../utils/formatters';
 import { toast } from 'sonner';
 import { RequestChat } from './RequestChat';
+import PaymentRequestForm from './PaymentRequestForm';
 
 export const RequestDetail = () => {
   const { id } = useParams();
@@ -54,6 +55,8 @@ export const RequestDetail = () => {
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [showPayRemainingButton, setShowPayRemainingButton] = useState(false);
+  const [paymentBreakup, setPaymentBreakup] = useState([]);
+  const [showPaymentRequestForm, setShowPaymentRequestForm] = useState(false);
 
   useEffect(() => {
     loadRequestData();
@@ -103,6 +106,16 @@ export const RequestDetail = () => {
         if (invResponse.data) {
           const invoiceData = invResponse.data;
           setInvoice(invoiceData);
+
+          // Load payment breakup for this invoice
+          try {
+            const breakupResponse = await api.getPaymentBreakup(invoiceData.id);
+            if (breakupResponse.data && breakupResponse.data.breakups) {
+              setPaymentBreakup(breakupResponse.data.breakups);
+            }
+          } catch (error) {
+            console.error('Failed to load payment breakup:', error);
+          }
 
           // Load payment for this invoice
           const payResponse = await api.getPayments();
@@ -549,6 +562,121 @@ export const RequestDetail = () => {
             <RequestChat requestId={id} currentUser={user} />
           )}
 
+          {/* Payment Breakup Section for Customers */}
+          {user?.role === 'customer' && invoice && paymentBreakup && paymentBreakup.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">Payment Schedule</CardTitle>
+                  <Button
+                    onClick={() => setShowPaymentRequestForm(true)}
+                    className="bg-orange-600 hover:bg-orange-700"
+                    data-testid="make-payment-btn"
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Make Payment
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-900">
+                    Your invoice has been divided into {paymentBreakup.length} installment{paymentBreakup.length !== 1 ? 's' : ''}. 
+                    Please make payments according to the schedule below.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {paymentBreakup.map((breakup, index) => {
+                    const progress = (breakup.paid_amount / breakup.amount) * 100;
+                    const isOverdue = new Date(breakup.due_date) < new Date() && breakup.status !== 'paid';
+                    
+                    return (
+                      <div 
+                        key={breakup.id || index} 
+                        className={`p-4 rounded-lg border-2 ${
+                          breakup.status === 'paid' 
+                            ? 'border-green-200 bg-green-50' 
+                            : isOverdue
+                            ? 'border-red-200 bg-red-50'
+                            : 'border-orange-200 bg-orange-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">
+                              Installment {index + 1}
+                            </h4>
+                            {breakup.description && (
+                              <p className="text-sm text-gray-600 mt-1">{breakup.description}</p>
+                            )}
+                          </div>
+                          <Badge className={
+                            breakup.status === 'paid' 
+                              ? 'bg-green-100 text-green-800 border-green-200'
+                              : breakup.status === 'partial_paid'
+                              ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                              : isOverdue
+                              ? 'bg-red-100 text-red-800 border-red-200'
+                              : 'bg-gray-100 text-gray-800 border-gray-200'
+                          }>
+                            {breakup.status === 'paid' ? 'Paid' : 
+                             breakup.status === 'partial_paid' ? 'Partially Paid' : 
+                             isOverdue ? 'Overdue' : 'Pending'}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                          <div>
+                            <p className="text-gray-600">Due Date</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Calendar className="w-3 h-3 text-gray-500" />
+                              <p className="font-medium">{formatDate(breakup.due_date)}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Amount Due</p>
+                            <p className="font-bold text-gray-900 mt-1">
+                              {formatCurrency(breakup.amount)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Paid</p>
+                            <p className="font-bold text-green-600 mt-1">
+                              {formatCurrency(breakup.paid_amount)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Remaining</p>
+                            <p className="font-bold text-red-600 mt-1">
+                              {formatCurrency(breakup.remaining_amount || (breakup.amount - breakup.paid_amount))}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Payment Progress</span>
+                            <span className="font-medium">{Math.round(progress)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${
+                                breakup.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
 
 
           {/* Quotation View / Detailed Quotation Builder */}
@@ -985,6 +1113,16 @@ export const RequestDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payment Request Form */}
+      {invoice && (
+        <PaymentRequestForm
+          invoiceId={invoice.id}
+          isOpen={showPaymentRequestForm}
+          onClose={() => setShowPaymentRequestForm(false)}
+          onSuccess={loadRequestData}
+        />
+      )}
 
     </div>
   );
