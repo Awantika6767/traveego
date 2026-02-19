@@ -2131,6 +2131,145 @@ async def get_payment(payment_id: str):
         raise HTTPException(status_code=404, detail="Payment not found")
     return Payment(**payment)
 
+
+# PHASE 4: Customer Payment Request
+
+# Step 4.1: Payment Proof Upload Endpoint
+@api_router.post("/payments/upload-proof")
+async def upload_payment_proof(file: UploadFile = File(...)):
+    """
+    Upload payment proof image.
+    Returns the file URL to be used in payment creation.
+    """
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "application/pdf"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid file type. Only images (JPEG, PNG, GIF, WEBP) and PDF are allowed."
+        )
+    
+    # Validate file size (max 5MB)
+    file.file.seek(0, 2)  # Move to end of file
+    file_size = file.file.tell()  # Get file size
+    file.file.seek(0)  # Reset file pointer
+    
+    if file_size > 5 * 1024 * 1024:  # 5MB in bytes
+        raise HTTPException(status_code=400, detail="File size must be less than 5MB")
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = Path("/app/uploads/payment_proofs")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    unique_filename = f"payment_proof_{uuid.uuid4()}.{file_extension}"
+    file_path = upload_dir / unique_filename
+    
+    # Save file
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    return {
+        "success": True,
+        "file_url": f"/uploads/payment_proofs/{unique_filename}",
+        "filename": unique_filename
+    }
+
+
+# Step 4.2: Create Payment Request (Customer)
+class CreatePaymentRequest(BaseModel):
+    invoice_id: str
+    amount: float
+    method: str  # "bank_transfer", "upi", "card", "cash"
+    description: Optional[str] = None
+    proof_image_url: Optional[str] = None
+
+@api_router.post("/payments")
+async def create_payment(data: CreatePaymentRequest, current_user: Dict = Depends(get_current_user)):
+    """
+    Create a payment request. Customer submits payment details.
+    Payment status is initially PENDING until verified by accountant.
+    """
+    # Validate invoice exists
+    invoice = await db.invoices.find_one({"id": data.invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Validate payment amount
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+    
+    # Validate payment method
+    valid_methods = ["bank_transfer", "upi", "card", "cash", "cheque"]
+    if data.method not in valid_methods:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid payment method. Allowed: {', '.join(valid_methods)}"
+        )
+    
+    # Get client details from invoice
+    client_name = invoice.get("client_name")
+    client_email = invoice.get("client_email")
+    client_phone = invoice.get("client_phone")
+    client_country_code = invoice.get("client_country_code", "+91")
+    
+    # Create payment record
+    payment = Payment(
+        invoice_id=data.invoice_id,
+        amount=data.amount,
+        method=data.method,
+        status=PaymentStatus.PENDING,
+        description=data.description,
+        proof_image_url=data.proof_image_url,
+        client_name=client_name,
+        client_email=client_email,
+        client_phone=client_phone,
+        client_country_code=client_country_code,
+        type="partial_payment"
+    )
+    
+    await db.payments.insert_one(payment.model_dump())
+    
+    # Create activity log
+    request_id = invoice.get("request_id")
+    activity = Activity(
+        request_id=request_id,
+        actor_id=current_user.get("sub", ""),
+        actor_name=current_user.get("name", "Customer"),
+        actor_role=current_user.get("role", "customer"),
+        action="payment_submitted",
+        notes=f"Payment of ₹{data.amount:,.2f} submitted via {data.method.replace('_', ' ').title()}. {data.description or ''}"
+    )
+    await db.activities.insert_one(activity.model_dump())
+    
+    # Create notification for accountant
+    # Find all accountants
+    accountants = await db.users.find({"role": "accountant", "is_active": True}).to_list(100)
+    
+    for accountant in accountants:
+        notification = Notification(
+            user_id=accountant["id"],
+            title="New Payment Submitted",
+            message=f"{client_name} submitted payment of ₹{data.amount:,.2f} for invoice {invoice.get('invoice_number')}",
+            link=f"/payments/{payment.id}"
+        )
+        await db.notifications.insert_one(notification.model_dump())
+    
+    return {
+        "success": True,
+        "payment_id": payment.id,
+        "message": "Payment request submitted successfully. Awaiting verification by accountant.",
+        "payment": {
+            "id": payment.id,
+            "amount": payment.amount,
+            "method": payment.method,
+            "status": payment.status,
+            "created_at": payment.created_at
+        }
+    }
+
+
 @api_router.put("/payments/{payment_id}/mark-received")
 async def mark_payment_received(payment_id: str, data: Dict[str, Any]):
     payment = await db.payments.find_one({"id": payment_id})
