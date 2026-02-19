@@ -16,6 +16,7 @@ import AdminPanel from "./components/AdminPanel";
 import AdminSettings from "./components/AdminSettings";
 import UserManagement from "./components/UserManagement";
 import QuotationBuilder from "./components/QuotationBuilder";
+import PendingInvoices from "./components/PendingInvoices";
 import { Toaster } from "./components/ui/sonner";
 
 const ProtectedRoute = ({ children }) => {
@@ -147,6 +148,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <QuotationBuilder />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/pending-invoices"
+        element={
+          <ProtectedRoute>
+            <PendingInvoices />
           </ProtectedRoute>
         }
       />

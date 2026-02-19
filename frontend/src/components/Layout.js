@@ -14,7 +14,8 @@ import {
   Plus,
   Package,
   Calendar,
-  Settings
+  Settings,
+  Receipt
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -62,6 +63,7 @@ export const Layout = ({ children }) => {
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['operations'] },
         { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['operations'] },
+        { path: '/pending-invoices', icon: Receipt, label: 'Pending Invoices', roles: ['operations'] },
         { path: '/catalog', icon: Package, label: 'Catalog', roles: ['operations'] },
         { path: '/payments', icon: DollarSign, label: 'Payments', roles: ['operations'] },
         { path: '/leaves', icon: Calendar, label: 'Leave Management', roles: ['operations'] }

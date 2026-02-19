@@ -49,6 +49,10 @@ export const api = {
   getInvoice: (params) => axios.get(`${API_BASE}/invoice`, { params }),
   // getInvoice: (id) => axios.get(`${API_BASE}/invoices/${id}`),
   downloadInvoice: (id) => `${API_BASE}/invoices/${id}/download`,
+  getPendingInvoiceQuotations: () => axios.get(`${API_BASE}/quotations/pending-invoice`),
+  createInvoiceFromQuotation: (data) => axios.post(`${API_BASE}/invoices/create-from-quotation`, data),
+  createPaymentBreakup: (invoiceId, data) => axios.post(`${API_BASE}/invoices/${invoiceId}/payment-breakup`, data),
+  getPaymentBreakup: (invoiceId) => axios.get(`${API_BASE}/invoices/${invoiceId}/payment-breakup`),
   
   // Payments
   getPayments: (params) => axios.get(`${API_BASE}/payments`, { params }),

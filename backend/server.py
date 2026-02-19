@@ -2008,6 +2008,464 @@ async def verify_payment_by_operations(payment_id: str, data: Dict[str, Any], cu
 
 
 
+# ============================================================================
+# PHASE 6: Payment Allocation View (Accountant Dashboard)
+# ============================================================================
+
+# Step 6.1: Get Payment Allocations for Invoice
+@api_router.get("/invoices/{invoice_id}/payment-allocations")
+async def get_payment_allocations(invoice_id: str, current_user: Dict = Depends(get_current_user)):
+    """
+    Get comprehensive payment allocation view for an invoice.
+    Shows all breakups with their payment allocations.
+    Used by accountants to view payment settlement history.
+    """
+    # Get invoice
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Check if invoice has breakup
+    if not invoice.get("has_breakup"):
+        return {
+            "invoice_id": invoice_id,
+            "invoice_number": invoice.get("invoice_number"),
+            "total_amount": invoice.get("total_amount"),
+            "paid_amount": 0.0,
+            "remaining_amount": invoice.get("total_amount"),
+            "has_breakup": False,
+            "breakups": []
+        }
+    
+    # Get all breakups sorted by due_date (FIFO order)
+    breakups = await db.payment_breakups.find(
+        {"invoice_id": invoice_id}
+    ).sort("due_date", 1).to_list(length=None)
+    
+    if not breakups:
+        return {
+            "invoice_id": invoice_id,
+            "invoice_number": invoice.get("invoice_number"),
+            "total_amount": invoice.get("total_amount"),
+            "paid_amount": 0.0,
+            "remaining_amount": invoice.get("total_amount"),
+            "has_breakup": True,
+            "breakups": []
+        }
+    
+    # Calculate total paid amount
+    total_paid = sum(breakup.get("paid_amount", 0.0) for breakup in breakups)
+    total_amount = invoice.get("total_amount")
+    remaining_amount = total_amount - total_paid
+    
+    # Build breakups array with allocations
+    breakups_with_allocations = []
+    
+    for breakup in breakups:
+        # Get all allocations for this breakup
+        allocations_cursor = db.payment_allocations.find(
+            {"breakup_id": breakup["id"]}
+        ).sort("allocated_at", 1)
+        
+        allocations = await allocations_cursor.to_list(length=None)
+        
+        # Build allocations array with payment details
+        allocation_details = []
+        
+        for allocation in allocations:
+            # Get payment details
+            payment = await db.payments.find_one({"id": allocation["payment_id"]})
+            
+            if payment:
+                allocation_details.append({
+                    "payment_id": allocation["payment_id"],
+                    "amount": allocation["allocated_amount"],
+                    "date": allocation["allocated_at"],
+                    "payment_method": payment.get("method", ""),
+                    "payment_status": payment.get("status", ""),
+                    "payment_total": payment.get("amount", 0.0)
+                })
+        
+        # Build breakup object
+        breakup_obj = {
+            "id": breakup["id"],
+            "amount": breakup["amount"],
+            "due_date": breakup["due_date"],
+            "status": breakup["status"],
+            "paid_amount": breakup.get("paid_amount", 0.0),
+            "remaining_amount": breakup.get("remaining_amount", breakup["amount"]),
+            "description": breakup.get("description", ""),
+            "created_at": breakup.get("created_at", ""),
+            "allocations": allocation_details
+        }
+        
+        breakups_with_allocations.append(breakup_obj)
+    
+    # Return comprehensive allocation view
+    return {
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.get("invoice_number"),
+        "total_amount": total_amount,
+        "paid_amount": total_paid,
+        "remaining_amount": remaining_amount,
+        "status": invoice.get("status", "Pending"),
+        "has_breakup": True,
+        "breakup_count": len(breakups_with_allocations),
+        "breakups": breakups_with_allocations
+    }
+
+
+
+# ============================================================================
+# PHASE 8: Overdue Detection & Alerts
+# ============================================================================
+
+# Step 8.1: Get Overdue Breakups
+@api_router.get("/payment-breakups/overdue")
+async def get_overdue_breakups(current_user: Dict = Depends(get_current_user)):
+    """
+    Get all overdue payment breakups.
+    Returns breakups where due_date < today AND status != 'paid'
+    Includes invoice, request, and assigned personnel details.
+    """
+    # Get current date
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+    
+    # Find all overdue breakups (due_date < today and not fully paid)
+    all_breakups = await db.payment_breakups.find({
+        "status": {"$in": ["pending", "partial_paid"]},
+        "due_date": {"$lt": today_str}
+    }).to_list(length=None)
+    
+    if not all_breakups:
+        return {
+            "overdue_count": 0,
+            "overdue_breakups": []
+        }
+    
+    # Build response with invoice and request details
+    overdue_list = []
+    
+    for breakup in all_breakups:
+        # Get invoice
+        invoice = await db.invoices.find_one({"id": breakup["invoice_id"]})
+        if not invoice:
+            continue
+        
+        # Get request
+        request = await db.requests.find_one({"id": invoice.get("request_id")})
+        if not request:
+            continue
+        
+        # Get client details
+        client = await db.users.find_one({"id": request.get("client_id")})
+        
+        # Get assigned salesperson
+        salesperson = None
+        if request.get("assigned_salesperson_id"):
+            salesperson = await db.users.find_one({"id": request["assigned_salesperson_id"]})
+        
+        # Get assigned operations
+        operations = None
+        if request.get("assigned_operation_id"):
+            operations = await db.users.find_one({"id": request["assigned_operation_id"]})
+        
+        # Calculate days overdue
+        due_date = datetime.fromisoformat(breakup["due_date"].replace('Z', '+00:00'))
+        days_overdue = (now.date() - due_date.date()).days
+        
+        overdue_list.append({
+            "breakup_id": breakup["id"],
+            "invoice_id": invoice["id"],
+            "invoice_number": invoice.get("invoice_number"),
+            "request_id": request["id"],
+            "request_title": request.get("title"),
+            "breakup_amount": breakup["amount"],
+            "paid_amount": breakup.get("paid_amount", 0.0),
+            "remaining_amount": breakup.get("remaining_amount", breakup["amount"]),
+            "due_date": breakup["due_date"],
+            "days_overdue": days_overdue,
+            "status": breakup["status"],
+            "description": breakup.get("description", ""),
+            "client_name": client.get("name") if client else "Unknown",
+            "client_email": client.get("email") if client else "",
+            "client_phone": client.get("phone") if client else "",
+            "salesperson_name": salesperson.get("name") if salesperson else "Not Assigned",
+            "salesperson_email": salesperson.get("email") if salesperson else "",
+            "operations_name": operations.get("name") if operations else "Not Assigned",
+            "operations_email": operations.get("email") if operations else ""
+        })
+    
+    # Sort by days_overdue (most overdue first)
+    overdue_list.sort(key=lambda x: x["days_overdue"], reverse=True)
+    
+    return {
+        "overdue_count": len(overdue_list),
+        "overdue_breakups": overdue_list
+    }
+
+
+# Step 8.2: Get Alert Count (Overdue payments for current user)
+@api_router.get("/alerts/overdue-count")
+async def get_overdue_count(current_user: Dict = Depends(get_current_user)):
+    """
+    Get count of overdue breakups relevant to current user.
+    - Sales: Overdue payments for their requests
+    - Operations: Overdue payments for their requests
+    - Accountant/Admin: All overdue payments
+    - Customer: Overdue payments for their requests
+    """
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+    
+    # Get current date
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+    
+    # Find all overdue breakups
+    all_overdue_breakups = await db.payment_breakups.find({
+        "status": {"$in": ["pending", "partial_paid"]},
+        "due_date": {"$lt": today_str}
+    }).to_list(length=None)
+    
+    if not all_overdue_breakups:
+        return {"overdue_count": 0}
+    
+    # Filter based on role
+    if role in ["accountant", "admin"]:
+        # Return all overdue count
+        return {"overdue_count": len(all_overdue_breakups)}
+    
+    # For sales, operations, and customers - filter by their requests
+    relevant_count = 0
+    
+    for breakup in all_overdue_breakups:
+        # Get invoice
+        invoice = await db.invoices.find_one({"id": breakup["invoice_id"]})
+        if not invoice:
+            continue
+        
+        # Get request
+        request = await db.requests.find_one({"id": invoice.get("request_id")})
+        if not request:
+            continue
+        
+        # Check if this request belongs to current user
+        if role == "sales" and request.get("assigned_salesperson_id") == user_id:
+            relevant_count += 1
+        elif role == "operations" and request.get("assigned_operation_id") == user_id:
+            relevant_count += 1
+        elif role == "customer" and request.get("client_id") == user_id:
+            relevant_count += 1
+    
+    return {"overdue_count": relevant_count}
+
+
+# Step 8.3: Alert Model already exists in the models section
+# Creating alerts is handled in the overdue detection logic
+
+
+# ============================================================================
+# PHASE 9: Backend Complete - Final Endpoints
+# ============================================================================
+
+# Step 9.1: Dashboard Summary Endpoints
+
+@api_router.get("/dashboard/pending-invoices")
+async def get_pending_invoices_count(current_user: Dict = Depends(get_current_user)):
+    """
+    Get count of pending invoices (operations dashboard).
+    For operations: Count of invoices without payment breakup
+    """
+    role = current_user.get("role")
+    
+    if role not in ["operations", "admin"]:
+        raise HTTPException(status_code=403, detail="Only operations team can access this endpoint")
+    
+    # Count invoices without payment breakup
+    pending_invoices = await db.invoices.find({"has_breakup": False}).to_list(length=None)
+    
+    return {
+        "pending_invoices_count": len(pending_invoices),
+        "message": f"{len(pending_invoices)} invoice(s) pending payment breakup creation"
+    }
+
+
+@api_router.get("/dashboard/overdue-payments")
+async def get_overdue_payments_dashboard(current_user: Dict = Depends(get_current_user)):
+    """
+    Get overdue payments count and summary for dashboard.
+    Returns count and total overdue amount.
+    """
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+    
+    # Get current date
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+    
+    # Find all overdue breakups
+    all_overdue_breakups = await db.payment_breakups.find({
+        "status": {"$in": ["pending", "partial_paid"]},
+        "due_date": {"$lt": today_str}
+    }).to_list(length=None)
+    
+    if not all_overdue_breakups:
+        return {
+            "overdue_count": 0,
+            "total_overdue_amount": 0.0,
+            "overdue_breakups": []
+        }
+    
+    # Filter based on role and calculate totals
+    relevant_breakups = []
+    total_overdue_amount = 0.0
+    
+    for breakup in all_overdue_breakups:
+        # Get invoice
+        invoice = await db.invoices.find_one({"id": breakup["invoice_id"]})
+        if not invoice:
+            continue
+        
+        # Get request
+        request = await db.requests.find_one({"id": invoice.get("request_id")})
+        if not request:
+            continue
+        
+        # Check if this request is relevant to current user
+        is_relevant = False
+        
+        if role in ["accountant", "admin"]:
+            is_relevant = True
+        elif role == "sales" and request.get("assigned_salesperson_id") == user_id:
+            is_relevant = True
+        elif role == "operations" and request.get("assigned_operation_id") == user_id:
+            is_relevant = True
+        elif role == "customer" and request.get("client_id") == user_id:
+            is_relevant = True
+        
+        if is_relevant:
+            remaining = breakup.get("remaining_amount", breakup["amount"])
+            total_overdue_amount += remaining
+            
+            # Calculate days overdue
+            due_date = datetime.fromisoformat(breakup["due_date"].replace('Z', '+00:00'))
+            days_overdue = (now.date() - due_date.date()).days
+            
+            relevant_breakups.append({
+                "invoice_number": invoice.get("invoice_number"),
+                "request_title": request.get("title"),
+                "remaining_amount": remaining,
+                "days_overdue": days_overdue
+            })
+    
+    return {
+        "overdue_count": len(relevant_breakups),
+        "total_overdue_amount": total_overdue_amount,
+        "overdue_breakups": relevant_breakups[:10]  # Return top 10 for dashboard
+    }
+
+
+@api_router.get("/invoices/{invoice_id}/summary")
+async def get_invoice_summary(invoice_id: str, current_user: Dict = Depends(get_current_user)):
+    """
+    Get complete payment status summary for an invoice.
+    Includes all payment details, breakup status, and allocation information.
+    """
+    # Get invoice
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get request details
+    request = await db.requests.find_one({"id": invoice.get("request_id")})
+    request_title = request.get("title") if request else "Unknown"
+    
+    # Get all payments for this invoice
+    payments = await db.payments.find({"invoice_id": invoice_id}).sort("created_at", -1).to_list(length=None)
+    
+    payment_summary = []
+    total_paid_via_payments = 0.0
+    
+    for payment in payments:
+        payment_summary.append({
+            "id": payment["id"],
+            "amount": payment.get("amount", 0.0),
+            "method": payment.get("method", ""),
+            "status": payment.get("status", ""),
+            "created_at": payment.get("created_at", ""),
+            "received_at": payment.get("received_at"),
+            "verified_at": payment.get("verified_at"),
+            "description": payment.get("description", "")
+        })
+        
+        # Only count verified payments
+        if payment.get("status") in [PaymentStatus.RECEIVED_BY_ACCOUNTANT, PaymentStatus.VERIFIED_BY_OPS]:
+            total_paid_via_payments += payment.get("amount", 0.0)
+    
+    # Get payment breakup if exists
+    breakup_summary = []
+    total_breakup_amount = 0.0
+    total_breakup_paid = 0.0
+    
+    if invoice.get("has_breakup"):
+        breakups = await db.payment_breakups.find({"invoice_id": invoice_id}).sort("due_date", 1).to_list(length=None)
+        
+        for breakup in breakups:
+            total_breakup_amount += breakup.get("amount", 0.0)
+            total_breakup_paid += breakup.get("paid_amount", 0.0)
+            
+            # Check if overdue
+            now = datetime.now(timezone.utc)
+            due_date = datetime.fromisoformat(breakup["due_date"].replace('Z', '+00:00'))
+            is_overdue = (due_date.date() < now.date()) and (breakup["status"] != "paid")
+            days_overdue = (now.date() - due_date.date()).days if is_overdue else 0
+            
+            breakup_summary.append({
+                "id": breakup["id"],
+                "amount": breakup.get("amount", 0.0),
+                "paid_amount": breakup.get("paid_amount", 0.0),
+                "remaining_amount": breakup.get("remaining_amount", 0.0),
+                "due_date": breakup.get("due_date"),
+                "status": breakup.get("status"),
+                "description": breakup.get("description", ""),
+                "is_overdue": is_overdue,
+                "days_overdue": days_overdue if is_overdue else 0
+            })
+    
+    return {
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.get("invoice_number"),
+        "request_id": invoice.get("request_id"),
+        "request_title": request_title,
+        "total_amount": invoice.get("total_amount"),
+        "advance_amount": invoice.get("advance_amount"),
+        "tcs_amount": invoice.get("tcs_amount", 0.0),
+        "tcs_percent": invoice.get("tcs_percent", 2.0),
+        "status": invoice.get("status", "Pending"),
+        "has_breakup": invoice.get("has_breakup", False),
+        "created_at": invoice.get("created_at"),
+        "due_date": invoice.get("due_date"),
+        
+        # Payment summary
+        "payments_count": len(payment_summary),
+        "total_paid": total_breakup_paid if invoice.get("has_breakup") else total_paid_via_payments,
+        "remaining_amount": invoice.get("total_amount") - (total_breakup_paid if invoice.get("has_breakup") else total_paid_via_payments),
+        "payments": payment_summary,
+        
+        # Breakup summary
+        "breakup_count": len(breakup_summary),
+        "breakups": breakup_summary,
+        
+        # Client details
+        "client_name": invoice.get("client_name"),
+        "client_email": invoice.get("client_email"),
+        "client_phone": invoice.get("client_phone")
+    }
+
+
+
 # New endpoint: Download Proforma Invoice PDF
 @api_router.get("/quotations/{quotation_id}/download-proforma")
 async def download_proforma_invoice(quotation_id: str):
