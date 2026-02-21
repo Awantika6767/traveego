@@ -37,7 +37,7 @@ const UserManagement = () => {
       setError('');
       const roleParam = filterRole === 'all' ? null : filterRole;
       const response = await api.getAllUsers(roleParam);
-      setUsers(response.data.users);
+      setUsers(response.data || []);
     } catch (err) {
       console.error('Error loading users:', err);
       setError('Failed to load users. Please try again.');

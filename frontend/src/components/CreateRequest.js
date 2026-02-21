@@ -63,7 +63,7 @@ export const CreateRequest = () => {
         setSearchingCustomers(true);
         try {
           const response = await api.searchCustomers(customerSearchQuery);
-          setCustomerSearchResults(response.data.customers || []);
+          setCustomerSearchResults(response.data || []);
           setShowCustomerDropdown(true);
         } catch (error) {
           console.error('Failed to search customers:', error);

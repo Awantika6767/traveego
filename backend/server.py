@@ -588,7 +588,7 @@ async def search_customers(query: str):
             "country_code": customer.get("country_code", "+91")
         })
     
-    return {"customers": result}
+    return result
 
 @api_router.post("/customers/quick-create")
 async def quick_create_customer(customer_data: Dict[str, str]):
@@ -1736,84 +1736,84 @@ async def settle_payment_fifo(payment_id: str, invoice_id: str, amount: float) -
     )
     
     try:
-    # Get all breakups for this invoice, sorted by due_date (FIFO)
-    breakups = await db.payment_breakups.find(
-        {"invoice_id": invoice_id}
-    ).sort("due_date", 1).to_list(length=None)
-    
-    if not breakups:
-        raise HTTPException(status_code=404, detail="No payment breakup found for this invoice")
-    
-    remaining_amount = amount
-    allocations = []
-    
-    # Iterate through breakups in FIFO order
-    for breakup in breakups:
-        if remaining_amount <= 0:
-            break
+        # Get all breakups for this invoice, sorted by due_date (FIFO)
+        breakups = await db.payment_breakups.find(
+            {"invoice_id": invoice_id}
+        ).sort("due_date", 1).to_list(length=None)
         
-        breakup_remaining = breakup["remaining_amount"]
+        if not breakups:
+            raise HTTPException(status_code=404, detail="No payment breakup found for this invoice")
         
-        # Skip if this breakup is already fully paid
-        if breakup_remaining <= 0:
-            continue
+        remaining_amount = amount
+        allocations = []
         
-        # Calculate allocation for this breakup
-        allocated_to_this_breakup = min(remaining_amount, breakup_remaining)
+        # Iterate through breakups in FIFO order
+        for breakup in breakups:
+            if remaining_amount <= 0:
+                break
+            
+            breakup_remaining = breakup["remaining_amount"]
+            
+            # Skip if this breakup is already fully paid
+            if breakup_remaining <= 0:
+                continue
+            
+            # Calculate allocation for this breakup
+            allocated_to_this_breakup = min(remaining_amount, breakup_remaining)
+            
+            # Update breakup amounts
+            new_paid_amount = breakup["paid_amount"] + allocated_to_this_breakup
+            new_remaining_amount = breakup["amount"] - new_paid_amount
+            
+            # Determine new status
+            if new_remaining_amount <= 0.01:  # Fully paid (allowing 1 paisa tolerance)
+                new_status = "paid"
+                new_remaining_amount = 0.0
+            elif new_paid_amount > 0:
+                new_status = "partial_paid"
+            else:
+                new_status = "pending"
+            
+            # Update breakup in database
+            await db.payment_breakups.update_one(
+                {"id": breakup["id"]},
+                {"$set": {
+                    "paid_amount": new_paid_amount,
+                    "remaining_amount": new_remaining_amount,
+                    "status": new_status,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            # Create allocation record
+            allocation = PaymentAllocation(
+                payment_id=payment_id,
+                breakup_id=breakup["id"],
+                invoice_id=invoice_id,
+                allocated_amount=allocated_to_this_breakup
+            )
+            await db.payment_allocations.insert_one(allocation.model_dump())
+            
+            # Add to summary
+            allocations.append({
+                "breakup_id": breakup["id"],
+                "breakup_description": breakup.get("description", ""),
+                "breakup_amount": breakup["amount"],
+                "allocated_amount": allocated_to_this_breakup,
+                "breakup_status": new_status
+            })
+            
+            # Reduce remaining amount
+            remaining_amount -= allocated_to_this_breakup
         
-        # Update breakup amounts
-        new_paid_amount = breakup["paid_amount"] + allocated_to_this_breakup
-        new_remaining_amount = breakup["amount"] - new_paid_amount
+        # Calculate invoice status after allocation
+        await update_invoice_status(invoice_id)
         
-        # Determine new status
-        if new_remaining_amount <= 0.01:  # Fully paid (allowing 1 paisa tolerance)
-            new_status = "paid"
-            new_remaining_amount = 0.0
-        elif new_paid_amount > 0:
-            new_status = "partial_paid"
-        else:
-            new_status = "pending"
-        
-        # Update breakup in database
-        await db.payment_breakups.update_one(
-            {"id": breakup["id"]},
-            {"$set": {
-                "paid_amount": new_paid_amount,
-                "remaining_amount": new_remaining_amount,
-                "status": new_status,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }}
-        )
-        
-        # Create allocation record
-        allocation = PaymentAllocation(
-            payment_id=payment_id,
-            breakup_id=breakup["id"],
-            invoice_id=invoice_id,
-            allocated_amount=allocated_to_this_breakup
-        )
-        await db.payment_allocations.insert_one(allocation.model_dump())
-        
-        # Add to summary
-        allocations.append({
-            "breakup_id": breakup["id"],
-            "breakup_description": breakup.get("description", ""),
-            "breakup_amount": breakup["amount"],
-            "allocated_amount": allocated_to_this_breakup,
-            "breakup_status": new_status
-        })
-        
-        # Reduce remaining amount
-        remaining_amount -= allocated_to_this_breakup
-    
-    # Calculate invoice status after allocation
-    await update_invoice_status(invoice_id)
-    
-    return {
-        "total_allocated": amount - remaining_amount,
-        "remaining_unallocated": remaining_amount,
-        "allocations": allocations
-    }
+        return {
+            "total_allocated": amount - remaining_amount,
+            "remaining_unallocated": remaining_amount,
+            "allocations": allocations
+        }
 
     finally:
         # EDGE CASE 4: Release processing lock
@@ -3706,7 +3706,7 @@ async def get_all_users(
         user.pop("password", None)
         user["_id"] = str(user.get("_id", ""))
     
-    return {"users": users}
+    return users
 
 @api_router.get("/admin/users/{user_id}")
 async def get_user(
