@@ -16,7 +16,8 @@ import {
   Calendar,
   Settings,
   Receipt,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -66,6 +67,7 @@ export const Layout = ({ children }) => {
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['admin'] },
         { path: '/user-management', icon: Users, label: 'User Management', roles: ['admin'] },
+        { path: '/admin-performance', icon: BarChart3, label: 'Performance Dashboard', roles: ['admin'] },
         { path: '/admin-panel', icon: Settings, label: 'Admin Panel', roles: ['admin'] },
         { path: '/admin-settings', icon: Settings, label: 'Admin Settings', roles: ['admin'] }
       ];

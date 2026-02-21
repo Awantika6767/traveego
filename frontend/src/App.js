@@ -15,6 +15,7 @@ import LeaveManagement from "./components/LeaveManagement";
 import AdminPanel from "./components/AdminPanel";
 import AdminSettings from "./components/AdminSettings";
 import UserManagement from "./components/UserManagement";
+import AdminPerformanceDashboard from "./components/AdminPerformanceDashboard";
 import QuotationBuilder from "./components/QuotationBuilder";
 import PendingInvoices from "./components/PendingInvoices";
 import OverduePaymentsList from "./components/OverduePaymentsList";
@@ -141,6 +142,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <UserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin-performance"
+        element={
+          <ProtectedRoute>
+            <AdminPerformanceDashboard />
           </ProtectedRoute>
         }
       />

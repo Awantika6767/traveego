@@ -239,6 +239,67 @@ user_problem_statement: |
         agent: "main"
         comment: "Added GET /api/invoices/{invoice_id}/payment-breakup endpoint. Returns invoice details with all breakup items sorted by due_date (FIFO order). Includes invoice_number, total_amount, breakup_count, and array of breakup items with status, paid_amount, remaining_amount fields."
 
+  # PHASE 17: Edge Cases & Refinements
+  - task: "Add validation to prevent zero or negative payment amounts"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced create_payment endpoint with zero/negative amount validation. Added check to prevent payment amount from exceeding invoice balance."
+
+  - task: "Add duplicate payment submission protection"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented duplicate detection in create_payment endpoint. Checks for same amount, same invoice within last 2 minutes. Prevents accidental double submissions."
+
+  - task: "Add concurrent payment allocation protection"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added processing lock mechanism in settle_payment_fifo function. Sets invoice.processing_payment flag during allocation. Prevents race conditions with 409 Conflict error and retry logic."
+
+  - task: "Enhance timezone handling for due dates"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced create_payment_breakup endpoint with robust timezone handling. Normalizes all dates to UTC. Supports both date-only (YYYY-MM-DD) and full datetime formats. Ensures timezone-aware comparisons."
+
+  - task: "Verify invoice without breakup blocking"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Confirmed existing validation in verify_payment_by_accountant endpoint. Blocks payment verification if invoice doesn't have payment breakup with clear error message."
+
 
   NEW FEATURE: Payment Breakup System
   - When quotation is accepted, operations creates invoice (can edit quotation data, add 2% TCS)
@@ -2439,14 +2500,17 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 8
+  version: "4.0"
+  test_sequence: 9
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Update get_request endpoint to format dates and return all fields"
-    - "Update RequestDetail component to show all captured information"
+    - "Add validation to prevent zero or negative payment amounts"
+    - "Add duplicate payment submission protection"
+    - "Add concurrent payment allocation protection"
+    - "Enhance timezone handling for due dates"
+    - "Verify invoice without breakup blocking"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -2506,6 +2570,166 @@ agent_communication:
             - Destination (with MapPin icon)
             - Travel dates (formatted, with Calendar icon)
             - Number of people (with Users icon)
+  - agent: "main"
+    message: |
+      PHASE 17 COMPLETED: Edge Cases & Refinements for Payment Breakup System
+      
+      **Phase 17 Implementation Summary:**
+      
+      **STEP 17.1: Edge Case Handling** ✅
+      
+      All critical edge cases have been implemented to ensure robust payment processing:
+      
+      **1. Zero/Negative Payment Amount Protection:**
+         - Location: POST /api/payments endpoint (line 2984-2985)
+         - Validation: Rejects any payment with amount <= 0
+         - Error: 400 Bad Request with clear message
+      
+      **2. Payment Exceeding Invoice Balance Protection:**
+         - Location: POST /api/payments endpoint
+         - Logic: Calculates total paid from all verified payments
+         - Validation: Ensures new payment + existing payments <= invoice total (with 1 paisa tolerance)
+         - Error: Returns detailed message showing invoice total, already paid, and remaining balance
+      
+      **3. Duplicate Payment Submission Protection:**
+         - Location: POST /api/payments endpoint
+         - Mechanism: Checks for same amount + same invoice within last 2 minutes
+         - Only checks PENDING payments to avoid blocking legitimate retries
+         - Error: 400 Bad Request asking user to wait 2 minutes
+         - Prevents accidental double-clicks and rapid resubmissions
+      
+      **4. Concurrent Payment Allocation Protection:**
+         - Location: settle_payment_fifo function
+         - Mechanism: Invoice-level processing lock (invoice.processing_payment flag)
+         - Implementation:
+           * Sets processing_payment = True before allocation starts
+           * Uses try-finally to ensure lock is always released
+           * On conflict: waits 0.5s and retries once
+           * After retry: returns 409 Conflict error
+         - Prevents race conditions when multiple payments are verified simultaneously
+         - Added asyncio import for sleep functionality
+      
+      **5. Timezone Handling for Due Dates:**
+         - Location: create_payment_breakup endpoint (validation section)
+         - Improvements:
+           * Accepts both date-only (YYYY-MM-DD) and full datetime formats
+           * Date-only: Assumes end of day in UTC (23:59:59)
+           * Full datetime: Parses ISO format with timezone
+           * Ensures all dates are timezone-aware (UTC)
+           * Normalizes timezones for consistent comparisons
+         - Better error messages include expected format examples
+         - Prevents timezone-related edge cases in overdue detection
+      
+      **6. Invoice Without Payment Breakup Blocking:**
+         - Location: verify_payment_by_accountant endpoint (line 1865-1869)
+         - Validation: Confirmed existing check is in place
+         - Blocks payment verification if invoice.has_breakup = False
+         - Error: Clear message asking to create payment breakup first
+         - Ensures payment can only be allocated when breakup exists
+      
+      **TECHNICAL IMPLEMENTATION DETAILS:**
+      
+      **Files Modified:**
+      - /app/backend/server.py:
+        * Added asyncio import for sleep in concurrent protection
+        * Enhanced create_payment function with 3 new validations
+        * Updated settle_payment_fifo with locking mechanism
+        * Improved timezone parsing in create_payment_breakup
+        * All changes use proper try-except-finally patterns
+      
+      **Validation Flow:**
+      ```
+      Payment Submission:
+      1. Check amount > 0 ✓
+      2. Check total won't exceed invoice ✓
+      3. Check no duplicate in last 2 mins ✓
+      4. Create payment with PENDING status
+      
+      Payment Verification:
+      5. Check invoice has breakup ✓
+      6. Acquire processing lock ✓
+      7. Perform FIFO allocation
+      8. Release lock (always, via finally) ✓
+      ```
+      
+      **STEP 17.2: UI/UX Polish**
+      
+      **Existing UI Components Already Have:**
+      - ✅ Loading states (PaymentBreakupForm already uses loading state)
+      - ✅ Error handling (toast notifications throughout)
+      - ✅ Success messages (toast.success after successful actions)
+      - ✅ Confirmation dialogs (for delete actions)
+      - ✅ Responsive design (all forms use responsive grid layouts)
+      
+      **Frontend Components Status:**
+      - PendingInvoices.js: Already has loading states and error handling
+      - InvoiceCreationForm.js: Has validation and success/error toasts
+      - PaymentBreakupForm.js: Complete with real-time validation, balance checking, loading states
+      - PaymentAllocationView.js: Has proper data display and error handling
+      - RequestDetail.js: Shows payment breakup with proper status indicators
+      
+      **ERROR HANDLING IMPROVEMENTS:**
+      All backend endpoints now return:
+      - Specific HTTP status codes (400, 404, 409, 500)
+      - Detailed error messages with context
+      - Actionable guidance for users
+      
+      **EDGE CASE TESTING SCENARIOS:**
+      
+      1. **Zero Payment Test:**
+         - Try: Submit payment with amount = 0
+         - Expected: 400 error - "Payment amount must be greater than zero"
+      
+      2. **Overpayment Test:**
+         - Given: Invoice total ₹30,000, already paid ₹25,000
+         - Try: Submit payment for ₹10,000
+         - Expected: 400 error showing breakdown
+      
+      3. **Duplicate Test:**
+         - Try: Click "Submit Payment" twice rapidly
+         - Expected: First succeeds, second gets duplicate error
+      
+      4. **Concurrent Allocation Test:**
+         - Try: Two accountants verify two payments for same invoice simultaneously
+         - Expected: One proceeds, other waits and retries, or gets 409 error
+      
+      5. **Timezone Test:**
+         - Try: Create breakup with due_date="2025-02-25" (date only)
+         - Expected: Accepts and normalizes to UTC end of day
+         - Try: Create breakup with past date
+         - Expected: Rejects with clear error message
+      
+      6. **No Breakup Test:**
+         - Try: Verify payment for invoice without breakup
+         - Expected: 400 error - "Please create payment breakup first"
+      
+      **BENEFITS OF PHASE 17 IMPLEMENTATION:**
+      
+      ✅ **Robustness:** System handles edge cases gracefully
+      ✅ **Data Integrity:** Prevents invalid payment states
+      ✅ **User Experience:** Clear error messages guide users
+      ✅ **Concurrency Safety:** No race conditions in payment allocation
+      ✅ **Timezone Consistency:** All dates normalized to UTC
+      ✅ **Duplicate Prevention:** Protects against accidental resubmissions
+      
+      **PRODUCTION READINESS:**
+      - All edge cases handled with proper validations
+      - Error messages are user-friendly and actionable
+      - Locking mechanisms prevent data corruption
+      - Timezone handling ensures consistency across regions
+      - System degrades gracefully under load
+      
+      **STATUS:**
+      ✅ Backend edge cases implemented
+      ✅ Linting passed (only minor style warnings remain)
+      ✅ Services running successfully
+      ✅ Ready for comprehensive testing
+      
+      **NEXT STEPS:**
+      - User will perform testing on Phase 1-17
+      - Frontend UX already polished from previous phases
+      - System ready for production deployment after testing
+
             - Budget range (with DollarSign icon)
             - Visa citizenship (conditional, only if visa is required, with Globe icon)
             

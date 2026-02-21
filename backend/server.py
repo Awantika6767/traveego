@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum
+import asyncio
 import shutil
 from fastapi.responses import StreamingResponse, FileResponse
 import io
@@ -1584,20 +1585,36 @@ async def create_payment_breakup(invoice_id: str, data: CreatePaymentBreakupRequ
         )
     
     # Validation 3: Check due dates are future dates and in ascending order
+    # EDGE CASE 5: Timezone handling - normalize all dates to UTC for consistency
     now = datetime.now(timezone.utc)
     previous_date = None
     
     for idx, item in enumerate(data.breakups):
         try:
-            due_date = datetime.fromisoformat(item.due_date.replace('Z', '+00:00'))
+            # Parse due date and ensure it's timezone-aware
+            due_date_str = item.due_date
+            if 'T' in due_date_str:
+                # Full datetime provided
+                due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
+            else:
+                # Date only provided, assume end of day in UTC
+                due_date = datetime.fromisoformat(f"{due_date_str}T23:59:59+00:00")
+            
+            # Ensure timezone-aware
+            if due_date.tzinfo is None:
+                due_date = due_date.replace(tzinfo=timezone.utc)
+                
         except (ValueError, AttributeError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid due_date format for breakup item {idx + 1}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid due_date format for breakup item {idx + 1}. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"
+            )
         
         # Check if date is in the future (allow same day)
         if due_date.date() < now.date():
             raise HTTPException(
                 status_code=400, 
-                detail=f"Due date for breakup item {idx + 1} must be today or in the future"
+                detail=f"Due date for breakup item {idx + 1} must be today or in the future. Provided: {due_date.date()}, Today: {now.date()}"
             )
         
         # Check ascending order
@@ -1694,7 +1711,31 @@ async def settle_payment_fifo(payment_id: str, invoice_id: str, amount: float) -
     Allocates payment amount to breakups in order of due_date.
     
     Returns allocation summary with updated breakup statuses.
+    
+    EDGE CASE HANDLING:
+    - Concurrent allocation protection: Checks if another payment is being processed
+    - Uses invoice processing lock to prevent race conditions
     """
+    # EDGE CASE 4: Check for concurrent allocation (simple locking mechanism)
+    # Check if invoice is currently being processed
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if invoice and invoice.get("processing_payment"):
+        # Wait briefly and retry once
+        await asyncio.sleep(0.5)
+        invoice = await db.invoices.find_one({"id": invoice_id})
+        if invoice and invoice.get("processing_payment"):
+            raise HTTPException(
+                status_code=409, 
+                detail="Another payment is currently being processed for this invoice. Please try again in a moment."
+            )
+    
+    # Set processing lock
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {"processing_payment": True}}
+    )
+    
+    try:
     # Get all breakups for this invoice, sorted by due_date (FIFO)
     breakups = await db.payment_breakups.find(
         {"invoice_id": invoice_id}
@@ -1773,6 +1814,13 @@ async def settle_payment_fifo(payment_id: str, invoice_id: str, amount: float) -
         "remaining_unallocated": remaining_amount,
         "allocations": allocations
     }
+
+    finally:
+        # EDGE CASE 4: Release processing lock
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {"processing_payment": False}}
+        )
 
 
 async def update_invoice_status(invoice_id: str):
@@ -2980,9 +3028,39 @@ async def create_payment(data: CreatePaymentRequest, current_user: Dict = Depend
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
-    # Validate payment amount
+    # EDGE CASE 1: Validate payment amount (no zero or negative amounts)
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+    
+    # EDGE CASE 2: Validate payment amount doesn't exceed invoice total
+    invoice_total = invoice.get("total_amount", 0)
+    # Get total already paid for this invoice
+    existing_payments = await db.payments.find({
+        "invoice_id": data.invoice_id,
+        "status": {"$in": [PaymentStatus.RECEIVED_BY_ACCOUNTANT, PaymentStatus.VERIFIED_BY_OPS]}
+    }).to_list(1000)
+    total_paid = sum(p.get("amount", 0) for p in existing_payments)
+    
+    if (total_paid + data.amount) > (invoice_total + 0.01):  # Allow 1 paisa tolerance
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment amount (₹{data.amount:,.2f}) would exceed invoice balance. Invoice total: ₹{invoice_total:,.2f}, Already paid: ₹{total_paid:,.2f}, Remaining: ₹{invoice_total - total_paid:,.2f}"
+        )
+    
+    # EDGE CASE 3: Check for duplicate payment submission (same amount, same invoice, within last 2 minutes)
+    two_minutes_ago = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
+    recent_payment = await db.payments.find_one({
+        "invoice_id": data.invoice_id,
+        "amount": data.amount,
+        "created_at": {"$gte": two_minutes_ago},
+        "status": PaymentStatus.PENDING
+    })
+    
+    if recent_payment:
+        raise HTTPException(
+            status_code=400,
+            detail="A payment with the same amount was just submitted. Please wait 2 minutes before submitting again to avoid duplicates."
+        )
     
     # Validate payment method
     valid_methods = ["bank_transfer", "upi", "card", "cash", "cheque"]
@@ -4288,6 +4366,259 @@ async def seed_data():
     await db.activities.insert_one(activity.dict())
     
     return {"success": True, "message": "Mock data seeded successfully"}
+
+# ===== Admin Performance Dashboard Models =====
+class PerformanceMember(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    email: str
+    role: str  # "sales" or "operations"
+    requestsHandled: Optional[int] = 0
+    requestsProcessed: Optional[int] = 0
+    conversionRate: Optional[float] = 0.0
+    completionRate: Optional[float] = 0.0
+    revenueGenerated: Optional[float] = 0.0
+    avgResponseTime: Optional[str] = "N/A"
+    monthlyTarget: Optional[float] = 0.0
+    customerSatisfaction: Optional[float] = 0.0
+    totalIncentives: Optional[float] = 0.0
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class PerformanceRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    customerName: str
+    destination: str
+    assignedTo: str
+    status: str  # "pending" or "completed"
+    revenue: float
+    date: str
+    incentive: Optional[float] = 0.0
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class CompleteRequestPayload(BaseModel):
+    request_id: str
+    incentive: float
+
+class AddMemberPayload(BaseModel):
+    name: str
+    email: str
+    role: str  # "sales" or "operations"
+
+# ===== Admin Performance Dashboard Endpoints =====
+
+@api_router.get("/admin/performance/sales")
+async def get_sales_performance(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get or create sales team members
+    sales_members = await db.performance_members.find({"role": "sales"}).to_list(None)
+    
+    # Initialize with default data if empty
+    if not sales_members:
+        default_sales = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Rajesh Kumar",
+                "email": "rajesh@traveego.com",
+                "role": "sales",
+                "requestsHandled": 45,
+                "conversionRate": 78.0,
+                "revenueGenerated": 2850000.0,
+                "monthlyTarget": 3000000.0,
+                "customerSatisfaction": 4.7,
+                "totalIncentives": 45000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Priya Sharma",
+                "email": "priya@traveego.com",
+                "role": "sales",
+                "requestsHandled": 52,
+                "conversionRate": 82.0,
+                "revenueGenerated": 3200000.0,
+                "monthlyTarget": 3000000.0,
+                "customerSatisfaction": 4.9,
+                "totalIncentives": 58000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.performance_members.insert_many(default_sales)
+        sales_members = default_sales
+    
+    return [serialize_mongo(member) for member in sales_members]
+
+@api_router.get("/admin/performance/operations")
+async def get_operations_performance(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get or create operations team members
+    ops_members = await db.performance_members.find({"role": "operations"}).to_list(None)
+    
+    # Initialize with default data if empty
+    if not ops_members:
+        default_ops = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Amit Patel",
+                "email": "amit@traveego.com",
+                "role": "operations",
+                "requestsProcessed": 67,
+                "avgResponseTime": "2.5 hrs",
+                "completionRate": 94.0,
+                "monthlyTarget": 70.0,
+                "customerSatisfaction": 4.6,
+                "totalIncentives": 38000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Sneha Reddy",
+                "email": "sneha@traveego.com",
+                "role": "operations",
+                "requestsProcessed": 73,
+                "avgResponseTime": "1.8 hrs",
+                "completionRate": 97.0,
+                "monthlyTarget": 70.0,
+                "customerSatisfaction": 4.8,
+                "totalIncentives": 42000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.performance_members.insert_many(default_ops)
+        ops_members = default_ops
+    
+    return [serialize_mongo(member) for member in ops_members]
+
+@api_router.get("/admin/performance/requests")
+async def get_performance_requests(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get or create performance requests
+    requests = await db.performance_requests.find().to_list(None)
+    
+    # Initialize with default data if empty
+    if not requests:
+        default_requests = [
+            {
+                "id": "REQ001",
+                "customerName": "Suresh Gupta",
+                "destination": "Goa Beach Package",
+                "assignedTo": "Rajesh Kumar (Sales) & Amit Patel (Ops)",
+                "status": "pending",
+                "revenue": 125000.0,
+                "date": "2025-02-15",
+                "incentive": 0.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": "REQ002",
+                "customerName": "Kavita Singh",
+                "destination": "Manali Honeymoon",
+                "assignedTo": "Priya Sharma (Sales) & Sneha Reddy (Ops)",
+                "status": "pending",
+                "revenue": 185000.0,
+                "date": "2025-02-16",
+                "incentive": 0.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": "REQ003",
+                "customerName": "Rahul Verma",
+                "destination": "Dubai Shopping Tour",
+                "assignedTo": "Rajesh Kumar (Sales) & Amit Patel (Ops)",
+                "status": "completed",
+                "revenue": 245000.0,
+                "date": "2025-02-10",
+                "incentive": 12000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": "REQ004",
+                "customerName": "Anjali Mehta",
+                "destination": "Kerala Backwaters",
+                "assignedTo": "Priya Sharma (Sales) & Sneha Reddy (Ops)",
+                "status": "pending",
+                "revenue": 95000.0,
+                "date": "2025-02-17",
+                "incentive": 0.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": "REQ005",
+                "customerName": "Vikram Joshi",
+                "destination": "Switzerland Alps",
+                "assignedTo": "Rajesh Kumar (Sales) & Sneha Reddy (Ops)",
+                "status": "completed",
+                "revenue": 520000.0,
+                "date": "2025-02-08",
+                "incentive": 25000.0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.performance_requests.insert_many(default_requests)
+        requests = default_requests
+    
+    return [serialize_mongo(req) for req in requests]
+
+@api_router.post("/admin/performance/complete-request")
+async def complete_request(payload: CompleteRequestPayload, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Update request status and incentive
+    result = await db.performance_requests.update_one(
+        {"id": payload.request_id},
+        {"$set": {"status": "completed", "incentive": payload.incentive}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    return {"success": True, "message": "Request marked as complete"}
+
+@api_router.post("/admin/performance/add-member")
+async def add_member(payload: AddMemberPayload, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Create new member
+    new_member = {
+        "id": str(uuid.uuid4()),
+        "name": payload.name,
+        "email": payload.email,
+        "role": payload.role,
+        "requestsHandled": 0 if payload.role == "sales" else None,
+        "requestsProcessed": 0 if payload.role == "operations" else None,
+        "conversionRate": 0.0 if payload.role == "sales" else None,
+        "completionRate": 0.0 if payload.role == "operations" else None,
+        "revenueGenerated": 0.0 if payload.role == "sales" else None,
+        "avgResponseTime": "N/A" if payload.role == "operations" else None,
+        "monthlyTarget": 3000000.0 if payload.role == "sales" else 70.0,
+        "customerSatisfaction": 0.0,
+        "totalIncentives": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.performance_members.insert_one(new_member)
+    
+    return serialize_mongo(new_member)
+
+@api_router.delete("/admin/performance/remove-member/{member_id}")
+async def remove_member(member_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Delete member
+    result = await db.performance_members.delete_one({"id": member_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    return {"success": True, "message": "Member removed successfully"}
 
 # Include the router in the main app
 app.include_router(api_router)

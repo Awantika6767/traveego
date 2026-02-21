@@ -140,4 +140,11 @@ export const api = {
   //Quotation Builder
   createQuotation: (data) => axios.post(`${API_BASE}/quotations`, data),
   
+  // Admin Performance Dashboard
+  getSalesPerformance: () => axios.get(`${API_BASE}/admin/performance/sales`),
+  getOperationsPerformance: () => axios.get(`${API_BASE}/admin/performance/operations`),
+  getPerformanceRequests: () => axios.get(`${API_BASE}/admin/performance/requests`),
+  completeRequest: (data) => axios.post(`${API_BASE}/admin/performance/complete-request`, data),
+  addTeamMember: (data) => axios.post(`${API_BASE}/admin/performance/add-member`, data),
+  removeTeamMember: (memberId) => axios.delete(`${API_BASE}/admin/performance/remove-member/${memberId}`),
 };
