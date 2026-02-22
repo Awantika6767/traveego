@@ -211,12 +211,12 @@ export default function LeaveManagement() {
               <div>
                 <Label htmlFor="backup">Backup Person</Label>
                 <Select
-                  value={formData.backup_user_id}
+                  value={formData.backup_user_id ?? ""}
                   onValueChange={(value) => {
-                    const backup = availableBackups.find(b => b.id === value);
+                    const backup = availableBackups.find(b => b.user_id === Number(value));
                     setFormData({
                       ...formData,
-                      backup_user_id: value,
+                      backup_user_id: Number(value),
                       backup_user_name: backup?.name || ''
                     });
                   }}
@@ -226,8 +226,8 @@ export default function LeaveManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableBackups.map((backup) => (
-                      <SelectItem key={backup.id} value={backup.id}>
-                        {backup.name}
+                      <SelectItem key={backup.user_id} value={backup.user_id}>
+                        {backup.name} {backup.user_id}
                       </SelectItem>
                     ))}
                   </SelectContent>

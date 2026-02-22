@@ -137,11 +137,13 @@ export const OpenRequests = () => {
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={() => handleAssignToMe(request.id)}
-                    disabled={assigningId === request.id}
-                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                {/* role should not be admin */}
+                {user?.role !== 'admin' && (
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => handleAssignToMe(request.id)}
+                      disabled={assigningId === request.id}
+                      className="flex-1 bg-orange-600 hover:bg-orange-700"
                     size="sm"
                   >
                     {assigningId === request.id ? (
@@ -156,7 +158,7 @@ export const OpenRequests = () => {
                       </>
                     )}
                   </Button>
-                </div>
+                </div>)}
               </CardContent>
             </Card>
           ))}

@@ -27,6 +27,7 @@ export const api = {
   createRequest: (data) => axios.post(`${API_BASE}/requests`, data),
   updateRequest: (id, data) => axios.put(`${API_BASE}/requests/${id}`, data),
   cancelRequest: (id, data) => axios.post(`${API_BASE}/requests/${id}/cancel`, data),
+  reopenRequest: (id, data) => axios.post(`${API_BASE}/requests/${id}/reopen`, data),
   addRequestNote: (id, data) => axios.post(`${API_BASE}/requests/${id}/add-note`, data),
   getOpenRequests: () => axios.get(`${API_BASE}/requests/open/list`),
   assignRequestToMe: (id) => axios.post(`${API_BASE}/requests/${id}/assign-to-me`),
@@ -104,7 +105,7 @@ export const api = {
   getAllSalespeople: () => axios.get(`${API_BASE}/admin/salespeople`),
   toggleCostBreakupPermission: (userId, canSee) => axios.put(`${API_BASE}/admin/salespeople/${userId}/cost-breakup-permission`, { can_see_cost_breakup: canSee }),
   getAdminSettings: () => axios.get(`${API_BASE}/admin/settings`),
-  updateAdminSettings: (data) => axios.put(`${API_BASE}/admin/settings`, data),
+  updateAdminSettings: (data) => axios.post(`${API_BASE}/admin/settings`, data),
 
    
   // User Management (Admin)

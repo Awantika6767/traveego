@@ -67,6 +67,7 @@ export const Layout = ({ children }) => {
         ...baseItems,
         { path: '/requests', icon: FileText, label: 'Requests', roles: ['admin'] },
         { path: '/user-management', icon: Users, label: 'User Management', roles: ['admin'] },
+        { path: '/open-requests', icon: Users, label: 'Open Requests', roles: ['operations'] },
         { path: '/admin-performance', icon: BarChart3, label: 'Performance Dashboard', roles: ['admin'] },
         { path: '/admin-panel', icon: Settings, label: 'Admin Panel', roles: ['admin'] },
         { path: '/admin-settings', icon: Settings, label: 'Admin Settings', roles: ['admin'] }

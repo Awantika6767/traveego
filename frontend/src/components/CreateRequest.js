@@ -30,10 +30,10 @@ export const CreateRequest = () => {
   const [formData, setFormData] = useState({
     title: '',
     people_count: '',
-    budget_min: '',
-    budget_max: '',
+    budget_min: null,
+    budget_max: null,
     destination: '',
-    source: '',
+    source: null,
     start_date: '',
     end_date: '',
     is_holiday_package_required: false,
@@ -89,7 +89,7 @@ export const CreateRequest = () => {
     setCustomerSearchQuery(`${customer.name} (${customer.email})`);
     setFormData(prev => ({
       ...prev,
-      client_id: customer.id
+      client_id: customer.user_id
     }));
     setShowCustomerDropdown(false);
     setShowNewCustomerForm(false);
