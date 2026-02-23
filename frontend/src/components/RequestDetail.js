@@ -365,10 +365,10 @@ export const RequestDetail = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-2xl">{request.title}</CardTitle>
-                  <p className="text-gray-500 mt-1">Request ID: {request.id.substring(0, 8)}</p>
+                  <p className="text-gray-500 mt-1">Request ID: TRVGO-{request.id}</p>
                 </div>
                 <div >
-                  {(user.role === 'sales') && !request.is_salesperson_validated && <Button onClick={validateRequest} size="sm" variant="outline" className="bg-green-100 text-green-800 border-green-200 mr-5 hover:bg-green-200" disabled={validating || request.is_salesperson_validated} data-testid="validate-button">
+                  {(user.role === 'sales') && request.status.toLowerCase() === 'created' && <Button onClick={validateRequest} size="sm" variant="outline" className="bg-green-100 text-green-800 border-green-200 mr-5 hover:bg-green-200" disabled={validating} data-testid="validate-button">
                     {validating ? 'Validating...' : 'VALIDATE'}
                   </Button>}
                   <Badge className={getStatusColor(request.status)}>
@@ -960,10 +960,10 @@ export const RequestDetail = () => {
             </CardHeader>
             <CardContent>
               <div className="activity-timeline overflow-y-auto max-h-72 space-y-4">
-                {[...activities, ...activities].map((activity, index) => (
+                {activities.map((activity, index) => (
                   <div key={index} className="activity-item">
                     <div className="text-sm">
-                      <p className="font-medium text-gray-900">{activity.actor_name}</p>
+                      <p className="font-medium text-gray-900">{activity.actor_name} <span className="text-gray-600 font-normal border-l pl-1">{activity.actor_role}</span></p>
                       <p className="text-gray-600">{activity.action} - {activity.notes}</p>
                       <p className="text-xs text-gray-500 mt-1">{formatDateTime(activity.created_at)}</p>
                     </div>
