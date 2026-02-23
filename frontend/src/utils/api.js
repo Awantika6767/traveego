@@ -39,7 +39,7 @@ export const api = {
   createQuotation: (data) => axios.post(`${API_BASE}/quotations`, data),
   updateQuotation: (id, data) => axios.put(`${API_BASE}/quotations/${id}`, data),
   publishQuotation: (id, data) => axios.post(`${API_BASE}/quotations/${id}/publish`, data),
-  acceptQuotation: (id) => axios.post(`${API_BASE}/quotations/${id}/accept`),
+  acceptQuotation: (id) => axios.put(`${API_BASE}/quotations/${id}/status?new_status=ACCEPTED`),
   payRemainingInvoice: (id) => axios.post(`${API_BASE}/invoices/${id}/full-payment`),
   downloadProformaInvoice: (id) => `${API_BASE}/quotations/${id}/download-proforma`,
   generateDetailedPDF: (quotationData) => axios.post(`${API_BASE}/generate-pdf`, quotationData, { responseType: 'blob' }),

@@ -323,16 +323,16 @@ export const RequestDetail = () => {
     };
   };
 
-  const downloadPDF = (id) => { 
-    if (!id) {
+  const downloadPDF = (downloadUrl) => { 
+    if (!downloadUrl) {
       toast.error('No quotation available to download');
       return;
     }
-    const downloadUrl = api.downloadQuotationPDF(id);
 
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a');
     link.href = downloadUrl;
+    link.target = '_blank';
     link.download = `quotation_${id.substring(0, 8)}.pdf`;
     document.body.appendChild(link);
     link.click();
@@ -563,7 +563,7 @@ export const RequestDetail = () => {
           )}
 
           {/* Payment Breakup Section for Customers */}
-          {user?.role === 'customer' && invoice && paymentBreakup && paymentBreakup.length > 0 && (
+          {(user?.role === 'customer' || user?.role === 'sales' || user?.role === 'admin') && invoice && paymentBreakup && paymentBreakup.length > 0 && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -912,7 +912,7 @@ export const RequestDetail = () => {
                           <div className='w-[20px]'>{index + 1}.</div>
                           {(user.role === 'operations' || (user.role === 'sales' && user.can_see_cost_breakup)) && <button className='w-full flex align-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={() => { openCostBreakup(quotation.quotation_id) }}><EyeIcon className="w-4 h-4 my-auto mr-1" /> Cost</button>}
                           {(user.role === 'operations') && <button onClick={() => navigate('/quotation-builder', { state: { request, quotation_id: quotation.quotation_id } })} className='w-full flex align-center justify-center bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium'><Edit className="w-4 h-4 my-auto mr-1" /> Edit</button>}
-                          {(quotation?.status === 'SENT' || quotation?.status === 'ACCEPTED') && <button onClick={() => downloadPDF(quotation.quotation_id)} className='w-full flex align-center justify-center bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm font-medium'><DownloadIcon className="w-4 h-4 my-auto mr-1" /> Download</button>}
+                          {(quotation?.status === 'SENT' || quotation?.status === 'ACCEPTED') && <button onClick={() => downloadPDF(quotation.aws_url)} className='w-full flex align-center justify-center bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm font-medium'><DownloadIcon className="w-4 h-4 my-auto mr-1" /> Download</button>}
                           {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'SENT') && <button className='w-full flex align-center justify-center bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={()=>{setShowAcceptModal(true); setSelectedQuotation(quotation)}}><CheckCircle className="w-4 h-4 my-auto mr-1" /> Accept</button>}
                           {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'ACCEPTED') && showPayRemainingButton && <button className='w-full flex align-center justify-center bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm font-medium' onClick={()=>{setShowPayRemainingModal(true); setSelectedQuotation(quotation)}}><Wallet className="w-4 h-4 my-auto mr-1" /> Pay Remaining</button>}
                           {(user.role === 'customer' || user.role === 'sales') && (quotation.status === 'SENT') && <div className='flex align-center justify-center text-nowrap gap-1 px-2 py-1 rounded-full text-xs font-medium'><Timer className="w-4 h-4 my-auto mr-1" /> <span className={getTimeLeft(quotation.expiry_date)?.expired ? 'text-red-600 font-semibold' : 'text-gray-700'}>{getTimeLeft(quotation.expiry_date)?.text}</span></div>}

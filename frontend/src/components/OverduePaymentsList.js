@@ -21,7 +21,7 @@ const OverduePaymentsList = () => {
     try {
       setLoading(true);
       const response = await api.getOverdueBreakups();
-      setOverdueBreakups(response.data || []);
+      setOverdueBreakups(response.data.overdue_breakups || []);
     } catch (error) {
       console.error('Failed to load overdue breakups:', error);
       toast.error('Failed to load overdue payments');
@@ -188,7 +188,7 @@ const OverduePaymentsList = () => {
                             <div>
                               <p className="text-gray-500 text-xs">Amount Due</p>
                               <p className="font-bold text-gray-900 mt-1">
-                                {formatCurrency(breakup.amount)}
+                                {formatCurrency(breakup.breakup_amount)}
                               </p>
                             </div>
                             <div>

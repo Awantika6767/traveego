@@ -121,7 +121,7 @@ export const PaymentList = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-lg font-bold text-gray-900">
-                        {payment.invoice_id?.split('-')[0].toUpperCase()}
+                        {payment.invoice_number}-{payment.invoice_id}
                       </h3>
                       <Badge className={getStatusColor(payment.status)}>
                         {payment.status.replace(/_/g, ' ')}
@@ -163,7 +163,7 @@ export const PaymentList = () => {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    {payment.status === 'PENDING' && canMarkReceived && (
+                    {payment.status.toUpperCase() === 'PENDING' && canMarkReceived && (
                       <Button
                         size="sm"
                         onClick={() => openModal(payment, 'mark-received')}
@@ -175,7 +175,7 @@ export const PaymentList = () => {
                       </Button>
                     )}
 
-                    {payment.status === 'RECEIVED_BY_ACCOUNTANT' && canVerify && (
+                    {payment.status.toUpperCase() === 'RECEIVED_BY_ACCOUNTANT' && canVerify && (
                       <>
                         <Button
                           size="sm"
@@ -237,7 +237,7 @@ export const PaymentList = () => {
           </DialogHeader>
 
           <div className="space-y-4">
-            {modalAction === 'mark-received' && (
+            {/* {modalAction === 'mark-received' && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="proof">Upload Proof (Optional)</Label>
@@ -249,7 +249,7 @@ export const PaymentList = () => {
                   />
                 </div>
               </>
-            )}
+            )} */}
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

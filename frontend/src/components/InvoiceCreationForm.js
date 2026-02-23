@@ -152,7 +152,7 @@ const InvoiceCreationForm = ({ quotation, onSuccess, onCancel }) => {
                   />
                 </div>
 
-                <div>
+                {/* <div>
                   <Label htmlFor="advanceAmount">Advance Amount</Label>
                   <Input
                     id="advanceAmount"
@@ -165,7 +165,7 @@ const InvoiceCreationForm = ({ quotation, onSuccess, onCancel }) => {
                   <p className="text-xs text-gray-500 mt-1">
                     Initial deposit amount required from customer
                   </p>
-                </div>
+                </div> */}
 
                 {/* TCS Toggle */}
                 <div className="border-t pt-4">

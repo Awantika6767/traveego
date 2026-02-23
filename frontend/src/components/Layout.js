@@ -51,7 +51,7 @@ export const Layout = ({ children }) => {
   const loadOverdueCount = async () => {
     try {
       const response = await api.getOverdueCount();
-      setOverdueCount(response.data.count || 0);
+      setOverdueCount(response.data.overdue_count || 0);
     } catch (error) {
       console.error('Failed to load overdue count:', error);
     }

@@ -145,7 +145,7 @@ const PaymentRequestForm = ({ invoiceId, isOpen, onClose, onSuccess }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl" data-testid="payment-request-form">
+      <DialogContent className="max-w-2xl overflow-auto max-h-[80vh]" data-testid="payment-request-form">
         <DialogHeader>
           <DialogTitle>Submit Payment</DialogTitle>
         </DialogHeader>
@@ -210,7 +210,7 @@ const PaymentRequestForm = ({ invoiceId, isOpen, onClose, onSuccess }) => {
           </div>
 
           {/* Upload Proof */}
-          <div>
+          {/* <div>
             <Label htmlFor="proof">
               Payment Proof (Optional)
             </Label>
@@ -257,7 +257,7 @@ const PaymentRequestForm = ({ invoiceId, isOpen, onClose, onSuccess }) => {
                 />
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Info Box */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
